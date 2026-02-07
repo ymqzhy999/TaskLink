@@ -63,7 +63,7 @@ class ADBController:
         return True, f"已启动 {app_name}"
 
     @staticmethod
-    def click_text(target_text):
+    def click_text(target_text, offset_x=0, offset_y=0):
         # 使用绝对路径，防止文件找不到
         current_dir = os.path.dirname(os.path.abspath(__file__))
         screenshot_path = os.path.join(current_dir, "debug_screen.png")
@@ -78,7 +78,6 @@ class ADBController:
 
         print(f"🔍 2. OCR 识别中...")
         try:
-            # 这里的 ocr 结果是 [[ [box, (text, score)], ... ]]
             result = ocr_engine.ocr(screenshot_path)
         except Exception as e:
             print(f"❌ OCR 引擎报错: {e}")
@@ -88,7 +87,6 @@ class ADBController:
             print("⚠️ 屏幕上没有识别到任何文字！")
             return False, "屏幕空白或未识别到文字"
 
-        # 打印所有识别到的文字，方便你排查
         all_texts = [line[1][0] for line in result[0]]
         print(f"👀 OCR看到了这些字: {all_texts}")
 
@@ -105,23 +103,42 @@ class ADBController:
                 center_x = int((x1 + x3) / 2)
                 center_y = int((y1 + y3) / 2)
 
-                print(f"✅ 3. 找到目标: '{text}' (置信度: {score:.2f})")
-                print(f"📍 4. 计算坐标: X={center_x}, Y={center_y}")
+                # 🔥🔥 核心修改：加上偏移量 🔥🔥
+                final_x = center_x + int(offset_x)
+                final_y = center_y + int(offset_y)
+
+                print(f"✅ 3. 找到锚点: '{text}' (置信度: {score:.2f})")
+                print(f"📍 4. 锚点坐标: ({center_x}, {center_y}) -> 偏移后目标: ({final_x}, {final_y})")
 
                 # 执行点击
-                ADBController.run(f"shell input tap {center_x} {center_y}")
+                ADBController.run(f"shell input tap {final_x} {final_y}")
                 print(f"👆 5. 已发送点击指令！")
 
-                return True, f"点击了: {text} ({center_x},{center_y})"
+                return True, f"已点击 '{text}' 的偏移位置 ({offset_x}, {offset_y})"
 
         print(f"❌ 未找到目标文字: {target_text}")
         return False, f"未找到: {target_text}"
 
     @staticmethod
     def input_text(text):
-        safe_text = str(text).replace(" ", "%s")
-        ADBController.run(f"shell input text {safe_text}")
-        return True, f"已输入: {text}"
+            # 1. 判断是否包含中文
+            if re.search(r'[\u4e00-\u9fa5]', str(text)):
+                # 🔥🔥 核心修改：使用 ADBKeyBoard 广播输入中文 🔥🔥
+                # 原理：发送一个 Android Intent，直接将文字传给输入法
+                # 注意：手机必须安装 ADBKeyBoard 且设为默认输入法
+
+                # 处理特殊字符防止 shell 报错
+                safe_text = str(text).replace("'", "'\\''").replace('"', '\\"')
+
+                cmd = f"shell am broadcast -a ADB_INPUT_TEXT --es msg '{safe_text}'"
+                ADBController.run(cmd)
+                return True, f"已广播输入中文: {text}"
+
+            else:
+                # 2. 纯英文/数字依然用原生 (速度更快)
+                safe_text = str(text).replace(" ", "%s")
+                ADBController.run(f"shell input text {safe_text}")
+                return True, f"已输入: {text}"
 
     @staticmethod
     def press_enter():
@@ -160,6 +177,43 @@ class ADBController:
         return True, f"已按键: {key_name}"
 
 
+def execute_action(action, value, offset_x=0, offset_y=0):
+    """
+    内部执行单元，返回 (success, msg)
+    已解除中文限制，支持 offset_x, offset_y 偏移点击
+    """
+    try:
+        if action == 'OPEN_APP':
+            return ADBController.start_app(value)
+
+        elif action == 'CLICK_TEXT':
+            # 传递偏移量
+            return ADBController.click_text(value, offset_x, offset_y)
+
+        elif action == 'INPUT_TEXT':
+            # 🔥🔥 核心修改：删除了之前的中文校验拦截 🔥🔥
+            # 现在直接调用控制器，让控制器决定是用广播(中文)还是原生(英文)
+            return ADBController.input_text(value)
+
+        elif action == 'PRESS_ENTER':
+            return ADBController.press_enter()
+
+        elif action == 'DELAY':
+            time.sleep(int(value))
+            return True, f"已等待 {value} 秒"
+
+        elif action == 'SWIPE':
+            return ADBController.swipe(value)
+
+        elif action == 'PRESS_KEY':
+            return ADBController.press_key(value)
+
+        else:
+            return False, f"未知指令: {action}"
+
+    except Exception as e:
+        return False, str(e)
+
 # --- 🧠 AI 聊天接口 (更新 System Prompt) ---
 @app.route('/api/chat', methods=['POST'])
 def chat_ai():
@@ -170,38 +224,47 @@ def chat_ai():
         return jsonify({"code": 400, "msg": "说点什么吧"}), 400
 
     # 🔥🔥 Prompt 终极升级：支持连招 🔥🔥
-    system_prompt = """
-    你是一个手机自动化助手。请分析用户指令，规划步骤，并返回标准 JSON 数组。
+    system_prompt = system_prompt = """
+    你是一个手机自动化助手。请分析指令，生成 JSON 数组。
+    
+    【核心能力：锚点偏移点击】
+    如果目标区域没有文字(如空白输入框)，请寻找旁边的文字作为"锚点"，并设置偏移量。
+    - 向左偏移：offset_x 为负数 (如 -250)
+    - 向右偏移：offset_x 为正数 (如 250)
+    - 向上偏移：offset_y 为负数
+    - 向下偏移：offset_y 为正数
+    *注：通常输入框在"发送"或"搜索"按钮的左侧约 200-300 像素处。
 
-    支持的操作(action)与参数(value)：
-    1. OPEN_APP: 打开应用。value 填应用名 (如 "微信", "抖音")。
-    2. CLICK_TEXT: OCR识字点击。value 填屏幕上的文字 (如 "发现", "发送", "搜索")。
-       - 技巧：要点击输入框，请点击输入框里的提示词(如 "发消息", "说点什么")。
-    3. INPUT_TEXT: 输入英文/拼音。value 填内容。
-    4. PRESS_ENTER: 回车/搜索。value 留空。
-    5. DELAY: 等待。value 填秒数(整数)。
-    6. SWIPE: 滑动。value 填 "UP"(上滑), "DOWN"(下滑), "LEFT", "RIGHT"。
-    7. PRESS_KEY: 按键。value 填 "HOME"(桌面), "BACK"(返回)。
+    【支持的指令结构】
+    {
+      "action": "操作类型", 
+      "value": "内容", 
+      "offset_x": 0, // 可选，水平偏移像素
+      "offset_y": 0  // 可选，垂直偏移像素
+    }
 
-    【示例1：发消息场景】
-    用户："给当前好友发一句 hello"
+    【操作类型列表】
+    1. OPEN_APP: 打开应用。
+    2. CLICK_TEXT: 点击文字(可配合偏移)。value填锚点文字。
+    3. INPUT_TEXT: 输入内容(拼音/英文)。
+    4. PRESS_ENTER: 回车/发送。
+    5. DELAY: 等待秒数。
+    
+    【场景示例：在QQ发消息】
+    用户："在QQ给当前好友发一句 hello"
+    思考过程：输入框是空白的，但右边有"发送"两个字。我要点"发送"的左边 250px 处来激活输入框。
     回复：
     [
-      {"action": "CLICK_TEXT", "value": "发消息"},  // 1. 点击输入框提示词
-      {"action": "DELAY", "value": 1},              // 2. 等键盘弹起
-      {"action": "INPUT_TEXT", "value": "hello"},   // 3. 输入内容
-      {"action": "CLICK_TEXT", "value": "发送"}     // 4. 点击发送按钮
-    ]
-
-    【示例2：复杂浏览】
-    用户："去抖音刷两个视频"
-    回复：
-    [
-      {"action": "OPEN_APP", "value": "抖音"},
-      {"action": "DELAY", "value": 5},
-      {"action": "SWIPE", "value": "UP"},
-      {"action": "DELAY", "value": 3},
-      {"action": "SWIPE", "value": "UP"}
+      {
+        "action": "CLICK_TEXT", 
+        "value": "发送", 
+        "offset_x": -250, 
+        "offset_y": 0,
+        "memo": "点击发送按钮左侧250px以激活输入框"
+      },
+      {"action": "DELAY", "value": 1},
+      {"action": "INPUT_TEXT", "value": "hello"},
+      {"action": "CLICK_TEXT", "value": "发送"}
     ]
     """
 
@@ -228,63 +291,62 @@ def chat_ai():
         print(f"AI Error: {e}")
         return jsonify({"code": 500, "msg": "AI 服务异常"}), 500
 
-# --- 🚀 手机控制接口 (执行分发) ---
+
 @app.route('/api/phone/control', methods=['POST'])
 def phone_control():
     data = request.json
+
+    # 1. 提取基础参数
     action = data.get('action')
     value = data.get('value')
 
-    print(f"🚀 执行指令: {action} -> {value}")
+    # 2. 🔥🔥 提取偏移参数 (默认为 0) 🔥🔥
+    # 这样旧的指令（不带偏移）也能正常工作，兼容性满分
+    offset_x = data.get('offset_x', 0)
+    offset_y = data.get('offset_y', 0)
 
-    try:
-        success = True
-        msg = "执行成功"
+    # 3. 调用执行单元，传入所有参数
+    success, msg = execute_action(action, value, offset_x, offset_y)
 
-        # --- 1. 基础应用操作 ---
-        if action == 'OPEN_APP':
-            success, msg = ADBController.start_app(value)
-
-        # --- 2. 屏幕点击 (OCR核心) ---
-        elif action == 'CLICK_TEXT':
-            success, msg = ADBController.click_text(value)
-
-        # --- 3. 文本输入 ---
-        elif action == 'INPUT_TEXT':
-            # 简单校验中文 (ADB无法直接输中文)
-            if re.search(r'[\u4e00-\u9fa5]', str(value)):
-                return jsonify({"code": 400, "msg": "ADB不支持直接输入中文，请让AI转为拼音"})
-            success, msg = ADBController.input_text(value)
-
-        # --- 4. 确认/回车 ---
-        elif action == 'PRESS_ENTER':
-            success, msg = ADBController.press_enter()
-
-        # --- 🔥 5. 延时 (新增) ---
-        elif action == 'DELAY':
-            sleep_time = int(value)
-            time.sleep(sleep_time)  # 线程阻塞等待
-            msg = f"已等待 {sleep_time} 秒"
-
-        # --- 🔥 6. 滑动 (新增) ---
-        elif action == 'SWIPE':
-            success, msg = ADBController.swipe(value)
-
-        # --- 🔥 7. 物理按键 (新增) ---
-        elif action == 'PRESS_KEY':
-            success, msg = ADBController.press_key(value)
-
-        else:
-            return jsonify({"code": 400, "msg": f"未知指令: {action}"})
-
-        return jsonify({"code": 200 if success else 400, "msg": msg})
-
-    except Exception as e:
-        print(f"Control Error: {e}")
-        return jsonify({"code": 500, "msg": str(e)}), 500
+    return jsonify({"code": 200 if success else 400, "msg": msg})
 
 
 
+@app.route('/api/phone/batch_run', methods=['POST'])
+def batch_run():
+    data = request.json
+    tasks = data.get('tasks')  # 接收 List [{}, {}]
+
+    if not tasks or not isinstance(tasks, list):
+        return jsonify({"code": 400, "msg": "任务列表为空或格式错误"}), 400
+
+    print(f"📦 收到批量任务: {len(tasks)} 个步骤")
+
+    results = []
+    all_success = True
+
+    for i, task in enumerate(tasks):
+        action = task.get('action')
+        value = task.get('value')
+
+        print(f"▶️ 步骤 {i + 1}/{len(tasks)}: {action} -> {value}")
+
+        # 执行单步
+        success, msg = execute_action(action, value)
+
+        results.append({"step": i + 1, "action": action, "success": success, "msg": msg})
+
+        if not success:
+            print(f"❌ 步骤 {i + 1} 失败，任务终止！原因: {msg}")
+            all_success = False
+            # 🔥🔥 关键：如果这一步失败（比如没找到输入框，或输入失败），直接 break，不执行后面的“发送” 🔥🔥
+            break
+
+    return jsonify({
+        "code": 200 if all_success else 500,
+        "msg": "执行完毕" if all_success else "执行中途失败",
+        "data": results
+    })
 
 
 @app.route('/api/register', methods=['POST'])

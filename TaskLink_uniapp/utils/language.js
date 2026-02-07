@@ -1,0 +1,172 @@
+// utils/language.js
+export default {
+	zh: {
+		// --- 登录页 ---
+		login: {
+			title: "任务链接",
+			subtitle: "自动化协议 v1.0",
+			label_user: "身份账户",
+			label_pass: "访问密钥",
+			ph_user: "请输入用户名",
+			ph_pass: "请输入密码",
+			btn_login: "建立连接",
+			btn_reg: "注册新ID",
+			link_reg: "创建新身份 >>",
+			link_login: "<< 返回登录",
+			toast_succ: "连接建立",
+			toast_reg: "身份已创建",
+			toast_fail: "验证失败"
+		},
+		// --- 主页 ---
+		index: {
+			greet: "系统在线",
+			user_prefix: "操作员: ",
+			btn_manage: "管理",
+			btn_done: "完成",
+			status_title: "引擎状态",
+			status_run: "运行中...",
+			status_stop: "待机",
+			list_title: "任务队列",
+			btn_refresh: "[刷新数据]",
+			btn_select: "[全选]",
+			btn_deselect: "[取消]",
+			empty: "暂无数据 // 空",
+			btn_delete: "删除选中对象",
+			ai_title: "AI 终端 (GEMMA3-4B)",
+			ai_input: "输入指令...",
+			ai_send: "发送",
+			del_confirm: "确认删除协议?"
+		},
+		// --- 添加页 ---
+		add: {
+			title_new: "新建协议",
+			title_edit: "编辑协议",
+			subtitle: "初始化自动化指令 //",
+			sec_basic: "基础信息",
+			label_name: "任务名称",
+			ph_name: "输入标识符",
+			label_desc: "备注",
+			ph_desc: "补充数据",
+			sec_trigger: "触发条件",
+			label_time: "执行时间",
+			label_loop: "循环模式",
+			sec_action: "执行动作",
+			helper_app: "目标应用包名",
+			helper_link: "目标URL地址",
+			helper_script: "Python脚本文件名",
+			ph_target_app: "例如: com.tencent.mm",
+			ph_target_link: "例如: https://...",
+			ph_target_script: "例如: core.py",
+			btn_save: "保存修改",
+			btn_create: "立即启动",
+			toast_succ: "操作成功",
+			toast_err: "缺少必要数据"
+		},
+		// --- 历史页 ---
+		history: {
+			title: "系统日志",
+			subtitle: "// 执行记录流水",
+			empty: "未检索到记录",
+			status_ok: "[成功]",
+			status_err: "[失败]",
+			type_label: "类型:",
+			link_detail: ">> 数据详情",
+			modal_title: "日志详情",
+			modal_close: "关闭"
+		},
+		// --- 个人中心 ---
+		profile: {
+			unknown: "未知用户",
+			status: "权限已获取",
+			menu_lang: "语言设置 / LANGUAGE",
+			menu_help: "系统帮助 / HELP",
+			menu_logout: "断开连接 / DISCONNECT",
+			logout_confirm: "确定要中断与系统的连接吗？",
+			logout_cancel: "取消",
+			logout_ok: "断开",
+			version: "v1.0.0 Cyber_Build"
+		}
+	},
+	en: {
+		login: {
+			title: "TASK LINK",
+			subtitle: "AUTOMATION PROTOCOL v1.0",
+			label_user: "IDENTITY",
+			label_pass: "PASSCODE",
+			ph_user: "USERNAME",
+			ph_pass: "******",
+			btn_login: "ESTABLISH CONNECTION",
+			btn_reg: "REGISTER ID",
+			link_reg: "CREATE NEW IDENTITY >>",
+			link_login: "<< RETURN TO LOGIN",
+			toast_succ: "CONNECTION ESTABLISHED",
+			toast_reg: "ID CREATED",
+			toast_fail: "AUTH FAILED"
+		},
+		index: {
+			greet: "SYSTEM ONLINE",
+			user_prefix: "USER: ",
+			btn_manage: "MANAGE",
+			btn_done: "DONE",
+			status_title: "ENGINE STATUS",
+			status_run: "RUNNING...",
+			status_stop: "STANDBY",
+			list_title: "TASKS_QUEUE",
+			btn_refresh: "[REFRESH]",
+			btn_select: "[SELECT ALL]",
+			btn_deselect: "[DESELECT]",
+			empty: "NO DATA",
+			btn_delete: "DELETE OBJECTS",
+			ai_title: "AI TERMINAL (GEMMA-4B)",
+			ai_input: "COMMAND...",
+			ai_send: "SEND",
+			del_confirm: "DELETE PROTOCOL?"
+		},
+		add: {
+			title_new: "NEW PROTOCOL",
+			title_edit: "EDIT PROTOCOL",
+			subtitle: "INITIALIZE AUTOMATION //",
+			sec_basic: "BASIC INFO",
+			label_name: "TASK NAME",
+			ph_name: "ENTER IDENTIFIER",
+			label_desc: "MEMO",
+			ph_desc: "ADDITIONAL DATA...",
+			sec_trigger: "TRIGGER",
+			label_time: "EXEC TIME",
+			label_loop: "LOOP MODE",
+			sec_action: "ACTION",
+			helper_app: "TARGET PACKAGE NAME",
+			helper_link: "TARGET URL ADDRESS",
+			helper_script: "PYTHON SCRIPT FILENAME",
+			ph_target_app: "e.g. com.tencent.mm",
+			ph_target_link: "e.g. https://...",
+			ph_target_script: "e.g. core.py",
+			btn_save: "SAVE CHANGES",
+			btn_create: "INITIATE TASK",
+			toast_succ: "SUCCESS",
+			toast_err: "MISSING DATA"
+		},
+		history: {
+			title: "SYSTEM LOGS",
+			subtitle: "// EXECUTION_HISTORY",
+			empty: "NO RECORDS FOUND",
+			status_ok: "[OK]",
+			status_err: "[ERR]",
+			type_label: "TYPE:",
+			link_detail: ">> DATA",
+			modal_title: "LOG DETAIL",
+			modal_close: "CLOSE"
+		},
+		profile: {
+			unknown: "UNKNOWN_USER",
+			status: "ACCESS GRANTED",
+			menu_lang: "LANGUAGE",
+			menu_help: "SYSTEM HELP",
+			menu_logout: "DISCONNECT",
+			logout_confirm: "Confirm disconnection?",
+			logout_cancel: "CANCEL",
+			logout_ok: "DISCONNECT",
+			version: "v1.0.0 Cyber_Build"
+		}
+	}
+}

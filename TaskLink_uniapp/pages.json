@@ -75,13 +75,25 @@
 				"text": "灵感",
 				"iconPath": "static/tabs/add.png",
 				"selectedIconPath": "static/tabs/add-active.png"
-			},
+			},{
+                "pagePath": "pages/square/square",
+                "iconPath": "static/tabbar/chat.png",
+                "selectedIconPath": "static/tabbar/chat-active.png",
+                "text": "广场"
+            },
 			{
 				"pagePath": "pages/history/history",
 				"text": "记录",
 				"iconPath": "static/tabs/history.png",
 				"selectedIconPath": "static/tabs/history-active.png"
 			},
+			{
+            "path": "pages/square/square",
+            "style": {
+                "navigationBarTitleText": "NET_SQUARE // 网络广场",
+                "enablePullDownRefresh": false
+            }
+        },
 			{
 				"pagePath": "pages/profile/profile",
 				"text": "我的",

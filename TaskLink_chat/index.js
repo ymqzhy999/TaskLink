@@ -46,14 +46,12 @@ io.on('connection', (socket) => {
 
     // 监听：发送消息
     socket.on('send_message', async (data) => {
-        // data: { user_id, content, type }
-        console.log(`收到消息:`, data);
-
-        // A. 广播给所有人
         io.emit('new_message', {
-            id: Date.now(), // 临时 ID
+            id: Date.now(),
             user_id: data.user_id,
             content: data.content,
+            username: data.username, // 👈 新增
+            avatar: data.avatar,     // 👈 新增
             created_at: new Date()
         });
 

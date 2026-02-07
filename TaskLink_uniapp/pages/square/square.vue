@@ -34,10 +34,8 @@
           'selecting': isSelectionMode 
         }"
         :id="'msg-' + index"
-        @longpress="onLongPressMessage(msg)"
-        @click="onSelectMessage(msg)"
       >
-        <view v-if="isSelectionMode" class="checkbox-wrapper">
+        <view v-if="isSelectionMode" class="checkbox-wrapper" @click.stop="onSelectMessage(msg)">
           <view class="checkbox" :class="{ 'checked': selectedIds.includes(msg.id) }">
             <text v-if="selectedIds.includes(msg.id)">✓</text>
           </view>
@@ -48,11 +46,17 @@
           class="avatar" 
           :src="formatAvatar(msg.avatar)" 
           mode="aspectFill"
+          @longpress.stop="onLongPressMessage(msg)"
         ></image>
 
         <view class="content-box">
           <text class="sender-name" v-if="msg.user_id !== myInfo.id">{{ msg.username }}</text>
-          <view class="bubble">
+          
+          <view 
+            class="bubble" 
+            @longpress.stop="onLongPressMessage(msg)"
+            @click.stop="onSelectMessage(msg)"
+          >
             <text>{{ msg.content }}</text>
           </view>
         </view>
@@ -62,6 +66,7 @@
           class="avatar right" 
           :src="formatAvatar(msg.avatar)" 
           mode="aspectFill"
+          @longpress.stop="onLongPressMessage(msg)"
         ></image>
       </view>
 
@@ -124,15 +129,12 @@ onUnmounted(() => {
   if (socket.value) socket.value.disconnect();
 });
 
-// --- 长按逻辑 (修正：允许删除任何人消息) ---
 const onLongPressMessage = (msg) => {
-  // 🔥 去掉了 user_id 的判断，现在长按谁的都可以删
   isSelectionMode.value = true;
   selectedIds.value = [msg.id]; 
   uni.vibrateShort(); 
 };
 
-// --- 选择逻辑 (修正：允许选择任何人消息) ---
 const onSelectMessage = (msg) => {
   if (!isSelectionMode.value) return;
   
@@ -163,7 +165,6 @@ const confirmDelete = () => {
   });
 };
 
-// --- 🔥 核心修正：执行本地删除 🔥 ---
 const doLocalDelete = () => {
   const storageKey = `deleted_msgs_${myInfo.value.id}`;
   
@@ -190,7 +191,6 @@ const formatAvatar = (path) => {
   return fullPath; 
 };
 
-// --- 🔥 历史记录逻辑修正：过滤掉删过的 ---
 const fetchHistory = () => {
   uni.request({
     url: `${FLASK_URL}/api/square/history`,
@@ -228,7 +228,6 @@ const connectSocket = () => {
     onlineCount.value = count;
   });
 
-  // 注意：这里不需要监听 "message_deleted" 了，因为我们现在是“删给自己看”
 
   socket.value.on("new_message", (msg) => {
     if (msg.user_id === myInfo.value.id) {

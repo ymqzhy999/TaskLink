@@ -373,33 +373,7 @@ def get_square_history():
     })
 
 
-@app.route('/api/chat/messages', methods=['DELETE'])
-def delete_chat_messages():
-    data = request.json
-    user_id = data.get('user_id')
-    message_ids = data.get('message_ids')  # 前端传这就必须是数组: [12, 13, 15]
 
-    if not user_id or not message_ids:
-        return jsonify({"code": 400, "msg": "参数错误"}), 400
-
-    try:
-        # 批量删除：只能删除属于该用户(user_id)的消息
-        # synchronize_session=False 用于提高批量删除性能
-        deleted_count = ChatMessage.query.filter(
-            ChatMessage.id.in_(message_ids),
-            ChatMessage.user_id == user_id
-        ).delete(synchronize_session=False)
-
-        db.session.commit()
-
-        if deleted_count == 0:
-            return jsonify({"code": 400, "msg": "没有权限或消息不存在"}), 400
-
-        return jsonify({"code": 200, "msg": f"成功删除 {deleted_count} 条消息"})
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"code": 500, "msg": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

@@ -56,13 +56,24 @@
         <view class="dynamic-input">
           <text class="input-helper">{{ getInputHelper() }}</text>
           
-          <input 
-            class="big-input cyber-input-box" 
-            v-model="form.target" 
-            :placeholder="getPlaceholder()" 
-            placeholder-class="cyber-placeholder"
-            style="position: relative; z-index: 999; height: 50px; color: #ffffff !important; pointer-events: auto;"
-          />
+          <view class="input-wrapper">
+            <input 
+              class="big-input cyber-input-box" 
+              v-model="form.target" 
+              :placeholder="getPlaceholder()" 
+              placeholder-class="cyber-placeholder"
+            />
+            
+            <view 
+              v-if="form.type === 'APP'" 
+              class="match-btn" 
+              @click="autoMatchPackage"
+            >
+              🔍 匹配
+            </view>
+          </view>
+          
+          <text v-if="matchResult" class="match-tip">Found: {{ matchResult }}</text>
         </view>
       </view>
 
@@ -85,6 +96,7 @@ const API_BASE = 'http://192.168.10.26:5000';
 const isEdit = ref(false);
 const form = ref({ id: null, title: '', desc: '', time: '', is_loop: false, type: 'APP', target: '' });
 const t = ref(messages.zh.add);
+const matchResult = ref(''); // 存储匹配到的应用名
 
 onShow(() => {
   const lang = uni.getStorageSync('lang') || 'zh';
@@ -110,9 +122,82 @@ onShow(() => {
   }
 });
 
-const resetForm = () => { isEdit.value = false; form.value = { id: null, title: '', desc: '', time: '', is_loop: false, type: 'APP', target: '' }; };
+const resetForm = () => { 
+  isEdit.value = false; 
+  form.value = { id: null, title: '', desc: '', time: '', is_loop: false, type: 'APP', target: '' }; 
+  matchResult.value = '';
+};
 const onTimeChange = (e) => { form.value.time = e.detail.value; };
 const onLoopChange = (e) => { form.value.is_loop = e.detail.value; }
+
+// --- 🔥 核心功能：自动匹配包名 (仅限 Android) ---
+const autoMatchPackage = () => {
+  // 1. 检查输入
+  const keyword = form.value.target.trim();
+  if (!keyword) {
+    uni.showToast({ title: '请输入应用名称(如:微信)', icon: 'none' });
+    return;
+  }
+
+  // 2. 检查环境
+  // #ifdef H5
+  uni.showToast({ title: '网页端不支持扫描本地应用', icon: 'none' });
+  return;
+  // #endif
+
+  // #ifdef APP-PLUS
+  if (uni.getSystemInfoSync().platform !== 'android') {
+    uni.showToast({ title: '仅支持 Android 自动匹配', icon: 'none' });
+    return;
+  }
+
+  uni.showLoading({ title: 'SCANNING...' });
+
+  // 3. 使用 Native.js 调用 Android API
+  try {
+    const main = plus.android.runtimeMainActivity();
+    const pManager = main.getPackageManager();
+    const pInfo = pManager.getInstalledPackages(0); // 获取所有安装包
+    const total = pInfo.size();
+    
+    let found = false;
+    let matchedPkg = '';
+    let matchedLabel = '';
+
+    // 遍历所有应用
+    for (let i = 0; i < total; i++) {
+      const p = pInfo.get(i);
+      const label = p.applicationInfo.loadLabel(pManager).toString(); // 获取应用名 (如 "微信")
+      const pname = p.packageName; // 获取包名 (如 "com.tencent.mm")
+      
+      // 模糊匹配：如果应用名包含关键字 (忽略大小写)
+      if (label.toLowerCase().includes(keyword.toLowerCase())) {
+        matchedPkg = pname;
+        matchedLabel = label;
+        found = true;
+        break; // 找到一个就停止 (也可以做个列表供选择，这里为了简单直接取第一个)
+      }
+    }
+
+    uni.hideLoading();
+
+    if (found) {
+      // 匹配成功，自动填入
+      form.value.target = matchedPkg;
+      matchResult.value = `匹配成功: ${matchedLabel}`;
+      uni.showToast({ title: 'MATCHED!', icon: 'success' });
+    } else {
+      uni.showToast({ title: '未找到该应用', icon: 'none' });
+      matchResult.value = '';
+    }
+
+  } catch (e) {
+    uni.hideLoading();
+    console.error(e);
+    uni.showToast({ title: '扫描失败: 权限不足', icon: 'none' });
+  }
+  // #endif
+};
 
 const getInputHelper = () => {
     if (form.value.type === 'APP') return t.value.helper_app;
@@ -121,7 +206,7 @@ const getInputHelper = () => {
 }
 
 const getPlaceholder = () => {
-  if (form.value.type === 'APP') return t.value.ph_target_app;
+  if (form.value.type === 'APP') return "输入名称(如:微信) 点击匹配 ->";
   if (form.value.type === 'LINK') return t.value.ph_target_link;
   return t.value.ph_target_script;
 };
@@ -168,7 +253,7 @@ const submitTask = () => {
 </script>
 
 <style>
-/* 样式部分 */
+/* ... (保留之前的样式) ... */
 page { background-color: #050505; color: #e0e0e0; font-family: 'Courier New', monospace; }
 .container { padding: 20px; padding-bottom: 40px; min-height: 100vh; }
 .cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 30%, #1a1a2e 0%, #000000 70%); z-index: -1; pointer-events: none; }
@@ -207,18 +292,43 @@ page { background-color: #050505; color: #e0e0e0; font-family: 'Courier New', mo
 .dynamic-input { margin-top: 10px; }
 .input-helper { font-size: 10px; color: #555; display: block; margin-bottom: 8px; }
 
-/* 输入框基础样式 (部分属性已内联到 template 中以确保生效) */
+/* 🔥 修改：输入框 + 按钮的容器 */
+.input-wrapper { display: flex; align-items: center; position: relative; }
+
 .cyber-input-box { 
   background: #111; 
   border: 1px solid #333; 
   color: #fff; 
-  padding: 0 15px; /* 上下padding交给height控制，避免撑得太高 */
+  padding: 0 15px; 
   width: 100%; 
   border-radius: 4px; 
   box-sizing: border-box;
+  height: 50px;
   caret-color: #00f3ff;
 }
 .cyber-input-box:focus { border-color: #00ff9d; box-shadow: 0 0 10px rgba(0, 255, 157, 0.2); }
+
+/* 🔥 新增：匹配按钮样式 */
+.match-btn {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  bottom: 5px;
+  background: #00f3ff;
+  color: #000;
+  font-weight: bold;
+  font-size: 12px;
+  padding: 0 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  cursor: pointer;
+  z-index: 1000; /* 确保在最上层 */
+}
+.match-btn:active { opacity: 0.8; }
+
+.match-tip { display: block; color: #00ff9d; font-size: 12px; margin-top: 5px; text-align: right; }
 
 .footer-normal { margin-top: 40px; width: 100%; }
 .submit-btn { background: #00f3ff; color: #000; font-weight: 900; font-size: 18px; letter-spacing: 2px; border-radius: 2px; height: 50px; line-height: 50px; border: none; box-shadow: 0 0 15px #00f3ff; clip-path: polygon(5% 0, 100% 0, 100% 80%, 95% 100%, 0 100%, 0 20%); }

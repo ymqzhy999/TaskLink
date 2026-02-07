@@ -31,6 +31,13 @@
         </view>
       </view>
 
+      <view class="menu-item" @click="openPasswordModal">
+        <view class="item-left">
+          <text class="menu-icon">🔐</text>
+          <text class="menu-text">修改密码</text> </view>
+        <text class="arrow">></text>
+      </view>
+
       <view class="menu-item">
         <view class="item-left">
           <text class="menu-icon">📂</text>
@@ -49,6 +56,31 @@
     </view>
 
     <view class="footer-version">{{ t.version }}</view>
+
+    <view class="modal-mask" v-if="showPwdModal">
+      <view class="cyber-modal">
+        <view class="modal-header">
+          <text class="modal-title">SECURITY UPDATE</text>
+          <text class="close-btn" @click="closePasswordModal">✕</text>
+        </view>
+        
+        <view class="modal-body">
+          <view class="input-group">
+            <text class="label">OLD PASSWORD</text>
+            <input class="cyber-input" type="password" v-model="pwdForm.old" placeholder="******" placeholder-class="ph" />
+          </view>
+          <view class="input-group">
+            <text class="label">NEW PASSWORD</text>
+            <input class="cyber-input" type="password" v-model="pwdForm.new" placeholder="******" placeholder-class="ph" />
+          </view>
+        </view>
+
+        <view class="modal-footer">
+          <button class="modal-btn cancel" @click="closePasswordModal">CANCEL</button>
+          <button class="modal-btn confirm" @click="submitPasswordChange">CONFIRM</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -57,10 +89,14 @@ import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import messages from '@/utils/language.js';
 
-const API_BASE = 'http://192.168.10.26:5000'; // ⚠️ 确认你的 IP
+const API_BASE = 'http://192.168.10.26:5000'; // ⚠️ 请确保这里是你电脑的局域网IP
 const userInfo = ref({});
 const currentLang = ref('zh');
 const t = ref(messages.zh.profile);
+
+// 修改密码相关状态
+const showPwdModal = ref(false);
+const pwdForm = ref({ old: '', new: '' });
 
 onShow(() => {
   const user = uni.getStorageSync('userInfo');
@@ -71,49 +107,34 @@ onShow(() => {
   t.value = messages[savedLang].profile;
 });
 
-// ✅ 核心逻辑：获取头像地址
 const getAvatarUrl = () => {
   if (userInfo.value.avatar) {
-    // 如果是 http 开头（虽然不太可能），直接用
-    if (userInfo.value.avatar.startsWith('http')) {
-      return userInfo.value.avatar;
-    }
-    // 否则拼接后端地址（因为后端存的是 /static/uploads/...）
+    if (userInfo.value.avatar.startsWith('http')) return userInfo.value.avatar;
     return `${API_BASE}${userInfo.value.avatar}`;
   }
-  // 默认头像
   return '/static/logo.png';
 };
 
-// ✅ 核心逻辑：上传头像
 const uploadAvatar = () => {
   uni.chooseImage({
-    count: 1, // 只选一张
-    sizeType: ['compressed'], // 压缩图，减轻服务器压力
+    count: 1,
+    sizeType: ['compressed'],
     sourceType: ['album', 'camera'],
     success: (chooseImageRes) => {
       const tempFilePaths = chooseImageRes.tempFilePaths;
-      
       uni.showLoading({ title: 'UPLOADING...' });
       
       uni.uploadFile({
         url: `${API_BASE}/api/upload_avatar`,
         filePath: tempFilePaths[0],
-        name: 'file', // 这里的 key 必须和后端 request.files['file'] 对应
-        formData: {
-          'user_id': userInfo.value.id
-        },
+        name: 'file',
+        formData: { 'user_id': userInfo.value.id },
         success: (uploadFileRes) => {
           uni.hideLoading();
-          // uni.uploadFile 返回的 data 是字符串，需要 JSON.parse
           const res = JSON.parse(uploadFileRes.data);
-          
           if (res.code === 200) {
-            // 1. 更新本地显示的 userInfo
             userInfo.value.avatar = res.data.avatar;
-            // 2. 更新本地缓存，保证下次进来还在
             uni.setStorageSync('userInfo', userInfo.value);
-            
             uni.showToast({ title: 'AVATAR UPDATED', icon: 'none' });
           } else {
             uni.showToast({ title: 'UPLOAD FAILED', icon: 'none' });
@@ -151,65 +172,114 @@ const handleLogout = () => {
     }
   });
 };
+
+// --- 🔥 修改密码逻辑 ---
+const openPasswordModal = () => {
+  pwdForm.value = { old: '', new: '' };
+  showPwdModal.value = true;
+};
+
+const closePasswordModal = () => {
+  showPwdModal.value = false;
+};
+
+const submitPasswordChange = () => {
+  if (!pwdForm.value.old || !pwdForm.value.new) {
+    uni.showToast({ title: '请输入完整', icon: 'none' });
+    return;
+  }
+  
+  // 简单的前端校验
+  if (pwdForm.value.new.length < 6) {
+    uni.showToast({ title: '新密码太短', icon: 'none' });
+    return;
+  }
+
+  uni.showLoading({ title: 'UPDATING...' });
+
+  uni.request({
+    url: `${API_BASE}/api/user/password`,
+    method: 'POST',
+    data: {
+      user_id: userInfo.value.id,
+      old_password: pwdForm.value.old,
+      new_password: pwdForm.value.new
+    },
+    success: (res) => {
+      uni.hideLoading();
+      if (res.data.code === 200) {
+        uni.showToast({ title: 'SUCCESS' });
+        closePasswordModal();
+        // 强制登出让用户重新登录
+        setTimeout(() => {
+          uni.removeStorageSync('userInfo');
+          uni.reLaunch({ url: '/pages/login/login' });
+        }, 1500);
+      } else {
+        uni.showToast({ title: res.data.msg || 'FAILED', icon: 'none' });
+      }
+    },
+    fail: () => {
+      uni.hideLoading();
+      uni.showToast({ title: 'NET ERR', icon: 'none' });
+    }
+  });
+};
 </script>
 
 <style>
+/* 保持原有样式不变 */
 page { background-color: #050505; color: #ccc; font-family: 'Courier New', monospace; }
 .container { padding: 20px; }
 .cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #111 0%, #000 100%); z-index: -1; }
 
-/* 1. 用户卡片 - 赛博风格 */
 .profile-card {
-  background: #0a0a0a; 
-  border: 1px solid #333; 
-  padding: 20px; 
-  display: flex; align-items: center; 
-  margin-bottom: 40px; 
-  box-shadow: 0 0 20px rgba(0,0,0,0.5); 
-  position: relative; overflow: hidden;
+  background: #0a0a0a; border: 1px solid #333; padding: 20px; 
+  display: flex; align-items: center; margin-bottom: 40px; 
+  box-shadow: 0 0 20px rgba(0,0,0,0.5); position: relative; overflow: hidden;
 }
 .profile-card::before { content: ''; position: absolute; top: 0; left: 0; width: 20px; height: 20px; border-top: 2px solid #00f3ff; border-left: 2px solid #00f3ff; }
 .profile-card::after { content: ''; position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; border-bottom: 2px solid #00f3ff; border-right: 2px solid #00f3ff; }
 
-/* 头像 & 扫描动画 */
-.avatar-box { 
-  position: relative; 
-  margin-right: 20px; 
-  width: 70px; height: 70px; 
-  border: 2px solid #333; 
-  border-radius: 50%; 
-  overflow: hidden; 
-}
-/* 给头像加点击反馈 */
+.avatar-box { position: relative; margin-right: 20px; width: 70px; height: 70px; border: 2px solid #333; border-radius: 50%; overflow: hidden; }
 .avatar-box:active { border-color: #00f3ff; opacity: 0.8; }
-
 .avatar { width: 100%; height: 100%; background: #000; }
 .scan-line { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: #00f3ff; box-shadow: 0 0 5px #00f3ff; animation: scan 2s infinite linear; }
 @keyframes scan { 0% {top:0} 100% {top:100%} }
-
-/* 相机小图标 */
-.edit-icon {
-  position: absolute; bottom: 0; left: 0; width: 100%; 
-  background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; 
-  text-align: center; height: 20px; line-height: 20px;
-}
+.edit-icon { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; text-align: center; height: 20px; line-height: 20px; }
 
 .username { font-size: 20px; font-weight: 900; color: #fff; display: block; letter-spacing: 1px; }
 .user-id { font-size: 12px; color: #666; display: block; margin-top: 5px; font-family: monospace; }
 .status-badge { margin-top: 8px; display: inline-block; background: rgba(0, 243, 255, 0.1); border: 1px solid #00f3ff; color: #00f3ff; font-size: 10px; padding: 2px 6px; }
 
-/* 2. 菜单列表 - 黑科技风 */
 .menu-group { border-top: 1px solid #222; }
 .menu-item { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid #222; }
 .menu-item:active { opacity: 0.7; background: rgba(255,255,255,0.05); }
-
 .menu-icon { margin-right: 15px; font-size: 16px; }
 .menu-text { font-size: 14px; color: #ddd; font-weight: bold; }
 .menu-text.warn { color: #ff003c; }
-
 .value-text { font-size: 12px; color: #00f3ff; margin-right: 10px; }
 .arrow { color: #444; font-family: monospace; }
 .arrow.warn { color: #ff003c; }
-
 .footer-version { text-align: center; color: #333; font-size: 10px; margin-top: 50px; }
+
+/* 🔥 新增：模态框样式 */
+.modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+.cyber-modal { width: 80%; background: #0a0a0a; border: 1px solid #00f3ff; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2); padding: 0; display: flex; flex-direction: column; }
+.modal-header { background: rgba(0, 243, 255, 0.1); padding: 10px 15px; border-bottom: 1px solid #00f3ff; display: flex; justify-content: space-between; align-items: center; }
+.modal-title { color: #00f3ff; font-weight: bold; font-size: 14px; letter-spacing: 1px; }
+.close-btn { color: #fff; font-size: 18px; padding: 5px; }
+
+.modal-body { padding: 20px; }
+.input-group { margin-bottom: 15px; }
+.label { display: block; color: #666; font-size: 10px; margin-bottom: 5px; font-weight: bold; }
+.cyber-input { background: #111; border: 1px solid #333; color: #fff; padding: 10px; font-size: 14px; border-radius: 2px; }
+.cyber-input:focus { border-color: #00f3ff; box-shadow: 0 0 5px rgba(0,243,255,0.3); }
+.ph { color: #444; }
+
+.modal-footer { display: flex; border-top: 1px solid #333; }
+.modal-btn { flex: 1; background: transparent; border: none; color: #fff; border-radius: 0; padding: 15px 0; font-size: 14px; font-weight: bold; }
+.modal-btn:active { background: #1a1a1a; }
+.modal-btn.confirm { color: #00f3ff; border-left: 1px solid #333; }
+.modal-btn.cancel { color: #666; }
 </style>

@@ -189,8 +189,72 @@ const onLongPress = (task) => {
 
 const toggleSelectAll = () => { selectedIds.value = selectedIds.value.length === tasks.value.length ? [] : tasks.value.map(t => t.id); };
 const toggleEditMode = () => { isEditMode.value = !isEditMode.value; selectedIds.value = []; };
-const executeTask = (task) => { uni.showToast({ title: `EXEC: ${task.title}`, icon: 'none' }); reportLog(task, 'SUCCESS'); };
-const reportLog = (task, status) => { uni.request({ url: `${API_BASE}/api/logs`, method: 'POST', data: { user_id: userInfo.value.id, title: task.title, type: task.type, status: status } }); };
+// --- 🔥 核心修复：实现真正的 App 启动和链接跳转 ---
+const executeTask = (task) => {
+  // 1. 提示用户
+  uni.showToast({ title: `执行: ${task.title}`, icon: 'none' });
+
+  // 2. 根据类型执行不同逻辑
+  if (task.type === 'LINK') {
+    // === 打开链接 ===
+    // #ifdef APP-PLUS
+    // App端使用系统浏览器打开
+    plus.runtime.openURL(task.target, (err) => {
+        uni.showToast({ title: '打开链接失败', icon: 'none' });
+        reportLog(task, 'FAIL');
+    });
+    // #endif
+
+    // #ifdef H5
+    window.open(task.target);
+    // #endif
+    
+    reportLog(task, 'SUCCESS');
+  } 
+  else if (task.type === 'APP') {
+    // === 打开 APP ===
+    // #ifdef APP-PLUS
+    const systemInfo = uni.getSystemInfoSync();
+    
+    if (systemInfo.platform === 'android') {
+        // Android: 使用包名启动 (例如: com.tencent.mm)
+        // 先检查应用是否存在
+        if (plus.runtime.isApplicationExist({ pname: task.target })) {
+            plus.runtime.launchApplication({
+                pname: task.target 
+            }, (e) => {
+                console.error('启动失败:', e);
+                reportLog(task, 'FAIL');
+                uni.showToast({ title: '启动失败: ' + e.message, icon: 'none' });
+            });
+            reportLog(task, 'SUCCESS');
+        } else {
+            uni.showToast({ title: '未安装该应用', icon: 'none' });
+            reportLog(task, 'FAIL');
+        }
+    } 
+    else if (systemInfo.platform === 'ios') {
+        // iOS: 使用 URL Scheme 启动 (例如: weixin://)
+        plus.runtime.launchApplication({
+            action: task.target
+        }, (e) => {
+            console.error('启动失败:', e);
+            reportLog(task, 'FAIL');
+            uni.showToast({ title: '启动失败: ' + e.message, icon: 'none' });
+        });
+        reportLog(task, 'SUCCESS');
+    }
+    // #endif
+
+    // #ifdef H5
+    uni.showToast({ title: '网页版不支持启动APP', icon: 'none' });
+    // #endif
+  } 
+  else {
+    // SCRIPT 类型暂时只记录日志
+    reportLog(task, 'SUCCESS');
+  }
+};const reportLog = (task, status) => { uni.request({ url: `${API_BASE}/api/logs`, method: 'POST', data: { user_id: userInfo.value.id, title: task.title, type: task.type, status: status } }); };
 const batchDelete = () => {
     if (selectedIds.value.length === 0) return;
     uni.showModal({

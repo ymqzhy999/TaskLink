@@ -121,25 +121,27 @@ class ADBController:
 
     @staticmethod
     def input_text(text):
-            # 1. 判断是否包含中文
-            if re.search(r'[\u4e00-\u9fa5]', str(text)):
-                # 🔥🔥 核心修改：使用 ADBKeyBoard 广播输入中文 🔥🔥
-                # 原理：发送一个 Android Intent，直接将文字传给输入法
-                # 注意：手机必须安装 ADBKeyBoard 且设为默认输入法
+        # 1. 判断是否包含中文
+        print('将要输入的中文：', text)
+        if re.search(r'[\u4e00-\u9fa5]', str(text)):
+            # 处理特殊字符防止 shell 报错
+            safe_text = str(text).replace("'", "'\\''").replace('"', '\\"')
+            print(safe_text)
 
-                # 处理特殊字符防止 shell 报错
-                safe_text = str(text).replace("'", "'\\''").replace('"', '\\"')
+            # 🔥🔥 修正：去掉开头的 "adb "，直接写 "shell ..." 🔥🔥
+            cmd = f"shell am broadcast -a ADB_INPUT_TEXT --es msg '{safe_text}'"
 
-                cmd = f"shell am broadcast -a ADB_INPUT_TEXT --es msg '{safe_text}'"
-                ADBController.run(cmd)
-                return True, f"已广播输入中文: {text}"
+            # 建议加一行日志打印最终命令，方便调试
+            print(f"🚀 执行广播: adb {cmd}")
 
-            else:
-                # 2. 纯英文/数字依然用原生 (速度更快)
-                safe_text = str(text).replace(" ", "%s")
-                ADBController.run(f"shell input text {safe_text}")
-                return True, f"已输入: {text}"
+            ADBController.run(cmd)
+            return True, f"已广播输入中文: {text}"
 
+        else:
+            # 2. 纯英文/数字依然用原生
+            safe_text = str(text).replace(" ", "%s")
+            ADBController.run(f"shell input text {safe_text}")
+            return True, f"已输入: {text}"
     @staticmethod
     def press_enter():
         ADBController.run("shell input keyevent 66")
@@ -191,11 +193,10 @@ def execute_action(action, value, offset_x=0, offset_y=0):
             return ADBController.click_text(value, offset_x, offset_y)
 
         elif action == 'INPUT_TEXT':
-            # 🔥🔥 核心修改：删除了之前的中文校验拦截 🔥🔥
-            # 现在直接调用控制器，让控制器决定是用广播(中文)还是原生(英文)
             return ADBController.input_text(value)
 
         elif action == 'PRESS_ENTER':
+            time.sleep(3)
             return ADBController.press_enter()
 
         elif action == 'DELAY':
@@ -224,7 +225,7 @@ def chat_ai():
         return jsonify({"code": 400, "msg": "说点什么吧"}), 400
 
     # 🔥🔥 Prompt 终极升级：支持连招 🔥🔥
-    system_prompt = system_prompt = """
+    system_prompt = """
     你是一个手机自动化助手。请分析指令，生成 JSON 数组。
     
     【核心能力：锚点偏移点击】

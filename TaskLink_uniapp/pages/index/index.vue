@@ -217,14 +217,12 @@ const openChat = () => { showChat.value = true; scrollToBottom(); };
 // --- 辅助函数：休眠 ---
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- 🔥 核心修复：万能指令解析器 ---
-// 只要回复中包含 JSON 格式的指令（无论是对象还是数组），都能提取并执行
+// --- 🔥 核心修复：万能指令解析器 (Pro版) ---
 const handleAICommand = async (rawText) => {
   try {
     let commands = null;
 
-    // 1. 正则提取：匹配 [...] 或 {...}，忽略前后的废话
-    // 使用 dotAll 模式 (s) 匹配跨行内容
+    // 1. 正则提取 JSON
     const jsonMatch = rawText.match(/(\[.*\]|\{.*\})/s);
     
     if (jsonMatch) {
@@ -235,47 +233,59 @@ const handleAICommand = async (rawText) => {
         }
     }
 
-    // 如果提取不到，或者解析失败，说明是普通聊天，直接显示文本
     if (!commands) {
         startTypewriter(rawText);
         return;
     }
     
-    // 2. 统一转为数组处理，兼容单个指令对象
     if (!Array.isArray(commands)) {
         commands = [commands];
     }
     
     console.log("⚡ 捕获到指令链:", commands);
-    chatHistory.value.push({ role: 'ai', content: `🚀 正在执行 ${commands.length} 个操作...` });
+    chatHistory.value.push({ role: 'ai', content: `🚀 收到 ${commands.length} 个步骤，开始执行...` });
     scrollToBottom();
 
-    // 3. 串行执行指令 (一步一步来)
+    // 3. 串行执行指令
     for (const cmd of commands) {
-        // === 情况 A: 延时 ===
+        // === 情况 A: 前端自行处理的延时 ===
         if (cmd.action === 'DELAY') {
             const seconds = parseInt(cmd.value) || 3;
             chatHistory.value.push({ role: 'ai', content: `⏳ 等待 ${seconds} 秒...` });
             scrollToBottom();
-            await sleep(seconds * 1000); // 暂停 JS 执行
+            await sleep(seconds * 1000); 
             continue;
         }
 
-        // === 情况 B: 调后端接口 (ADB控制) ===
-        if (cmd.action === 'OPEN_APP' || cmd.action === 'CLICK_TEXT') {
-            const actionText = cmd.action === 'OPEN_APP' ? '打开' : '点击';
-            chatHistory.value.push({ role: 'ai', content: `👉 ${actionText}: ${cmd.value}` });
+        // === 情况 B: 统一发给后端的指令 (ADB控制) ===
+        // 🔥🔥 核心修改：支持所有后端定义的指令 🔥🔥
+        const validActions = ['OPEN_APP', 'CLICK_TEXT', 'INPUT_TEXT', 'PRESS_ENTER', 'SWIPE', 'PRESS_KEY'];
+        
+        if (validActions.includes(cmd.action)) {
+            // 生成人性化的提示文案
+            let logText = `👉 执行: ${cmd.action}`;
+            if (cmd.value) logText += ` -> ${cmd.value}`;
+            if (cmd.offset_x) logText += ` (偏移 ${cmd.offset_x})`;
+
+            chatHistory.value.push({ role: 'ai', content: logText });
             scrollToBottom();
             
-            // 发送给后端 Flask 执行，并等待返回结果
+            // 发送给后端 Flask 执行
             await new Promise((resolve) => {
                 uni.request({
-                    url: `${API_BASE}/api/phone/control`, // 确保 app.py 里有这个接口
+                    url: `${API_BASE}/api/phone/control`,
                     method: 'POST',
-                    data: cmd,
+                    data: {
+                        action: cmd.action,
+                        value: cmd.value,
+                        // 🔥 关键：透传偏移量，没有则默认为 0
+                        offset_x: cmd.offset_x || 0,
+                        offset_y: cmd.offset_y || 0
+                    },
                     success: (res) => {
                         if (res.data.code === 200) {
-                             chatHistory.value.push({ role: 'ai', content: `✅ 成功: ${res.data.msg}` });
+                             // 成功时不刷屏，保持清爽，或者打个勾
+                             // chatHistory.value.push({ role: 'ai', content: `✅ ${res.data.msg}` }); 
                         } else {
                              chatHistory.value.push({ role: 'ai', content: `❌ 失败: ${res.data.msg}` });
                         }
@@ -285,22 +295,22 @@ const handleAICommand = async (rawText) => {
                     },
                     complete: () => {
                         scrollToBottom();
-                        setTimeout(resolve, 800); // 稍微缓冲一下，防止指令发送太快
+                        // 稍微缓冲一下，给后端一点喘息时间
+                        setTimeout(resolve, 500); 
                     }
                 });
             });
         }
     }
     
-    chatHistory.value.push({ role: 'ai', content: `✨ 执行完毕` });
+    chatHistory.value.push({ role: 'ai', content: `✨ 所有指令执行完毕` });
     scrollToBottom();
 
   } catch (e) {
     console.error('严重错误:', e);
-    startTypewriter(rawText); // 兜底显示原文
+    startTypewriter(rawText); 
   }
 };
-
 const stopTypewriter = () => {
   if (typewriterTimer.value) {
     clearInterval(typewriterTimer.value);

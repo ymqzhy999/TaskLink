@@ -295,23 +295,27 @@ def chat_ai():
 
 @app.route('/api/phone/control', methods=['POST'])
 def phone_control():
+    # 🔥🔥🔥 调试第一站：只要这行没打印，说明请求还在路上（或者IP错了）
+    print("\n========= 收到前端 CONTROL 请求 =========")
+
     data = request.json
+    print(f"📦 原始数据包: {data}")  # 看看前端到底发了什么
 
     # 1. 提取基础参数
     action = data.get('action')
     value = data.get('value')
-
-    # 2. 🔥🔥 提取偏移参数 (默认为 0) 🔥🔥
-    # 这样旧的指令（不带偏移）也能正常工作，兼容性满分
     offset_x = data.get('offset_x', 0)
     offset_y = data.get('offset_y', 0)
 
-    # 3. 调用执行单元，传入所有参数
+    print(f"🔑 解析动作: {action}, 值: {value}")
+
+    # 3. 调用执行单元
     success, msg = execute_action(action, value, offset_x, offset_y)
 
+    print(f"🏁 执行结果: {success}, {msg}")
+    print("=======================================\n")
+
     return jsonify({"code": 200 if success else 400, "msg": msg})
-
-
 
 @app.route('/api/phone/batch_run', methods=['POST'])
 def batch_run():

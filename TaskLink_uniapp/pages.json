@@ -1,99 +1,84 @@
 {
 	"pages": [
-		/* 1. 登录页 (App启动默认显示第一个页面) */
 		{
 			"path": "pages/login/login",
 			"style": {
-				"navigationBarTitleText": "用户登录"
+				"navigationBarTitleText": "TASK_LINK // 身份接入",
+				"navigationBarStyle": "custom"
 			}
 		},
-		/* 2. 主页 (TabBar 第1个) */
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "TaskLink 任务中心",
+				"navigationBarTitleText": "TASK_CENTER // 任务中枢",
 				"enablePullDownRefresh": true
 			}
 		},
-		/* 3. 灵感/新建页 (TabBar 第2个) */
+		{
+			"path": "pages/square/square",
+			"style": {
+				"navigationBarTitleText": "NET_SQUARE // 网络广场",
+				"enablePullDownRefresh": false,
+				"navigationStyle": "custom"
+			}
+		},
 		{
 			"path": "pages/add/add",
 			"style": {
-				"navigationBarTitleText": "添加灵感"
+				"navigationBarTitleText": "NEW_PROTOCOL // 新建协议"
 			}
 		},
-		/* 4. 历史页 (TabBar 第3个) */
 		{
 			"path": "pages/history/history",
 			"style": {
-				"navigationBarTitleText": "执行记录"
+				"navigationBarTitleText": "SYSTEM_LOGS // 系统日志"
 			}
 		},
-		/* 5. 个人中心 (TabBar 第4个) */
 		{
 			"path": "pages/profile/profile",
 			"style": {
-				"navigationBarTitleText": "个人中心",
-				"navigationBarBackgroundColor": "#ffd1dc"
-			}
-		},
-		{
-			"path" : "square/square",
-			"style" : 
-			{
-				"navigationBarTitleText" : ""
-			}
-		},
-		{
-			"path" : "pages/square/square",
-			"style" : 
-			{
-				"navigationBarTitleText" : ""
+				"navigationBarTitleText": "USER_DATA // 用户档案",
+				"navigationBarBackgroundColor": "#000000",
+				"navigationBarTextStyle": "white"
 			}
 		}
 	],
 	"globalStyle": {
-		"navigationBarTextStyle": "black",
+		"navigationBarTextStyle": "white",
 		"navigationBarTitleText": "TaskLink",
-		"navigationBarBackgroundColor": "#F8F8F8",
-		"backgroundColor": "#F8F8F8"
+		"navigationBarBackgroundColor": "#000000",
+		"backgroundColor": "#000000"
 	},
 	"tabBar": {
-		"color": "#999999",
-		"selectedColor": "#FF8C94",
-		"backgroundColor": "#ffffff",
-		"borderStyle": "white",
+		"color": "#666666",
+		"selectedColor": "#00f3ff",
+		"borderStyle": "black",
+		"backgroundColor": "#111111",
 		"list": [
 			{
 				"pagePath": "pages/index/index",
-				"text": "主页",
+				"text": "任务",
 				"iconPath": "static/tabs/home.png",
 				"selectedIconPath": "static/tabs/home-active.png"
 			},
 			{
+				"pagePath": "pages/square/square",
+				"text": "广场",
+				"iconPath": "static/tabs/chat.png",
+				"selectedIconPath": "static/tabs/chat-active.png"
+			},
+			{
 				"pagePath": "pages/add/add",
-				"text": "灵感",
+				"text": "新建",
 				"iconPath": "static/tabs/add.png",
 				"selectedIconPath": "static/tabs/add-active.png"
-			},{
-                "pagePath": "pages/square/square",
-                "iconPath": "static/tabbar/chat.png",
-                "selectedIconPath": "static/tabbar/chat-active.png",
-                "text": "广场"
-            },
+			},
 			{
 				"pagePath": "pages/history/history",
 				"text": "记录",
 				"iconPath": "static/tabs/history.png",
 				"selectedIconPath": "static/tabs/history-active.png"
 			},
-			{
-            "path": "pages/square/square",
-            "style": {
-                "navigationBarTitleText": "NET_SQUARE // 网络广场",
-                "enablePullDownRefresh": false
-            }
-        },
 			{
 				"pagePath": "pages/profile/profile",
 				"text": "我的",

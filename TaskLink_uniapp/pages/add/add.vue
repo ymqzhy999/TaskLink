@@ -126,7 +126,7 @@ const autoMatchPackage = () => {
   // 1. 检查输入
   const keyword = form.value.target.trim();
   if (!keyword) {
-    uni.showToast({ title: '请输入应用名称(如:微信)', icon: 'none' });
+    uni.showToast({ title: '请输入应用名称', icon: 'none' });
     return;
   }
 
@@ -220,7 +220,7 @@ const getInputHelper = () => {
 }
 
 const getPlaceholder = () => {
-  if (form.value.type === 'APP') return "输入名称(如:微信) 点击匹配 ->";
+  if (form.value.type === 'APP') return "输入app点击匹配 ->";
   if (form.value.type === 'LINK') return t.value.ph_target_link;
   return t.value.ph_target_script;
 };

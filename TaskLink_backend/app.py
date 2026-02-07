@@ -9,7 +9,8 @@ import requests
 import re
 import subprocess
 from paddleocr import PaddleOCR
-
+import os
+import time
 app = Flask(__name__)
 CORS(app)  # 允许跨域
 warnings.filterwarnings("ignore")
@@ -36,7 +37,6 @@ except Exception:
         ocr_engine = PaddleOCR(lang="ch")
 print("OCR 模型加载完成!")
 
-# --- 🛠️ ADB 控制器 (侦探调试版) ---
 class ADBController:
     APP_MAP = {
         "微信": "com.tencent.mm",
@@ -52,8 +52,6 @@ class ADBController:
 
     @staticmethod
     def run(cmd):
-        # 打印执行的 ADB 命令，方便排查
-        # print(f"[ADB] Executing: {cmd}")
         res = subprocess.run(f"adb {cmd}", shell=True, capture_output=True, text=True, encoding='utf-8')
         return res.stdout.strip()
 
@@ -129,6 +127,39 @@ class ADBController:
     def press_enter():
         ADBController.run("shell input keyevent 66")
         return True, "已点击搜索/回车"
+
+    @staticmethod
+    def swipe(direction):
+        # 简单封装，坐标基于常见屏幕分辨率 (可根据实际调整)
+        cmd = ""
+        if direction == 'UP':  # 上滑 (看下面)
+            cmd = "shell input swipe 500 1500 500 500 300"
+        elif direction == 'DOWN':  # 下滑 (刷新)
+            cmd = "shell input swipe 500 500 500 1500 300"
+        elif direction == 'LEFT':  # 左滑
+            cmd = "shell input swipe 900 1000 200 1000 300"
+        elif direction == 'RIGHT':  # 右滑
+            cmd = "shell input swipe 200 1000 900 1000 300"
+        else:
+            return False, "未知滑动方向"
+
+        ADBController.run(cmd)
+        return True, f"已滑动: {direction}"
+
+    # 🔥🔥 新增方法 2：物理按键 🔥🔥
+    @staticmethod
+    def press_key(key_name):
+        key_map = {
+            "HOME": "3",
+            "BACK": "4",
+            "RECENT": "187"
+        }
+        code = key_map.get(key_name.upper())
+        if not code: return False, "未知按键"
+        ADBController.run(f"shell input keyevent {code}")
+        return True, f"已按键: {key_name}"
+
+
 # --- 🧠 AI 聊天接口 (更新 System Prompt) ---
 @app.route('/api/chat', methods=['POST'])
 def chat_ai():
@@ -138,48 +169,64 @@ def chat_ai():
     if not user_message:
         return jsonify({"code": 400, "msg": "说点什么吧"}), 400
 
-    # 🔥🔥 Prompt 升级：教会 AI 使用输入和回车 🔥🔥
+    # 🔥🔥 Prompt 终极升级：支持连招 🔥🔥
     system_prompt = """
-    你是一个手机自动化助手。请分析指令，返回标准 JSON 数组。
-    支持的操作(action)：
-    1. OPEN_APP: 打开应用。value 填应用名。
-    2. CLICK_TEXT: 点击屏幕文字。value 填文字(如"搜索", "发现")。
-    3. INPUT_TEXT: 输入文字(ADB不支持中文，请转拼音或英文)。value 填内容。
-    4. PRESS_ENTER: 点击键盘回车/搜索键。value 留空。
-    5. DELAY: 等待秒数。value 填整数。
+    你是一个手机自动化助手。请分析用户指令，规划步骤，并返回标准 JSON 数组。
 
-    示例："在QQ音乐搜Jay"
+    支持的操作(action)与参数(value)：
+    1. OPEN_APP: 打开应用。value 填应用名 (如 "微信", "抖音")。
+    2. CLICK_TEXT: OCR识字点击。value 填屏幕上的文字 (如 "发现", "发送", "搜索")。
+       - 技巧：要点击输入框，请点击输入框里的提示词(如 "发消息", "说点什么")。
+    3. INPUT_TEXT: 输入英文/拼音。value 填内容。
+    4. PRESS_ENTER: 回车/搜索。value 留空。
+    5. DELAY: 等待。value 填秒数(整数)。
+    6. SWIPE: 滑动。value 填 "UP"(上滑), "DOWN"(下滑), "LEFT", "RIGHT"。
+    7. PRESS_KEY: 按键。value 填 "HOME"(桌面), "BACK"(返回)。
+
+    【示例1：发消息场景】
+    用户："给当前好友发一句 hello"
+    回复：
     [
-      {"action": "OPEN_APP", "value": "QQ音乐"},
+      {"action": "CLICK_TEXT", "value": "发消息"},  // 1. 点击输入框提示词
+      {"action": "DELAY", "value": 1},              // 2. 等键盘弹起
+      {"action": "INPUT_TEXT", "value": "hello"},   // 3. 输入内容
+      {"action": "CLICK_TEXT", "value": "发送"}     // 4. 点击发送按钮
+    ]
+
+    【示例2：复杂浏览】
+    用户："去抖音刷两个视频"
+    回复：
+    [
+      {"action": "OPEN_APP", "value": "抖音"},
       {"action": "DELAY", "value": 5},
-      {"action": "CLICK_TEXT", "value": "搜索"},
-      {"action": "DELAY", "value": 1},
-      {"action": "INPUT_TEXT", "value": "Jay"},
-      {"action": "PRESS_ENTER", "value": ""}
+      {"action": "SWIPE", "value": "UP"},
+      {"action": "DELAY", "value": 3},
+      {"action": "SWIPE", "value": "UP"}
     ]
     """
 
     try:
         ollama_payload = {
-            "model": "gemma3:4b",
+            "model": "gemma3:4b",  # 确保你本地有这个模型
             "prompt": f"{system_prompt}\n\n用户：{user_message}\n回复：",
             "stream": False,
-            "options": {"temperature": 0.1}
+            "options": {"temperature": 0.1}  # 低温度保证输出格式稳定
         }
 
         resp = requests.post("http://localhost:11434/api/generate", json=ollama_payload)
         ai_text = resp.json().get('response', '').strip()
 
-        # 清洗 Markdown
+        # 清洗 Markdown (防止AI输出 ```json 包裹)
         if "```json" in ai_text:
             ai_text = ai_text.replace("```json", "").replace("```", "").strip()
+        elif "```" in ai_text:
+            ai_text = ai_text.replace("```", "").strip()
 
         return jsonify({"code": 200, "data": ai_text})
 
     except Exception as e:
         print(f"AI Error: {e}")
         return jsonify({"code": 500, "msg": "AI 服务异常"}), 500
-
 
 # --- 🚀 手机控制接口 (执行分发) ---
 @app.route('/api/phone/control', methods=['POST'])
@@ -188,28 +235,58 @@ def phone_control():
     action = data.get('action')
     value = data.get('value')
 
-    print(f"执行指令: {action} -> {value}")
+    print(f"🚀 执行指令: {action} -> {value}")
 
     try:
+        success = True
+        msg = "执行成功"
+
+        # --- 1. 基础应用操作 ---
         if action == 'OPEN_APP':
             success, msg = ADBController.start_app(value)
+
+        # --- 2. 屏幕点击 (OCR核心) ---
         elif action == 'CLICK_TEXT':
             success, msg = ADBController.click_text(value)
+
+        # --- 3. 文本输入 ---
         elif action == 'INPUT_TEXT':
-            # 简单校验中文
+            # 简单校验中文 (ADB无法直接输中文)
             if re.search(r'[\u4e00-\u9fa5]', str(value)):
-                 return jsonify({"code": 400, "msg": "ADB暂不支持直接输入中文，请用拼音"})
+                return jsonify({"code": 400, "msg": "ADB不支持直接输入中文，请让AI转为拼音"})
             success, msg = ADBController.input_text(value)
+
+        # --- 4. 确认/回车 ---
         elif action == 'PRESS_ENTER':
             success, msg = ADBController.press_enter()
+
+        # --- 🔥 5. 延时 (新增) ---
+        elif action == 'DELAY':
+            sleep_time = int(value)
+            time.sleep(sleep_time)  # 线程阻塞等待
+            msg = f"已等待 {sleep_time} 秒"
+
+        # --- 🔥 6. 滑动 (新增) ---
+        elif action == 'SWIPE':
+            success, msg = ADBController.swipe(value)
+
+        # --- 🔥 7. 物理按键 (新增) ---
+        elif action == 'PRESS_KEY':
+            success, msg = ADBController.press_key(value)
+
         else:
-            return jsonify({"code": 400, "msg": "未知指令"})
+            return jsonify({"code": 400, "msg": f"未知指令: {action}"})
 
         return jsonify({"code": 200 if success else 400, "msg": msg})
 
     except Exception as e:
         print(f"Control Error: {e}")
         return jsonify({"code": 500, "msg": str(e)}), 500
+
+
+
+
+
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json

@@ -1,6 +1,9 @@
 # backend/models.py
 from database import db
 from datetime import datetime
+# from sqlalchemy.ext.declarative import declarative_base
+
+# Base = declarative_base()
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -62,4 +65,28 @@ class TaskLog(db.Model):
             'task_type': self.task_type,
             'status': self.status,
             'executed_at': self.executed_at.strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+class ChatMessage(db.Model):
+    __tablename__ = 'chat_messages'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    msg_type = db.Column(db.String(20), default='text')  # text / image
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+
+    sender = db.relationship('User', backref='messages')
+
+    def to_dict(self):
+
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "username": self.sender.username if self.sender else "Unknown",
+            "avatar": self.sender.avatar if self.sender else None,
+            "content": self.content,
+            "type": self.msg_type,
+            "created_at": self.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }

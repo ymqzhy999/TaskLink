@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import db
-from models import User,Task,TaskLog
+from models import User,Task,TaskLog,ChatMessage
 import requests
 import re
 app = Flask(__name__)
@@ -12,7 +12,7 @@ CORS(app)  # 允许跨域
 # 格式: mysql+pymysql://用户名:密码@地址:端口/数据库名
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost:3306/tasklink'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'your_secret_key'  # 用于加密session等
+app.config['SECRET_KEY'] = 'your_secret_key'
 
 # 初始化数据库
 db.init_app(app)
@@ -24,7 +24,6 @@ def register():
     username = data.get('username')
     password = data.get('password')
 
-    # --- 1. 基础非空校验 ---
     if not username or not password:
         return jsonify({"code": 400, "msg": "用户名或密码不能为空"}), 400
 
@@ -110,7 +109,6 @@ def get_tasks():
     })
 
 
-# --- 添加任务 ---
 # --- 添加任务 ---
 @app.route('/api/tasks', methods=['POST'])
 def add_task():
@@ -287,6 +285,7 @@ def chat_ai():
         return jsonify({"code": 500, "msg": "无法连接本地模型，请检查 Ollama 是否运行"}), 500
 
 
+
 import os
 import time
 from werkzeug.utils import secure_filename
@@ -347,5 +346,17 @@ def upload_avatar():
             return jsonify({"code": 500, "msg": str(e)}), 500
 
     return jsonify({"code": 400, "msg": "Type not allowed"}), 400
+
+
+
+@app.route('/api/square/history', methods=['GET'])
+def get_square_history():
+    # 获取最近 50 条消息，按时间倒序查，然后翻转为正序
+    messages = ChatMessage.query.order_by(ChatMessage.created_at.desc()).limit(50).all()
+    return jsonify({
+        "code": 200,
+        "data": [m.to_dict() for m in messages][::-1]  # 翻转列表，旧的在上面
+    })
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

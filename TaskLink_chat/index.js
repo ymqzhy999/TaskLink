@@ -35,12 +35,18 @@ const io = new Server(server, {
 
 // --- 5. Socket.IO 核心业务 ---
 io.on('connection', (socket) => {
-    console.log('🟢 新用户连接:', socket.id); // 连上时必须看到这行日志！
+    console.log('🟢 新用户连接:', socket.id);
+
+    // 🔥🔥 1. 获取真实在线人数 🔥🔥
+    // io.engine.clientsCount 可以获取当前连接数
+    const count = io.engine.clientsCount;
+
+    // 🔥🔥 2. 广播给所有人：有人上线了，更新人数 🔥🔥
+    io.emit('update_online_count', count);
 
     // 监听：加入聊天
     socket.on('join', (userId) => {
         socket.join(`user_${userId}`);
-        console.log(`用户 ${userId} 已上线`);
     });
 
     // 监听：发送消息
@@ -70,6 +76,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('🔴 用户断开:', socket.id);
     });
+    io.emit('update_online_count', io.engine.clientsCount);
 });
 
 // --- 6. 启动服务器 ---

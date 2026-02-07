@@ -1,3 +1,5 @@
+import uuid
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -70,22 +72,33 @@ def register():
 
 
 # --- 登录接口 ---
+# TaskLink_backend/app.py
+
+# 确保文件头部导入了 check_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
+
+
 @app.route('/api/login', methods=['POST'])
 def login():
-    print("登录接口")
-
     data = request.json
     username = data.get('username')
     password = data.get('password')
-    # 1. 查找用户
+
+    # 1. 查询用户
     user = User.query.filter_by(username=username).first()
 
-    # 2. 验证密码 (比对哈希值)
     if user and check_password_hash(user.password_hash, password):
+        # 3. 返回包含最新头像的用户信息
         return jsonify({
             "code": 200,
             "msg": "登录成功",
-            "data": user.to_dict()  # 返回用户信息
+            "data": {
+                "id": user.id,
+                "username": user.username,
+                # 确保返回 avatar 字段，如果没有则返回空字符串
+                "avatar": user.avatar if user.avatar else "",
+                "token": "fake-jwt-token"
+            }
         })
 
     return jsonify({"code": 401, "msg": "用户名或密码错误"}), 401
@@ -314,14 +327,15 @@ def upload_avatar():
         return jsonify({"code": 400, "msg": "No selected file"}), 400
 
     if file and allowed_file(file.filename):
-        # 生成安全文件名 + 时间戳防止重名
-        filename = secure_filename(file.filename)
-        new_filename = f"{int(time.time())}_{filename}"
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
-        file.save(filepath)
+        # 获取文件后缀 (比如 .jpg)
+        ext = os.path.splitext(file.filename)[1]
 
-        # 生成访问 URL (假设你的后端跑在 5000 端口)
-        # 注意：存入数据库的是相对路径 '/static/uploads/...'
+        # 🔥 生成新文件名：使用 UUID (看起来像 550e8400-e29b....jpg)
+        new_filename = f"{uuid.uuid4().hex}{ext}"
+
+        save_path = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
+        file.save(save_path)
+
         file_url = f"/static/uploads/{new_filename}"
 
         # 更新数据库
@@ -357,6 +371,35 @@ def get_square_history():
         "code": 200,
         "data": [m.to_dict() for m in messages][::-1]  # 翻转列表，旧的在上面
     })
+
+
+@app.route('/api/chat/messages', methods=['DELETE'])
+def delete_chat_messages():
+    data = request.json
+    user_id = data.get('user_id')
+    message_ids = data.get('message_ids')  # 前端传这就必须是数组: [12, 13, 15]
+
+    if not user_id or not message_ids:
+        return jsonify({"code": 400, "msg": "参数错误"}), 400
+
+    try:
+        # 批量删除：只能删除属于该用户(user_id)的消息
+        # synchronize_session=False 用于提高批量删除性能
+        deleted_count = ChatMessage.query.filter(
+            ChatMessage.id.in_(message_ids),
+            ChatMessage.user_id == user_id
+        ).delete(synchronize_session=False)
+
+        db.session.commit()
+
+        if deleted_count == 0:
+            return jsonify({"code": 400, "msg": "没有权限或消息不存在"}), 400
+
+        return jsonify({"code": 200, "msg": f"成功删除 {deleted_count} 条消息"})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"code": 500, "msg": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

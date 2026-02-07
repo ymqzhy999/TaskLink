@@ -37,11 +37,9 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
     console.log('🟢 新用户连接:', socket.id);
 
-    // 🔥🔥 1. 获取真实在线人数 🔥🔥
     // io.engine.clientsCount 可以获取当前连接数
     const count = io.engine.clientsCount;
 
-    // 🔥🔥 2. 广播给所有人：有人上线了，更新人数 🔥🔥
     io.emit('update_online_count', count);
 
     // 监听：加入聊天

@@ -121,16 +121,7 @@ onShow(() => {
     uni.setNavigationBarTitle({ title: t.value.title_new });
   }
 });
-
-const resetForm = () => { 
-  isEdit.value = false; 
-  form.value = { id: null, title: '', desc: '', time: '', is_loop: false, type: 'APP', target: '' }; 
-  matchResult.value = '';
-};
-const onTimeChange = (e) => { form.value.time = e.detail.value; };
-const onLoopChange = (e) => { form.value.is_loop = e.detail.value; }
-
-// --- 🔥 核心功能：自动匹配包名 (仅限 Android) ---
+// --- 🔥 核心功能：自动匹配包名 (修复版) ---
 const autoMatchPackage = () => {
   // 1. 检查输入
   const keyword = form.value.target.trim();
@@ -153,12 +144,17 @@ const autoMatchPackage = () => {
 
   uni.showLoading({ title: 'SCANNING...' });
 
-  // 3. 使用 Native.js 调用 Android API
+  // 3. 使用 Native.js 调用 Android API (使用 invoke 避免报错)
   try {
     const main = plus.android.runtimeMainActivity();
-    const pManager = main.getPackageManager();
-    const pInfo = pManager.getInstalledPackages(0); // 获取所有安装包
-    const total = pInfo.size();
+    const pManager = plus.android.invoke(main, 'getPackageManager'); // 稳妥获取 pManager
+    
+    // 🔥 修复点：使用 invoke 调用 getInstalledPackages
+    // 参数 0 代表 GET_ACTIVITIES 等默认标志
+    const pInfo = plus.android.invoke(pManager, 'getInstalledPackages', 0);
+    
+    // 获取 List 大小
+    const total = plus.android.invoke(pInfo, 'size');
     
     let found = false;
     let matchedPkg = '';
@@ -166,16 +162,25 @@ const autoMatchPackage = () => {
 
     // 遍历所有应用
     for (let i = 0; i < total; i++) {
-      const p = pInfo.get(i);
-      const label = p.applicationInfo.loadLabel(pManager).toString(); // 获取应用名 (如 "微信")
-      const pname = p.packageName; // 获取包名 (如 "com.tencent.mm")
+      // 获取第 i 个 PackageInfo
+      const p = plus.android.invoke(pInfo, 'get', i);
+      
+      // 获取 ApplicationInfo
+      const appInfo = plus.android.getAttribute(p, 'applicationInfo');
+      
+      // 获取应用名 (Label) - 同样使用 invoke 调用 loadLabel
+      const labelObj = plus.android.invoke(appInfo, 'loadLabel', pManager);
+      const label = labelObj ? labelObj.toString() : '';
+      
+      // 获取包名
+      const pname = plus.android.getAttribute(p, 'packageName');
       
       // 模糊匹配：如果应用名包含关键字 (忽略大小写)
-      if (label.toLowerCase().includes(keyword.toLowerCase())) {
+      if (label && label.toLowerCase().includes(keyword.toLowerCase())) {
         matchedPkg = pname;
         matchedLabel = label;
         found = true;
-        break; // 找到一个就停止 (也可以做个列表供选择，这里为了简单直接取第一个)
+        break; 
       }
     }
 
@@ -193,11 +198,20 @@ const autoMatchPackage = () => {
 
   } catch (e) {
     uni.hideLoading();
-    console.error(e);
-    uni.showToast({ title: '扫描失败: 权限不足', icon: 'none' });
+    console.error(e); // 在控制台打印详细错误
+    uni.showToast({ title: '扫描失败: 权限或兼容性问题', icon: 'none' });
   }
   // #endif
 };
+const resetForm = () => { 
+  isEdit.value = false; 
+  form.value = { id: null, title: '', desc: '', time: '', is_loop: false, type: 'APP', target: '' }; 
+  matchResult.value = '';
+};
+const onTimeChange = (e) => { form.value.time = e.detail.value; };
+const onLoopChange = (e) => { form.value.is_loop = e.detail.value; }
+
+// --- 🔥 核心功能：自动匹配包名 (仅限 Android) ---
 
 const getInputHelper = () => {
     if (form.value.type === 'APP') return t.value.helper_app;

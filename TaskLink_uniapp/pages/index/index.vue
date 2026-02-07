@@ -125,11 +125,13 @@ import { ref, nextTick, onMounted, onUnmounted } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 import messages from '@/utils/language.js';
 
-const API_BASE = 'http://192.168.10.26:5000';
+// ⚠️ 请确保这是你电脑的局域网 IP
+const API_BASE = 'http://192.168.10.26:5000'; 
 const userInfo = ref({});
 const tasks = ref([]);
 const t = ref(messages.zh.index);
 
+// 状态变量
 const isScanning = ref(true);
 const timer = ref(null);
 const lastExecutedTime = ref('');
@@ -140,11 +142,11 @@ const inputMsg = ref('');
 const chatHistory = ref([{ role: 'ai', content: 'Greeting. Systems operational.' }]);
 const scrollTarget = ref('');
 
-// AI 状态控制
+// AI 状态
 const isThinking = ref(false);
 const isTyping = ref(false);
-const currentRequestId = ref(0); // 🔥 新增：用于版本控制，防止旧请求打断新对话
-const typewriterTimer = ref(null); // 🔥 新增：用于存储打字机定时器，方便随时掐断
+const currentRequestId = ref(0);
+const typewriterTimer = ref(null);
 
 onShow(() => {
   const lang = uni.getStorageSync('lang') || 'zh';
@@ -189,72 +191,8 @@ const onLongPress = (task) => {
 
 const toggleSelectAll = () => { selectedIds.value = selectedIds.value.length === tasks.value.length ? [] : tasks.value.map(t => t.id); };
 const toggleEditMode = () => { isEditMode.value = !isEditMode.value; selectedIds.value = []; };
-// --- 🔥 核心修复：实现真正的 App 启动和链接跳转 ---
-const executeTask = (task) => {
-  // 1. 提示用户
-  uni.showToast({ title: `执行: ${task.title}`, icon: 'none' });
-
-  // 2. 根据类型执行不同逻辑
-  if (task.type === 'LINK') {
-    // === 打开链接 ===
-    // #ifdef APP-PLUS
-    // App端使用系统浏览器打开
-    plus.runtime.openURL(task.target, (err) => {
-        uni.showToast({ title: '打开链接失败', icon: 'none' });
-        reportLog(task, 'FAIL');
-    });
-    // #endif
-
-    // #ifdef H5
-    window.open(task.target);
-    // #endif
-    
-    reportLog(task, 'SUCCESS');
-  } 
-  else if (task.type === 'APP') {
-    // === 打开 APP ===
-    // #ifdef APP-PLUS
-    const systemInfo = uni.getSystemInfoSync();
-    
-    if (systemInfo.platform === 'android') {
-        // Android: 使用包名启动 (例如: com.tencent.mm)
-        // 先检查应用是否存在
-        if (plus.runtime.isApplicationExist({ pname: task.target })) {
-            plus.runtime.launchApplication({
-                pname: task.target 
-            }, (e) => {
-                console.error('启动失败:', e);
-                reportLog(task, 'FAIL');
-                uni.showToast({ title: '启动失败: ' + e.message, icon: 'none' });
-            });
-            reportLog(task, 'SUCCESS');
-        } else {
-            uni.showToast({ title: '未安装该应用', icon: 'none' });
-            reportLog(task, 'FAIL');
-        }
-    } 
-    else if (systemInfo.platform === 'ios') {
-        // iOS: 使用 URL Scheme 启动 (例如: weixin://)
-        plus.runtime.launchApplication({
-            action: task.target
-        }, (e) => {
-            console.error('启动失败:', e);
-            reportLog(task, 'FAIL');
-            uni.showToast({ title: '启动失败: ' + e.message, icon: 'none' });
-        });
-        reportLog(task, 'SUCCESS');
-    }
-    // #endif
-
-    // #ifdef H5
-    uni.showToast({ title: '网页版不支持启动APP', icon: 'none' });
-    // #endif
-  } 
-  else {
-    // SCRIPT 类型暂时只记录日志
-    reportLog(task, 'SUCCESS');
-  }
-};const reportLog = (task, status) => { uni.request({ url: `${API_BASE}/api/logs`, method: 'POST', data: { user_id: userInfo.value.id, title: task.title, type: task.type, status: status } }); };
+const executeTask = (task) => { uni.showToast({ title: `EXEC: ${task.title}`, icon: 'none' }); reportLog(task, 'SUCCESS'); };
+const reportLog = (task, status) => { uni.request({ url: `${API_BASE}/api/logs`, method: 'POST', data: { user_id: userInfo.value.id, title: task.title, type: task.type, status: status } }); };
 const batchDelete = () => {
     if (selectedIds.value.length === 0) return;
     uni.showModal({
@@ -276,7 +214,93 @@ const deleteTaskApi = (id) => { uni.request({ url: `${API_BASE}/api/tasks/${id}`
 const toggleScan = (e) => { isScanning.value = e.detail.value; };
 const openChat = () => { showChat.value = true; scrollToBottom(); };
 
-// --- 🔥 核心修复：停止打字机 ---
+// --- 辅助函数：休眠 ---
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// --- 🔥 核心修复：万能指令解析器 ---
+// 只要回复中包含 JSON 格式的指令（无论是对象还是数组），都能提取并执行
+const handleAICommand = async (rawText) => {
+  try {
+    let commands = null;
+
+    // 1. 正则提取：匹配 [...] 或 {...}，忽略前后的废话
+    // 使用 dotAll 模式 (s) 匹配跨行内容
+    const jsonMatch = rawText.match(/(\[.*\]|\{.*\})/s);
+    
+    if (jsonMatch) {
+        try {
+            commands = JSON.parse(jsonMatch[0]);
+        } catch (e) {
+            console.error("JSON 解析失败:", e);
+        }
+    }
+
+    // 如果提取不到，或者解析失败，说明是普通聊天，直接显示文本
+    if (!commands) {
+        startTypewriter(rawText);
+        return;
+    }
+    
+    // 2. 统一转为数组处理，兼容单个指令对象
+    if (!Array.isArray(commands)) {
+        commands = [commands];
+    }
+    
+    console.log("⚡ 捕获到指令链:", commands);
+    chatHistory.value.push({ role: 'ai', content: `🚀 正在执行 ${commands.length} 个操作...` });
+    scrollToBottom();
+
+    // 3. 串行执行指令 (一步一步来)
+    for (const cmd of commands) {
+        // === 情况 A: 延时 ===
+        if (cmd.action === 'DELAY') {
+            const seconds = parseInt(cmd.value) || 3;
+            chatHistory.value.push({ role: 'ai', content: `⏳ 等待 ${seconds} 秒...` });
+            scrollToBottom();
+            await sleep(seconds * 1000); // 暂停 JS 执行
+            continue;
+        }
+
+        // === 情况 B: 调后端接口 (ADB控制) ===
+        if (cmd.action === 'OPEN_APP' || cmd.action === 'CLICK_TEXT') {
+            const actionText = cmd.action === 'OPEN_APP' ? '打开' : '点击';
+            chatHistory.value.push({ role: 'ai', content: `👉 ${actionText}: ${cmd.value}` });
+            scrollToBottom();
+            
+            // 发送给后端 Flask 执行，并等待返回结果
+            await new Promise((resolve) => {
+                uni.request({
+                    url: `${API_BASE}/api/phone/control`, // 确保 app.py 里有这个接口
+                    method: 'POST',
+                    data: cmd,
+                    success: (res) => {
+                        if (res.data.code === 200) {
+                             chatHistory.value.push({ role: 'ai', content: `✅ 成功: ${res.data.msg}` });
+                        } else {
+                             chatHistory.value.push({ role: 'ai', content: `❌ 失败: ${res.data.msg}` });
+                        }
+                    },
+                    fail: () => {
+                        chatHistory.value.push({ role: 'ai', content: `❌ 连接后端失败` });
+                    },
+                    complete: () => {
+                        scrollToBottom();
+                        setTimeout(resolve, 800); // 稍微缓冲一下，防止指令发送太快
+                    }
+                });
+            });
+        }
+    }
+    
+    chatHistory.value.push({ role: 'ai', content: `✨ 执行完毕` });
+    scrollToBottom();
+
+  } catch (e) {
+    console.error('严重错误:', e);
+    startTypewriter(rawText); // 兜底显示原文
+  }
+};
+
 const stopTypewriter = () => {
   if (typewriterTimer.value) {
     clearInterval(typewriterTimer.value);
@@ -286,21 +310,15 @@ const stopTypewriter = () => {
   isThinking.value = false;
 };
 
-// --- 🔥 核心修复：支持打断的消息发送 ---
+// --- 修改后的发送逻辑 ---
 const sendMessage = () => {
-  // 1. 如果有文字在输入，这是普通发送
   if (inputMsg.value.trim()) {
-    
-    // 如果正在打字或思考，先强制停止它（打断）
-    if (isTyping.value || isThinking.value) {
-        stopTypewriter();
-    }
+    if (isTyping.value || isThinking.value) stopTypewriter();
 
-    // 生成新的请求ID
     currentRequestId.value++;
     const thisRequestId = currentRequestId.value;
-    
     const userText = inputMsg.value;
+    
     chatHistory.value.push({ role: 'user', content: userText });
     inputMsg.value = '';
     
@@ -312,14 +330,14 @@ const sendMessage = () => {
       method: 'POST',
       data: { message: userText },
       success: (res) => {
-        // 关键：如果请求回来时，ID已经变了（说明用户又发了新消息），则丢弃这个旧结果
         if (thisRequestId !== currentRequestId.value) return;
-
         isThinking.value = false;
+
         if (res.data.code === 200) {
-          startTypewriter(res.data.data);
+          // 🔥 核心修改：移除 startsWith 判断，直接交给 handleAICommand 智能解析
+          handleAICommand(res.data.data);
         } else {
-          chatHistory.value.push({ role: 'ai', content: 'Error: Connection lost.' });
+          chatHistory.value.push({ role: 'ai', content: 'Error: API Error.' });
           scrollToBottom();
         }
       },
@@ -330,9 +348,8 @@ const sendMessage = () => {
         scrollToBottom();
       }
     });
-  } 
-  // 2. 如果输入框没字，但正在输出，点击按钮则是“手动停止”
-  else if (isTyping.value || isThinking.value) {
+  } else if (isTyping.value || isThinking.value) {
+      // 停止生成
       stopTypewriter();
   }
 };
@@ -343,14 +360,13 @@ const startTypewriter = (fullText) => {
   const targetIndex = chatHistory.value.length - 1;
   let i = 0;
   
-  // 保存定时器ID，以便可以被停止
   typewriterTimer.value = setInterval(() => {
     if (i < fullText.length) {
       chatHistory.value[targetIndex].content += fullText.charAt(i);
       i++;
       if (i % 2 === 0) scrollToBottom();
     } else {
-      stopTypewriter(); // 打完了自动停止
+      stopTypewriter();
       scrollToBottom();
     }
   }, 30);

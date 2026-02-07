@@ -1,5 +1,5 @@
 import uuid
-
+import warnings
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -12,7 +12,7 @@ from paddleocr import PaddleOCR
 
 app = Flask(__name__)
 CORS(app)  # 允许跨域
-
+warnings.filterwarnings("ignore")
 # --- 数据库配置 ---
 # 格式: mysql+pymysql://用户名:密码@地址:端口/数据库名
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost:3306/tasklink'
@@ -22,13 +22,22 @@ app.config['SECRET_KEY'] = 'your_secret_key'
 # 初始化数据库
 db.init_app(app)
 
-ocr_engine = PaddleOCR(use_textline_orientation=True, lang="ch")
+# --- 🔥 初始化 OCR (修复参数) ---
+print("正在加载 OCR 模型...")
+try:
+    # 核心修改：enable_mkldnn=False
+    ocr_engine = PaddleOCR(use_angle_cls=False, lang="ch", show_log=False, enable_mkldnn=False)
+except Exception:
+    try:
+        # 重试
+        ocr_engine = PaddleOCR(use_angle_cls=False, lang="ch", enable_mkldnn=False)
+    except Exception as e:
+        print(f"OCR 初始化降级: {e}")
+        ocr_engine = PaddleOCR(lang="ch")
 print("OCR 模型加载完成!")
 
-
-# --- 🛠️ ADB 控制器 (核心黑科技) ---
+# --- 🛠️ ADB 控制器 (侦探调试版) ---
 class ADBController:
-    # 常用 App 包名映射字典
     APP_MAP = {
         "微信": "com.tencent.mm",
         "QQ": "com.tencent.mobileqq",
@@ -43,64 +52,84 @@ class ADBController:
 
     @staticmethod
     def run(cmd):
-        """执行 ADB 命令"""
-        # 注意：这里假设只有一台手机连接。如果有多台，需加 -s device_id
+        # 打印执行的 ADB 命令，方便排查
+        # print(f"[ADB] Executing: {cmd}")
         res = subprocess.run(f"adb {cmd}", shell=True, capture_output=True, text=True, encoding='utf-8')
         return res.stdout.strip()
 
     @staticmethod
     def start_app(app_name):
-        """启动 App"""
         pkg = ADBController.APP_MAP.get(app_name)
-        if not pkg:
-            return False, f"未知的 App: {app_name}，请先在后端字典配置包名"
-
-        # 使用 monkey 命令启动 App (比 am start 兼容性更好)
+        if not pkg: return False, f"未知的 App: {app_name}"
         ADBController.run(f"shell monkey -p {pkg} -c android.intent.category.LAUNCHER 1")
         return True, f"已启动 {app_name}"
 
     @staticmethod
     def click_text(target_text):
-        """核心：OCR 识图点击"""
-        screenshot_path = "screen.png"
+        # 使用绝对路径，防止文件找不到
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        screenshot_path = os.path.join(current_dir, "debug_screen.png")
 
-        # 1. 截图并拉取到电脑
-        ADBController.run("shell screencap -p /sdcard/screen.png")
-        ADBController.run(f"pull /sdcard/screen.png {screenshot_path}")
+        print(f"📸 1. 正在截图...")
+        ADBController.run(f"shell screencap -p /sdcard/screen.png")
+        ADBController.run(f"pull /sdcard/screen.png \"{screenshot_path}\"")
 
         if not os.path.exists(screenshot_path):
-            return False, "截图失败，请检查 ADB 连接"
+            print("❌ 截图文件未生成！")
+            return False, "截图失败"
 
-        # 2. OCR 识别
-        result = ocr_engine.ocr(screenshot_path, cls=True)
+        print(f"🔍 2. OCR 识别中...")
+        try:
+            # 这里的 ocr 结果是 [[ [box, (text, score)], ... ]]
+            result = ocr_engine.ocr(screenshot_path)
+        except Exception as e:
+            print(f"❌ OCR 引擎报错: {e}")
+            return False, f"OCR 出错: {e}"
 
-        # 3. 查找坐标
-        # result 结构: [[[[x1,y1],[x2,y2],[x3,y3],[x4,y4]], (text, confidence)], ...]
         if not result or not result[0]:
-            return False, "屏幕上没有识别到文字"
+            print("⚠️ 屏幕上没有识别到任何文字！")
+            return False, "屏幕空白或未识别到文字"
+
+        # 打印所有识别到的文字，方便你排查
+        all_texts = [line[1][0] for line in result[0]]
+        print(f"👀 OCR看到了这些字: {all_texts}")
 
         for line in result[0]:
-            box = line[0]
-            text = line[1][0]
+            box = line[0]  # [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+            text = line[1][0]  # 文字内容
+            score = line[1][1]  # 置信度
 
-            # 模糊匹配：只要包含了目标文字 (比如 "发现" 在 "发现(1)")
+            # 模糊匹配
             if target_text in text:
-                # 计算中心点坐标
-                center_x = int((box[0][0] + box[2][0]) / 2)
-                center_y = int((box[0][1] + box[2][1]) / 2)
+                # 计算中心点
+                x1, y1 = box[0]
+                x3, y3 = box[2]
+                center_x = int((x1 + x3) / 2)
+                center_y = int((y1 + y3) / 2)
 
-                print(f"找到 '{text}' -> 点击坐标 ({center_x}, {center_y})")
+                print(f"✅ 3. 找到目标: '{text}' (置信度: {score:.2f})")
+                print(f"📍 4. 计算坐标: X={center_x}, Y={center_y}")
 
-                # 4. 执行点击
+                # 执行点击
                 ADBController.run(f"shell input tap {center_x} {center_y}")
-                return True, f"已点击: {text}"
+                print(f"👆 5. 已发送点击指令！")
 
-        return False, f"屏幕上未找到文字: {target_text}"
+                return True, f"点击了: {text} ({center_x},{center_y})"
 
+        print(f"❌ 未找到目标文字: {target_text}")
+        return False, f"未找到: {target_text}"
 
-# --- 🧠 AI 聊天接口 (更新 Prompt) ---
-# TaskLink_backend/app.py
+    @staticmethod
+    def input_text(text):
+        safe_text = str(text).replace(" ", "%s")
+        ADBController.run(f"shell input text {safe_text}")
+        return True, f"已输入: {text}"
 
+    @staticmethod
+    def press_enter():
+        ADBController.run("shell input keyevent 66")
+        return True, "已点击搜索/回车"
+# --- 🧠 AI 聊天接口 (更新 System Prompt) ---
 @app.route('/api/chat', methods=['POST'])
 def chat_ai():
     data = request.json
@@ -109,27 +138,25 @@ def chat_ai():
     if not user_message:
         return jsonify({"code": 400, "msg": "说点什么吧"}), 400
 
-    # 🔥🔥 核心修改：提示词升级，要求返回数组 [{}, {}] 🔥🔥
+    # 🔥🔥 Prompt 升级：教会 AI 使用输入和回车 🔥🔥
     system_prompt = """
-    你是一个手机自动化助手。请分析用户指令，返回标准 JSON 数组格式。
+    你是一个手机自动化助手。请分析指令，返回标准 JSON 数组。
     支持的操作(action)：
-    1. OPEN_APP: 打开应用。value 填应用名称。
-    2. CLICK_TEXT: 点击屏幕文字。value 填要点击的文字。
-    3. DELAY: 等待。value 填秒数(整数)。
+    1. OPEN_APP: 打开应用。value 填应用名。
+    2. CLICK_TEXT: 点击屏幕文字。value 填文字(如"搜索", "发现")。
+    3. INPUT_TEXT: 输入文字(ADB不支持中文，请转拼音或英文)。value 填内容。
+    4. PRESS_ENTER: 点击键盘回车/搜索键。value 留空。
+    5. DELAY: 等待秒数。value 填整数。
 
-    规则：
-    - 如果涉及多步操作，请返回包含多个对象的数组。
-    - 在打开应用后，通常需要等待 3-5 秒加载，请务必插入 DELAY 指令。
-
-    示例：
-    - 用户："打开微信并点一下发现"
-    - 回复：[
-        {"action": "OPEN_APP", "value": "微信"}, 
-        {"action": "DELAY", "value": 5}, 
-        {"action": "CLICK_TEXT", "value": "发现"}
-      ]
-
-    如果只是闲聊，请直接返回文本，不要带JSON。
+    示例："在QQ音乐搜Jay"
+    [
+      {"action": "OPEN_APP", "value": "QQ音乐"},
+      {"action": "DELAY", "value": 5},
+      {"action": "CLICK_TEXT", "value": "搜索"},
+      {"action": "DELAY", "value": 1},
+      {"action": "INPUT_TEXT", "value": "Jay"},
+      {"action": "PRESS_ENTER", "value": ""}
+    ]
     """
 
     try:
@@ -154,27 +181,34 @@ def chat_ai():
         return jsonify({"code": 500, "msg": "AI 服务异常"}), 500
 
 
+# --- 🚀 手机控制接口 (执行分发) ---
 @app.route('/api/phone/control', methods=['POST'])
 def phone_control():
     data = request.json
     action = data.get('action')
     value = data.get('value')
 
-    print(f"收到控制指令: {action} -> {value}")
+    print(f"执行指令: {action} -> {value}")
 
     try:
         if action == 'OPEN_APP':
             success, msg = ADBController.start_app(value)
-            return jsonify({"code": 200 if success else 400, "msg": msg})
-
         elif action == 'CLICK_TEXT':
             success, msg = ADBController.click_text(value)
-            return jsonify({"code": 200 if success else 400, "msg": msg})
+        elif action == 'INPUT_TEXT':
+            # 简单校验中文
+            if re.search(r'[\u4e00-\u9fa5]', str(value)):
+                 return jsonify({"code": 400, "msg": "ADB暂不支持直接输入中文，请用拼音"})
+            success, msg = ADBController.input_text(value)
+        elif action == 'PRESS_ENTER':
+            success, msg = ADBController.press_enter()
+        else:
+            return jsonify({"code": 400, "msg": "未知指令"})
 
-        return jsonify({"code": 400, "msg": "未知指令"})
+        return jsonify({"code": 200 if success else 400, "msg": msg})
 
     except Exception as e:
-        print(f"ADB Error: {e}")
+        print(f"Control Error: {e}")
         return jsonify({"code": 500, "msg": str(e)}), 500
 @app.route('/api/register', methods=['POST'])
 def register():

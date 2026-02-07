@@ -1,5 +1,4 @@
-// TaskLink_chat/index.js
-require('dotenv').config(); // 读取 .env
+require('dotenv').config();
 
 const express = require('express');
 const http = require('http');
@@ -11,11 +10,11 @@ const mysql = require('mysql2/promise');
 const app = express();
 const server = http.createServer(app);
 
-
+// --- 2. 数据库连接池 ---
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || 'root', // 这里填你的数据库密码
+    password: process.env.DB_PASSWORD || 'root',
     database: process.env.DB_NAME || 'tasklink',
     waitForConnections: true,
     connectionLimit: 10,
@@ -23,20 +22,20 @@ const pool = mysql.createPool({
 });
 
 // --- 3. 配置中间件 ---
-app.use(cors()); // 允许跨域
+app.use(cors());
 app.use(express.json());
 
 // --- 4. 配置 Socket.IO ---
 const io = new Server(server, {
     cors: {
-        origin: "*", // 允许任何前端连接（生产环境建议限制 IP）
+        origin: "*",
         methods: ["GET", "POST"]
     }
 });
 
 // --- 5. Socket.IO 核心业务 ---
 io.on('connection', (socket) => {
-    console.log('🟢 新用户连接:', socket.id);
+    console.log('🟢 新用户连接:', socket.id); // 连上时必须看到这行日志！
 
     // 监听：加入聊天
     socket.on('join', (userId) => {
@@ -46,21 +45,23 @@ io.on('connection', (socket) => {
 
     // 监听：发送消息
     socket.on('send_message', async (data) => {
+        console.log(`📩 收到消息:`, data); // 收到消息必须看到这行！
+
+        // 1. 广播
         io.emit('new_message', {
             id: Date.now(),
             user_id: data.user_id,
             content: data.content,
-            username: data.username, // 👈 新增
-            avatar: data.avatar,     // 👈 新增
+            username: data.username,
+            avatar: data.avatar,
             created_at: new Date()
         });
 
-        // B. 异步存入数据库 (不阻塞聊天)
+        // 2. 存库
         try {
-            const [result] = await pool.execute(
-                'INSERT INTO chat_messages (user_id, content, msg_type) VALUES (?, ?, ?)',
-                [data.user_id, data.content, 'text']
-            );
+            const sql = 'INSERT INTO chat_messages (user_id, content, msg_type, created_at) VALUES (?, ?, ?, NOW())';
+            await pool.execute(sql, [data.user_id, data.content, 'text']);
+            console.log('✅ 消息已存库');
         } catch (err) {
             console.error('❌ 消息存库失败:', err);
         }
@@ -71,12 +72,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// --- 6. 基础 API 测试接口 ---
-app.get('/', (req, res) => {
-    res.send('TaskLink Chat Server is Running...');
-});
-
-// --- 7. 启动服务器 ---
+// --- 6. 启动服务器 ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🚀 聊天服务器运行在: http://localhost:${PORT}`);

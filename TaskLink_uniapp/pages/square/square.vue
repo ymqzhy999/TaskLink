@@ -66,7 +66,7 @@
 <script setup>
 import { ref, nextTick, onUnmounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { io } from "socket.io-client";
+import io from '@hyoga/uni-socket.io';
 
 const FLASK_URL = 'http://192.168.10.26:5000'; // Flask 地址
 const NODE_URL = 'http://192.168.10.26:3000';  // Node.js 地址
@@ -119,12 +119,13 @@ const fetchHistory = () => {
 
 const connectSocket = () => {
   // 如果已经连接，先断开
-  if (socket.value && socket.value.connected) return;
+if (socket.value && socket.value.connected) return;
 
-  socket.value = io(NODE_URL, {
-    transports: ['websocket'], // 强制使用 websocket
-    reconnection: true
-  });
+    socket.value = io(NODE_URL, {
+        query: {},
+        transports: ['websocket', 'polling'], // 优先使用 websocket
+        timeout: 5000,
+    });
 
   socket.value.on("connect", () => {
     console.log("🟢 Socket Connected:", socket.value.id);

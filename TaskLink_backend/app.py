@@ -7,6 +7,9 @@ from database import db
 from models import User,Task,TaskLog,ChatMessage
 import requests
 import re
+import subprocess
+from paddleocr import PaddleOCR
+
 app = Flask(__name__)
 CORS(app)  # 允许跨域
 
@@ -19,7 +22,160 @@ app.config['SECRET_KEY'] = 'your_secret_key'
 # 初始化数据库
 db.init_app(app)
 
+ocr_engine = PaddleOCR(use_textline_orientation=True, lang="ch")
+print("OCR 模型加载完成!")
 
+
+# --- 🛠️ ADB 控制器 (核心黑科技) ---
+class ADBController:
+    # 常用 App 包名映射字典
+    APP_MAP = {
+        "微信": "com.tencent.mm",
+        "QQ": "com.tencent.mobileqq",
+        "QQ音乐": "com.tencent.qqmusic",
+        "网易云": "com.netease.cloudmusic",
+        "B站": "tv.danmaku.bili",
+        "哔哩哔哩": "tv.danmaku.bili",
+        "抖音": "com.ss.android.ugc.aweme",
+        "设置": "com.android.settings",
+        "相机": "com.android.camera"
+    }
+
+    @staticmethod
+    def run(cmd):
+        """执行 ADB 命令"""
+        # 注意：这里假设只有一台手机连接。如果有多台，需加 -s device_id
+        res = subprocess.run(f"adb {cmd}", shell=True, capture_output=True, text=True, encoding='utf-8')
+        return res.stdout.strip()
+
+    @staticmethod
+    def start_app(app_name):
+        """启动 App"""
+        pkg = ADBController.APP_MAP.get(app_name)
+        if not pkg:
+            return False, f"未知的 App: {app_name}，请先在后端字典配置包名"
+
+        # 使用 monkey 命令启动 App (比 am start 兼容性更好)
+        ADBController.run(f"shell monkey -p {pkg} -c android.intent.category.LAUNCHER 1")
+        return True, f"已启动 {app_name}"
+
+    @staticmethod
+    def click_text(target_text):
+        """核心：OCR 识图点击"""
+        screenshot_path = "screen.png"
+
+        # 1. 截图并拉取到电脑
+        ADBController.run("shell screencap -p /sdcard/screen.png")
+        ADBController.run(f"pull /sdcard/screen.png {screenshot_path}")
+
+        if not os.path.exists(screenshot_path):
+            return False, "截图失败，请检查 ADB 连接"
+
+        # 2. OCR 识别
+        result = ocr_engine.ocr(screenshot_path, cls=True)
+
+        # 3. 查找坐标
+        # result 结构: [[[[x1,y1],[x2,y2],[x3,y3],[x4,y4]], (text, confidence)], ...]
+        if not result or not result[0]:
+            return False, "屏幕上没有识别到文字"
+
+        for line in result[0]:
+            box = line[0]
+            text = line[1][0]
+
+            # 模糊匹配：只要包含了目标文字 (比如 "发现" 在 "发现(1)")
+            if target_text in text:
+                # 计算中心点坐标
+                center_x = int((box[0][0] + box[2][0]) / 2)
+                center_y = int((box[0][1] + box[2][1]) / 2)
+
+                print(f"找到 '{text}' -> 点击坐标 ({center_x}, {center_y})")
+
+                # 4. 执行点击
+                ADBController.run(f"shell input tap {center_x} {center_y}")
+                return True, f"已点击: {text}"
+
+        return False, f"屏幕上未找到文字: {target_text}"
+
+
+# --- 🧠 AI 聊天接口 (更新 Prompt) ---
+# TaskLink_backend/app.py
+
+@app.route('/api/chat', methods=['POST'])
+def chat_ai():
+    data = request.json
+    user_message = data.get('message')
+
+    if not user_message:
+        return jsonify({"code": 400, "msg": "说点什么吧"}), 400
+
+    # 🔥🔥 核心修改：提示词升级，要求返回数组 [{}, {}] 🔥🔥
+    system_prompt = """
+    你是一个手机自动化助手。请分析用户指令，返回标准 JSON 数组格式。
+    支持的操作(action)：
+    1. OPEN_APP: 打开应用。value 填应用名称。
+    2. CLICK_TEXT: 点击屏幕文字。value 填要点击的文字。
+    3. DELAY: 等待。value 填秒数(整数)。
+
+    规则：
+    - 如果涉及多步操作，请返回包含多个对象的数组。
+    - 在打开应用后，通常需要等待 3-5 秒加载，请务必插入 DELAY 指令。
+
+    示例：
+    - 用户："打开微信并点一下发现"
+    - 回复：[
+        {"action": "OPEN_APP", "value": "微信"}, 
+        {"action": "DELAY", "value": 5}, 
+        {"action": "CLICK_TEXT", "value": "发现"}
+      ]
+
+    如果只是闲聊，请直接返回文本，不要带JSON。
+    """
+
+    try:
+        ollama_payload = {
+            "model": "gemma3:4b",
+            "prompt": f"{system_prompt}\n\n用户：{user_message}\n回复：",
+            "stream": False,
+            "options": {"temperature": 0.1}
+        }
+
+        resp = requests.post("http://localhost:11434/api/generate", json=ollama_payload)
+        ai_text = resp.json().get('response', '').strip()
+
+        # 清洗 Markdown
+        if "```json" in ai_text:
+            ai_text = ai_text.replace("```json", "").replace("```", "").strip()
+
+        return jsonify({"code": 200, "data": ai_text})
+
+    except Exception as e:
+        print(f"AI Error: {e}")
+        return jsonify({"code": 500, "msg": "AI 服务异常"}), 500
+
+
+@app.route('/api/phone/control', methods=['POST'])
+def phone_control():
+    data = request.json
+    action = data.get('action')
+    value = data.get('value')
+
+    print(f"收到控制指令: {action} -> {value}")
+
+    try:
+        if action == 'OPEN_APP':
+            success, msg = ADBController.start_app(value)
+            return jsonify({"code": 200 if success else 400, "msg": msg})
+
+        elif action == 'CLICK_TEXT':
+            success, msg = ADBController.click_text(value)
+            return jsonify({"code": 200 if success else 400, "msg": msg})
+
+        return jsonify({"code": 400, "msg": "未知指令"})
+
+    except Exception as e:
+        print(f"ADB Error: {e}")
+        return jsonify({"code": 500, "msg": str(e)}), 500
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
@@ -71,13 +227,6 @@ def register():
         return jsonify({"code": 500, "msg": "服务器内部错误，注册失败"}), 500
 
 
-# --- 登录接口 ---
-# TaskLink_backend/app.py
-
-# 确保文件头部导入了 check_password_hash
-from werkzeug.security import generate_password_hash, check_password_hash
-
-
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
@@ -102,6 +251,7 @@ def login():
         })
 
     return jsonify({"code": 401, "msg": "用户名或密码错误"}), 401
+
 
 
 # --- 获取任务列表 ---
@@ -265,38 +415,6 @@ def get_logs():
         "code": 200,
         "data": [log.to_dict() for log in logs]
     })
-
-
-@app.route('/api/chat', methods=['POST'])
-def chat_ai():
-    data = request.json
-    user_message = data.get('message')
-    history = data.get('history', [])  # 暂时没用上，后续可做上下文
-
-    if not user_message:
-        return jsonify({"code": 400, "msg": "说点什么吧"}), 400
-
-    try:
-        # 注意：如果你用的是 gemma:2b 或其他模型，请在这里修改 'model'
-        ollama_payload = {
-            "model": "gemma3:4b",
-            "prompt": user_message,
-            "stream": False
-        }
-
-        # 这里的 localhost 指向你电脑的 Ollama 服务
-        response = requests.post("http://localhost:11434/api/generate", json=ollama_payload)
-
-        if response.status_code == 200:
-            ai_text = response.json().get('response', '')
-            return jsonify({"code": 200, "data": ai_text})
-        else:
-            return jsonify({"code": 500, "msg": "AI 脑子短路了"}), 500
-
-    except Exception as e:
-        print(f"AI Error: {e}")
-        return jsonify({"code": 500, "msg": "无法连接本地模型，请检查 Ollama 是否运行"}), 500
-
 
 
 import os

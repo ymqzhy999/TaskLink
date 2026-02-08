@@ -39,6 +39,7 @@
         class="plan-card slide-up"
         :style="{ animationDelay: index * 0.1 + 's' }"
         @click="goToDetail(plan.id)"
+        @longpress="onLongPressPlan(plan)"
       >
         <view class="card-line"></view>
         <view class="card-content">
@@ -73,7 +74,7 @@
 import { ref, computed } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 
-const API_BASE = 'http://192.168.10.28:5000'; // ⚠️ 请确认 IP
+const API_BASE = 'http://192.168.10.28:5000'; 
 const activePlans = ref([]);
 
 onShow(() => {
@@ -92,7 +93,6 @@ onPullDownRefresh(() => {
 
 const fetchPlans = () => {
   const user = uni.getStorageSync('userInfo');
-  // 获取 "active" 状态的计划
   uni.request({
     url: `${API_BASE}/api/plans?user_id=${user.id}&status=active`,
     success: (res) => {
@@ -103,7 +103,6 @@ const fetchPlans = () => {
   });
 };
 
-// 计算总平均进度
 const totalProgress = computed(() => {
   if (activePlans.value.length === 0) return 0;
   const sum = activePlans.value.reduce((acc, cur) => acc + (cur.progress || 0), 0);
@@ -112,6 +111,49 @@ const totalProgress = computed(() => {
 
 const goToDetail = (id) => {
   uni.navigateTo({ url: `/pages/plan/detail?id=${id}` });
+};
+
+// 🔥 长按删除逻辑
+const onLongPressPlan = (plan) => {
+  // 震动反馈 (提升手感)
+  uni.vibrateShort();
+  
+  uni.showModal({
+    title: '⚠️ 销毁协议',
+    content: `确认要永久销毁战术计划：\n【${plan.title}】吗？`,
+    confirmText: '销毁',
+    confirmColor: '#ff003c', // 红色警示
+    cancelText: '取消',
+    success: (res) => {
+      if (res.confirm) {
+        deletePlan(plan.id);
+      }
+    }
+  });
+};
+
+// 🔥 调用后端删除接口
+const deletePlan = (id) => {
+  uni.showLoading({ title: 'DELETING...' });
+  
+  uni.request({
+    url: `${API_BASE}/api/plan/${id}`,
+    method: 'DELETE',
+    success: (res) => {
+      uni.hideLoading();
+      if (res.data.code === 200) {
+        uni.showToast({ title: '战术已销毁', icon: 'success' });
+        // 刷新列表
+        fetchPlans();
+      } else {
+        uni.showToast({ title: '删除失败', icon: 'none' });
+      }
+    },
+    fail: () => {
+      uni.hideLoading();
+      uni.showToast({ title: '连接中断', icon: 'none' });
+    }
+  });
 };
 </script>
 
@@ -148,6 +190,7 @@ page { background-color: #050505; color: #e0e0e0; font-family: 'Courier New', mo
 .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .plan-title { font-size: 16px; font-weight: bold; color: #fff; }
 .plan-days { font-size: 10px; color: #000; background: #bc13fe; padding: 1px 4px; font-weight: bold; }
+
 .plan-goal { font-size: 12px; color: #888; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 32px; margin-bottom: 15px; }
 
 /* 进度条 */

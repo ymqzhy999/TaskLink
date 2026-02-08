@@ -50,9 +50,8 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 # ==========================================
 # 🔥 DeepSeek API 配置 (核心修改)
 # ==========================================
-load_dotenv('.env')
+load_dotenv(r'F:\项目\TaskLink\.env')
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-print(DEEPSEEK_API_KEY)
 if not DEEPSEEK_API_KEY:
     print("⚠️ 警告: 未在 .env 文件中找到 DEEPSEEK_API_KEY，AI 功能将无法使用！")
 DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
@@ -93,95 +92,142 @@ def call_deepseek_json(system_prompt, user_prompt):
         return None
 
 
-# ==========================================
-# 🚀 新增接口：生成賽博朋克學習計劃
-# ==========================================
+# TaskLink_backend/app.py
+
+# ... (保持前面的引用) ...
+
+# TaskLink_backend/app.py
+
 @app.route('/api/plan/generate', methods=['POST'])
 def generate_plan():
     data = request.json
     user_id = data.get('user_id')
     goal = data.get('goal')
-    days = data.get('days', 7)
+    days = int(data.get('days', 7))
+    expectation = data.get('expectation', '无')
 
     print(f"⚡ [收到请求] 用户:{user_id} 目标:{goal} 天数:{days}")
 
     if not user_id or not goal:
         return jsonify({"code": 400, "msg": "目标不能为空"}), 400
 
-    # 提示词保持不变... (省略以节省篇幅)
-    system_prompt = f"""... (保留你原来的 prompt) ..."""
-    user_prompt = f"目标：{goal}。时间：{days}天。立即生成战術路徑。"
+    # ==========================================
+    # 🧠 智能分段逻辑 (强制接管 AI 的规划)
+    # ==========================================
+    if days <= 7:
+        # 短周期：每天一个任务，精确执行
+        task_count = days
+        structure_prompt = f"必须严格输出 {task_count} 个任务节点，分别对应 Day 1 到 Day {task_count}。"
+        time_unit = "Day"
+    else:
+        # 长周期：强制合并为 4-6 个阶段，杜绝流水账
+        if days <= 15:
+            task_count = 4
+        elif days <= 30:
+            task_count = 5
+        else:
+            task_count = 6
 
-    print(f"🧠 [DeepSeek] 正在思考中... (这可能需要 30-60 秒)")
+        avg_days = days // task_count
+        structure_prompt = f"""
+        这是一个长周期计划 ({days}天)。
+        ⚠️ 严禁按天罗列！必须将计划压缩为 {task_count} 个【核心战术阶段】(Phases)。
+        每个阶段跨度约 {avg_days} 天。
+        JSON中的 'day' 字段请填序号 (1, 2, 3...)。
+        JSON中的 'title' 必须包含时间范围 (如 "阶段一：基础架构 (Day 1-{avg_days})")。
+        """
+        time_unit = "Phase"
 
-    # 调用 AI
+    # 🔥 核心提示词：重拳整治废话 🔥
+    system_prompt = f"""
+    # Role: 阿琪的贾维斯 (Cyberpunk Tactical AI)
+    你是阿琪的专属战术顾问。
+
+    # Mission:
+    为阿琪制定 "{goal}" 的执行方案。
+    {structure_prompt}
+
+    # Content Rules (绝对红线):
+    1. **拒绝机械重复**: 严禁在 content 里重复 "神经连接"、"系统自检" 等赛博废话。**Content 必须是纯干货**。
+    2. **内容强关联**: 如果目标是编程，必须出现代码概念；如果是健身，必须出现动作名称。
+    3. **格式要求**: 
+       - 标题 (title): 保持赛博朋克风格 (如 "协议注入", "核心重构")。
+       - 内容 (content): 使用 Markdown 无序列表，条理清晰。包含【核心目标】、【执行步骤】、【验收标准】。
+
+    # JSON Output Format (Strict JSON):
+    {{
+        "title": "总计划名称",
+        "tasks": [
+            {{
+                "day": 1, 
+                "title": "阶段/天数标题",
+                "content": "Markdown 干货内容..."
+            }},
+            ... (共 {task_count} 项)
+        ]
+    }}
+    """
+
+    user_prompt = f"目标：{goal}。预期：{expectation}。总时长：{days}天。请生成 {task_count} 个节点的战术路径。"
+
+    print(f"🧠 [DeepSeek] 贾维斯正在规划 ({time_unit}模式, 节点数:{task_count})...")
+
     ai_result = call_deepseek_json(system_prompt, user_prompt)
 
-    # 🔥 调试打印：看看 AI 到底回了什么
-    print(f"🤖 [AI 回复原始内容]: {ai_result}")
-
     if not ai_result:
-        print("❌ [Error] AI 返回为空或解析失败")
-        return jsonify({"code": 500, "msg": "神经网络连接失败 (API Error)"}), 500
+        print("❌ [Error] AI 返回为空")
+        return jsonify({"code": 500, "msg": "神经网络连接中断"}), 500
 
     try:
-        # 1. 保存总计划
         new_plan = AIPlan(
             user_id=user_id,
             title=ai_result.get('title', '未知战术'),
             goal=goal,
-            total_days=len(ai_result.get('tasks', [])),
+            total_days=days,
             is_completed=False
         )
         db.session.add(new_plan)
         db.session.flush()
 
-        # 2. 保存每一天的任务
-        for task_data in ai_result.get('tasks', []):
+        tasks_data = ai_result.get('tasks', [])
+        # 双重保险：如果 AI 还是生成了太多，强制截断
+        if len(tasks_data) > 10 and days > 10:
+            tasks_data = tasks_data[:8]  # 强制只取前8个
+
+        for idx, task_data in enumerate(tasks_data):
             new_task = AIPlanTask(
                 plan_id=new_plan.id,
-                day_order=task_data.get('day'),
+                day_order=idx + 1,
                 title=task_data.get('title'),
                 content=task_data.get('content')
             )
             db.session.add(new_task)
 
         db.session.commit()
-        print(f"✅ [Success] 计划已保存，ID: {new_plan.id}")
-
-        return jsonify({
-            "code": 200,
-            "msg": "战术计划已加载",
-            "data": {"plan_id": new_plan.id}
-        })
+        print(f"✅ [Success] 计划保存成功 (节点数: {len(tasks_data)})")
+        return jsonify({"code": 200, "msg": "战术已装载", "data": {"plan_id": new_plan.id}})
 
     except Exception as e:
         db.session.rollback()
-        print(f"❌ [DB Error] 数据库写入失败: {e}")
+        print(f"❌ [DB Error] {e}")
         return jsonify({"code": 500, "msg": "数据库写入失败"}), 500
 
 
-
-# ==========================================
-# 🔍 獲取計劃詳情 (前端點擊進入計劃後調用)
-# ==========================================
-@app.route('/api/plan/<int:plan_id>', methods=['GET'])
-def get_plan_detail(plan_id):
+@app.route('/api/plan/<int:plan_id>', methods=['DELETE'])
+def delete_plan(plan_id):
     plan = AIPlan.query.get(plan_id)
     if not plan:
-        return jsonify({"code": 404, "msg": "計劃不存在"}), 404
+        return jsonify({"code": 404, "msg": "计划不存在"}), 404
 
-    # 按天數排序
-    tasks = AIPlanTask.query.filter_by(plan_id=plan.id).order_by(AIPlanTask.day_order).all()
-
-    return jsonify({
-        "code": 200,
-        "data": {
-            "info": plan.to_dict(),
-            "tasks": [t.to_dict() for t in tasks]
-        }
-    })
-
+    try:
+        # 级联删除在数据库层面配置了 (cascade="all, delete-orphan")
+        # 这里直接删 plan 即可
+        db.session.delete(plan)
+        db.session.commit()
+        return jsonify({"code": 200, "msg": "战术协议已销毁"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"code": 500, "msg": str(e)}), 500
 
 @app.route('/api/plan/detail', methods=['GET'])
 def get_plan_detail():
@@ -527,6 +573,29 @@ def get_plans():
         "code": 200,
         "data": [p.to_dict() for p in plans]
     })
+
+
+@app.route('/api/plan/task/<int:task_id>/toggle', methods=['POST'])
+def toggle_task_status(task_id):
+    task = AIPlanTask.query.get(task_id)
+    if not task:
+        return jsonify({"code": 404, "msg": "任务节点不存在"}), 404
+
+    try:
+        # 切换状态
+        task.is_completed = not task.is_completed
+
+        db.session.commit()
+
+        status_msg = "已归档" if task.is_completed else "已重置"
+        return jsonify({
+            "code": 200,
+            "msg": f"节点{status_msg}",
+            "data": {"is_completed": task.is_completed}
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"code": 500, "msg": str(e)}), 500
 
 """ai控制手机"""
 # # adb命令

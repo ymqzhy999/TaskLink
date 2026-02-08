@@ -1,7 +1,7 @@
 <template>
   <view class="container dark-theme">
     <view class="cyber-bg"></view>
-    
+    file:///F:/项目/TaskLink/TaskLink_uniapp/emojs
     <view class="header-box fade-in">
       <text class="title">DATA_ARCHIVES</text>
       <text class="subtitle">// 已完成的战术协议历史记录</text>

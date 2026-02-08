@@ -22,6 +22,7 @@
       :scroll-into-view="scrollTarget"
       scroll-with-animation
       :enable-back-to-top="true"
+      @click="closeEmojiPanel"
     >
       <view class="system-msg">--- 已连接到公共频道 ---</view>
 
@@ -57,7 +58,7 @@
             @longpress.stop="onLongPressMessage(msg)"
             @click.stop="onSelectMessage(msg)"
           >
-            <text>{{ msg.content }}</text>
+            <rich-text :nodes="parseEmoji(msg.content)" style="font-size: 15px; line-height: 24px; color: #e0e0e0;"></rich-text>
           </view>
         </view>
 
@@ -73,16 +74,36 @@
       <view id="bottom-anchor" style="height: 20px;"></view>
     </scroll-view>
 
-    <view v-if="!isSelectionMode" class="input-bar">
-      <input 
-        class="cyber-input" 
-        v-model="inputText" 
-        placeholder="输入消息..." 
-        placeholder-class="ph-style"
-        confirm-type="send"
-        @confirm="sendMessage"
-      />
-      <view class="send-btn" @click="sendMessage">➤</view>
+    <view v-if="!isSelectionMode" class="input-area-wrapper">
+      <view class="input-bar">
+        <view class="emoji-btn" @click.stop="toggleEmojiPanel">
+          <text style="font-size: 24px;">☺</text>
+        </view>
+
+        <input 
+          class="cyber-input" 
+          v-model="inputText" 
+          placeholder="输入消息..." 
+          placeholder-class="ph-style"
+          confirm-type="send"
+          @confirm="sendMessage"
+          @focus="closeEmojiPanel"
+        />
+        <view class="send-btn" @click="sendMessage">➤</view>
+      </view>
+
+      <view class="emoji-panel" v-if="showEmojiPanel">
+        <scroll-view scroll-y style="height: 200px;">
+          <view class="emoji-grid">
+<view v-for="i in 135" :key="i" class="emoji-item" @click="selectEmoji(i-1)">
+  <image 
+    :src="`${FLASK_URL}/static/emoji/${(i-1).toString().padStart(2, '0')}.gif`" 
+    class="emoji-icon"
+  ></image>
+</view>
+          </view>
+        </scroll-view>
+      </view>
     </view>
 
     <view v-else class="delete-bar">
@@ -95,9 +116,9 @@
 
 <script setup>
 import { ref, nextTick, onUnmounted } from 'vue';
-import { onUnload,onLoad,onShow } from '@dcloudio/uni-app';
+import { onUnload, onLoad, onShow } from '@dcloudio/uni-app';
 import io from '@hyoga/uni-socket.io'; 
-// 记得改成你自己的 IP
+
 const FLASK_URL = 'http://101.35.132.175:5000'; 
 const NODE_URL = 'http://101.35.132.175:3000';
 
@@ -107,14 +128,12 @@ const messages = ref([]);
 const inputText = ref('');
 const scrollTarget = ref('');
 const onlineCount = ref(1);
-
 const isSelectionMode = ref(false); 
-const selectedIds = ref([]);        
+const selectedIds = ref([]);  
+const showEmojiPanel = ref(false); // 控制表情面板显示
 
 onShow(() => {
-	uni.removeTabBarBadge({
-		index: 1
-	});
+  uni.removeTabBarBadge({ index: 1 });
   const user = uni.getStorageSync('userInfo');
   if (!user) {
     uni.showToast({ title: '请先登录', icon: 'none' });
@@ -122,7 +141,6 @@ onShow(() => {
     return;
   }
   myInfo.value = user;
-
   fetchHistory();
   connectSocket();
 });
@@ -130,6 +148,39 @@ onShow(() => {
 onUnmounted(() => {
   if (socket.value) socket.value.disconnect();
 });
+
+// --- 表情包逻辑 ---
+
+const toggleEmojiPanel = () => {
+  showEmojiPanel.value = !showEmojiPanel.value;
+  if(showEmojiPanel.value) {
+    uni.hideKeyboard(); // 打开表情时收起键盘
+    scrollToBottom();
+  }
+};
+
+const closeEmojiPanel = () => {
+  showEmojiPanel.value = false;
+};
+
+const selectEmoji = (index) => {
+  // 插入表情代码，例如 [face:12]
+  inputText.value += `[face:${index}]`;
+};
+
+
+
+const parseEmoji = (content) => {
+  if (!content) return '';
+  return content.replace(/\[face:(\d+)\]/g, (match, id) => {
+    const filename = id.toString().padStart(2, '0');
+    // 🔥 这里改成您的服务器地址
+    const serverUrl = `${FLASK_URL}/static/emoji/${filename}.gif`;
+    
+    return `<img style="width:24px; height:24px; vertical-align:middle; margin:0 2px;" src="${serverUrl}" />`;
+  });
+};
+// -----------------
 
 const onLongPressMessage = (msg) => {
   isSelectionMode.value = true;
@@ -139,7 +190,6 @@ const onLongPressMessage = (msg) => {
 
 const onSelectMessage = (msg) => {
   if (!isSelectionMode.value) return;
-  
   const index = selectedIds.value.indexOf(msg.id);
   if (index > -1) {
     selectedIds.value.splice(index, 1); 
@@ -155,10 +205,9 @@ const exitSelectionMode = () => {
 
 const confirmDelete = () => {
   if (selectedIds.value.length === 0) return;
-
   uni.showModal({
     title: '删除消息',
-    content: '删除后仅自己不可见，确定吗？', // 提示文案也改得更准确了
+    content: '删除后仅自己不可见，确定吗？',
     success: (res) => {
       if (res.confirm) {
         doLocalDelete();
@@ -169,20 +218,10 @@ const confirmDelete = () => {
 
 const doLocalDelete = () => {
   const storageKey = `deleted_msgs_${myInfo.value.id}`;
-  
-  // 1. 获取以前删过的 ID 列表
   let oldDeletedIds = uni.getStorageSync(storageKey) || [];
-  
-  // 2. 合并这次删的 (去重)
   const newDeletedIds = [...new Set([...oldDeletedIds, ...selectedIds.value])];
-  
-  // 3. 存回缓存
   uni.setStorageSync(storageKey, newDeletedIds);
-  
-  // 4. 从当前视图中移除
   messages.value = messages.value.filter(m => !selectedIds.value.includes(m.id));
-  
-  // 5. 退出模式
   exitSelectionMode();
   uni.showToast({ title: '已清理', icon: 'none' });
 };
@@ -199,14 +238,9 @@ const fetchHistory = () => {
     success: (res) => {
       if (res.data.code === 200) {
         const allMessages = res.data.data;
-        
-        // 读取本地“删除黑名单”
         const storageKey = `deleted_msgs_${myInfo.value.id}`;
         const deletedIds = uni.getStorageSync(storageKey) || [];
-        
-        // 过滤：如果 ID 在黑名单里，就不显示
         messages.value = allMessages.filter(m => !deletedIds.includes(m.id));
-        
         scrollToBottom();
       }
     }
@@ -215,22 +249,14 @@ const fetchHistory = () => {
 
 const connectSocket = () => {
   if (socket.value && socket.value.connected) return;
-
   socket.value = io(NODE_URL, {
     query: {},
     transports: ['websocket', 'polling'],
     timeout: 5000,
   });
 
-  socket.value.on("connect", () => {
-    console.log("🟢 Socket Connected");
-  });
-
-  socket.value.on("update_online_count", (count) => {
-    onlineCount.value = count;
-  });
-
-
+  socket.value.on("connect", () => { console.log("🟢 Socket Connected"); });
+  socket.value.on("update_online_count", (count) => { onlineCount.value = count; });
   socket.value.on("new_message", (msg) => {
     if (msg.user_id === myInfo.value.id) {
         msg.username = myInfo.value.username;
@@ -245,6 +271,7 @@ const sendMessage = () => {
   if (!inputText.value.trim()) return;
   const content = inputText.value;
   inputText.value = ''; 
+  showEmojiPanel.value = false; // 发送后关闭面板
 
   socket.value.emit("send_message", {
     user_id: myInfo.value.id,
@@ -256,14 +283,12 @@ const sendMessage = () => {
 
 const scrollToBottom = () => {
   scrollTarget.value = '';
-  nextTick(() => {
-    scrollTarget.value = 'bottom-anchor';
-  });
+  nextTick(() => { scrollTarget.value = 'bottom-anchor'; });
 };
 </script>
 
 <style>
-/* ... (样式保持之前的不变) ... */
+/* 保持原有基础样式 */
 page { background-color: #050505; height: 100vh; overflow: hidden; font-family: 'Courier New', monospace; }
 .container { height: 100vh; display: flex; flex-direction: column; }
 .cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 50%, #111 0%, #000 90%); z-index: -1; }
@@ -291,13 +316,27 @@ page { background-color: #050505; height: 100vh; overflow: hidden; font-family: 
 .sender-name { font-size: 10px; color: #666; margin-bottom: 4px; }
 .bubble { background: #1a1a1a; border: 1px solid #333; padding: 10px 15px; border-radius: 4px; position: relative; }
 .self .bubble { background: rgba(0, 243, 255, 0.15); border-color: #00f3ff; color: #fff; }
-.bubble text { font-size: 14px; color: #ddd; line-height: 1.4; word-break: break-all; }
 .system-msg { text-align: center; color: #333; font-size: 10px; margin: 20px 0; letter-spacing: 2px; }
-.input-bar { flex-shrink: 0; min-height: 60px; background: #080808; border-top: 1px solid #333; display: flex; align-items: center; padding: 10px 15px; padding-bottom: calc(10px + constant(safe-area-inset-bottom)); padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+
+/* --- 底部输入区域 (新) --- */
+.input-area-wrapper { flex-shrink: 0; background: #080808; border-top: 1px solid #333; display: flex; flex-direction: column; padding-bottom: calc(constant(safe-area-inset-bottom)); padding-bottom: calc(env(safe-area-inset-bottom)); }
+
+.input-bar { display: flex; align-items: center; padding: 10px 15px; height: 60px; box-sizing: border-box; }
+
+.emoji-btn { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; margin-right: 10px; color: #888; border: 1px solid #333; border-radius: 4px; background: #111; }
+.emoji-btn:active { background: #222; color: #00f3ff; border-color: #00f3ff; }
+
 .cyber-input { flex: 1; background: #111; border: 1px solid #333; height: 36px; padding: 0 10px; color: #fff; font-size: 14px; transition: all 0.3s; }
 .cyber-input:focus { border-color: #00f3ff; box-shadow: 0 0 10px rgba(0, 243, 255, 0.2); }
 .ph-style { color: #444; }
 .send-btn { width: 40px; height: 36px; background: #00f3ff; color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-left: 10px; clip-path: polygon(15% 0, 100% 0, 100% 100%, 0% 100%); }
+
+/* --- 表情面板 (新) --- */
+.emoji-panel { height: 200px; background: #111; border-top: 1px solid #333; transition: all 0.3s; }
+.emoji-grid { display: flex; flex-wrap: wrap; padding: 10px; }
+.emoji-item { width: 12.5%; height: 40px; display: flex; align-items: center; justify-content: center; } /* 一行8个 */
+.emoji-icon { width: 28px; height: 28px; }
+
 .delete-bar { flex-shrink: 0; height: 60px; background: #1a0505; border-top: 1px solid #ff003c; display: flex; align-items: center; justify-content: center; padding-bottom: calc(10px + constant(safe-area-inset-bottom)); padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
 .delete-btn { color: #ff003c; font-weight: bold; font-size: 16px; padding: 10px 30px; border: 1px solid #ff003c; border-radius: 20px; background: rgba(255, 0, 60, 0.1); }
 .delete-btn:active { background: #ff003c; color: #fff; }

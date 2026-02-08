@@ -582,17 +582,37 @@ def toggle_task_status(task_id):
         return jsonify({"code": 404, "msg": "任务节点不存在"}), 404
 
     try:
-        # 切换状态
+        # 1. 切换当前任务状态
         task.is_completed = not task.is_completed
+
+        # 2. 🔥 核心修复：检查所属计划的所有任务是否都已完成
+        plan = AIPlan.query.get(task.plan_id)
+        if plan:
+            # 获取该计划下的所有任务
+            all_tasks = AIPlanTask.query.filter_by(plan_id=plan.id).all()
+            # 判断是否全部完成
+            all_done = all(t.is_completed for t in all_tasks)
+
+            # 更新计划状态
+            plan.is_completed = all_done
+
+            status_hint = " (计划已归档)" if all_done else ""
+        else:
+            status_hint = ""
 
         db.session.commit()
 
-        status_msg = "已归档" if task.is_completed else "已重置"
+        # 返回信息带上计划状态，方便前端调试
+        status_msg = "已完成" if task.is_completed else "已重置"
         return jsonify({
             "code": 200,
-            "msg": f"节点{status_msg}",
-            "data": {"is_completed": task.is_completed}
+            "msg": f"节点{status_msg}{status_hint}",
+            "data": {
+                "is_completed": task.is_completed,
+                "plan_completed": plan.is_completed
+            }
         })
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"code": 500, "msg": str(e)}), 500

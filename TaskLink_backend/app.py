@@ -486,6 +486,34 @@ def get_square_history():
         "data": [m.to_dict() for m in messages][::-1]  # 翻转列表，旧的在上面
     })
 
+
+# [在 app.py 中添加此接口]
+
+# --- 获取计划列表 ---
+@app.route('/api/plans', methods=['GET'])
+def get_plans():
+    user_id = request.args.get('user_id')
+    status = request.args.get('status')  # optional: 'active' or 'archived'
+
+    if not user_id:
+        return jsonify({"code": 400, "msg": "缺少用户ID"}), 400
+
+    query = AIPlan.query.filter_by(user_id=user_id)
+
+    # 简单的状态筛选
+    if status == 'active':
+        query = query.filter_by(is_completed=False)
+    elif status == 'archived':
+        query = query.filter_by(is_completed=True)
+
+    # 按创建时间倒序
+    plans = query.order_by(AIPlan.created_at.desc()).all()
+
+    return jsonify({
+        "code": 200,
+        "data": [p.to_dict() for p in plans]
+    })
+
 """ai控制手机"""
 # # adb命令
 # class ADBController:

@@ -41,10 +41,10 @@
 
 > *注：以下界面展示了极致的赛博朋克风格与核心功能。请确保在 `docs/images/` 目录下放入对应的截图文件。*
 
-| 🧠 战术规划终端 (AI Planner) |             📊 个人主页 (Profile)             |
-| :---: |:-----------------------------------------:|
-| ![战术生成页](docs/images/screenshot_add.png) | ![个人信息](docs/images/screenshot_index.png) |
-| *▲ 接入 DeepSeek 的沉浸式生成界面* |              *▲ 赛博朋克风格的个人主页*              |
+|          🧠 战术规划终端 (AI Planner)           |             📊 个人主页 (Profile)             |
+|:-----------------------------------------:|:-----------------------------------------:|
+| ![战术生成页](docs/images/screenshot_add.png)  | ![个人信息](docs/images/screenshot_index.png) |
+|         *▲ 接入 DeepSeek 的沉浸式生成界面*          |              *▲ 赛博朋克风格的个人主页*              |
 
 | 📅 战术执行详情 (Execution) | 💬 网络广场 (Net Square) |
 | :---: | :---: |

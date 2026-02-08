@@ -1,9 +1,7 @@
 # backend/models.py
 from database import db
 from datetime import datetime
-# from sqlalchemy.ext.declarative import declarative_base
 
-# Base = declarative_base()
 
 class User(db.Model):
     __tablename__ = 'users'
@@ -11,31 +9,36 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
-    role = db.Column(db.Integer, default=0) # 0:普通用户, 1:管理员
+    role = db.Column(db.Integer, default=0)  # 0:普通用户, 1:管理员
     created_at = db.Column(db.DateTime, default=datetime.now)
     avatar = db.Column(db.String(255), nullable=True)
 
+    # 关联关系
+    plans = db.relationship('AIPlan', backref='owner', lazy=True)
+
     def to_dict(self):
-        """转成字典，方便API返回"""
         return {
             "id": self.id,
             "username": self.username,
             "role": self.role,
+            "avatar": self.avatar,
             "created_at": self.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }
 
+
+# --- 原有的自动化任务表 (保持不变，用于ADB控制) ---
 class Task(db.Model):
     __tablename__ = 'tasks'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False) # 关联用户
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     title = db.Column(db.String(100), nullable=False)
-    trigger_time = db.Column(db.String(5), nullable=False) # 格式 "09:00"
-    action_type = db.Column(db.String(20), nullable=False) # APP, LINK, CALL
-    target_value = db.Column(db.String(255), nullable=False) # 包名或链接
-    is_active = db.Column(db.Boolean, default=True) # 1=启用
+    trigger_time = db.Column(db.String(5), nullable=False)  # 格式 "09:00"
+    action_type = db.Column(db.String(20), nullable=False)  # APP, LINK, CALL
+    target_value = db.Column(db.String(255), nullable=False)  # 包名或链接
+    is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
-    description = db.Column(db.String(500), nullable=True)  # 任务备注
+    description = db.Column(db.String(500), nullable=True)
     is_loop = db.Column(db.Boolean, default=False)
 
     def to_dict(self):
@@ -45,19 +48,77 @@ class Task(db.Model):
             "time": self.trigger_time,
             "type": self.action_type,
             "target": self.target_value,
+            "description": self.description,
+            "is_loop": self.is_loop,
             "active": bool(self.is_active)
         }
 
+
+# --- 🔥 新增：AI 智能计划总表 ---
+class AIPlan(db.Model):
+    __tablename__ = 'ai_plans'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.String(100), nullable=False)  # 计划名：如 "Pytest 一周速成"
+    goal = db.Column(db.Text, nullable=True)  # 用户的原始需求
+    total_days = db.Column(db.Integer, default=7)
+    is_completed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # 关联每天的子任务
+    tasks = db.relationship('AIPlanTask', backref='plan', cascade="all, delete-orphan", lazy=True)
+
+    def to_dict(self):
+        # 简单计算进度
+        total = len(self.tasks)
+        done = sum(1 for t in self.tasks if t.is_completed)
+        progress = int((done / total * 100)) if total > 0 else 0
+
+        return {
+            "id": self.id,
+            "title": self.title,
+            "goal": self.goal,
+            "total_days": self.total_days,
+            "progress": progress,  # 返回进度百分比，方便前端展示进度条
+            "is_completed": self.is_completed,
+            "created_at": self.created_at.strftime('%Y-%m-%d')
+        }
+
+
+# --- 🔥 新增：计划每日详情表 ---
+class AIPlanTask(db.Model):
+    __tablename__ = 'ai_plan_tasks'
+
+    id = db.Column(db.Integer, primary_key=True)
+    plan_id = db.Column(db.Integer, db.ForeignKey('ai_plans.id'), nullable=False)
+    day_order = db.Column(db.Integer, nullable=False)  # 第几天
+    title = db.Column(db.String(100), nullable=True)  # 当天的主题，如 "环境搭建与Hello World"
+    content = db.Column(db.Text, nullable=True)  # AI生成的详细指导 (Markdown)
+    is_completed = db.Column(db.Boolean, default=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "day": self.day_order,
+            "title": self.title,
+            "content": self.content,
+            "is_completed": self.is_completed
+        }
+
+
+# --- 日志与聊天 (保持不变) ---
 class TaskLog(db.Model):
     __tablename__ = 'task_logs'
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    task_title = db.Column(db.String(100), nullable=False) # 记录当时的任务名(防止任务被删后查不到)
-    task_type = db.Column(db.String(20)) # APP / LINK
-    status = db.Column(db.String(20), default='SUCCESS') # SUCCESS / FAIL
-    executed_at = db.Column(db.DateTime, default=datetime.now) # 执行时间
-    result = db.Column(db.Text, nullable=True)  # 脚本返回的详细结果(可能很长，用Text)
+    task_title = db.Column(db.String(100), nullable=False)
+    task_type = db.Column(db.String(20))
+    status = db.Column(db.String(20), default='SUCCESS')
+    executed_at = db.Column(db.DateTime, default=datetime.now)
+    result = db.Column(db.Text, nullable=True)
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -67,20 +128,18 @@ class TaskLog(db.Model):
             'executed_at': self.executed_at.strftime('%Y-%m-%d %H:%M:%S')
         }
 
+
 class ChatMessage(db.Model):
     __tablename__ = 'chat_messages'
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    msg_type = db.Column(db.String(20), default='text')  # text / image
+    msg_type = db.Column(db.String(20), default='text')
     created_at = db.Column(db.DateTime, default=datetime.now)
-
-
     sender = db.relationship('User', backref='messages')
 
     def to_dict(self):
-
         return {
             "id": self.id,
             "user_id": self.user_id,

@@ -2,349 +2,225 @@
   <view class="container dark-theme">
     <view class="cyber-bg"></view>
 
-    <view class="header-section">
-      <text class="page-title">{{ isEdit ? t.title_edit : t.title_new }}</text>
-      <text class="page-desc">{{ t.subtitle }}</text>
+    <view class="header-section fade-in">
+      <text class="glitch-title" data-text="NEURAL_PLANNER">NEURAL_PLANNER</text>
+      <text class="page-desc">// 接入 DeepSeek 戰術核心 // 生成執行協議</text>
     </view>
 
-    <view class="form-container">
+    <view class="form-container fade-in-up">
       
-      <view class="cyber-card">
+      <view class="cyber-card glow-card">
         <view class="card-header">
-          <view class="decor-line"></view>
-          <text class="section-label">{{ t.sec_basic }}</text>
+          <view class="decor-line bg-red"></view>
+          <text class="section-label">MISSION TARGET (目標鎖定)</text>
+          <view class="header-decoration">
+            <text class="tech-text">INPUT_STREAM</text>
+          </view>
         </view>
-        <view class="form-row">
-          <text class="label">{{ t.label_name }}</text>
-          <input class="cyber-input" v-model="form.title" :placeholder="t.ph_name" placeholder-class="cyber-placeholder" />
+        <view class="input-area">
+          <textarea 
+            class="cyber-textarea" 
+            v-model="planForm.goal" 
+            placeholder="請輸入您的最終目標..." 
+            placeholder-class="cyber-placeholder"
+            :maxlength="200"
+          />
+          <view class="corner-decor tr"></view>
+          <view class="corner-decor bl"></view>
         </view>
-        <view class="form-row no-border">
-          <text class="label">{{ t.label_desc }}</text>
-          <input class="cyber-input" v-model="form.desc" :placeholder="t.ph_desc" placeholder-class="cyber-placeholder" :maxlength="100" />
+        <view class="input-footer">
+          <text class="char-count">{{ planForm.goal.length }}/200 BYTES</text>
         </view>
       </view>
 
       <view class="cyber-card">
         <view class="card-header">
-          <view class="decor-line bg-purple"></view>
-          <text class="section-label">{{ t.sec_trigger }}</text>
-        </view>
-        <view class="form-row">
-          <text class="label">{{ t.label_time }}</text>
-          <picker mode="time" :value="form.time" @change="onTimeChange">
-            <view class="picker-value neon-text">{{ form.time || '--:--' }}</view>
-          </picker>
-        </view>
-        <view class="form-row no-border">
-          <text class="label">{{ t.label_loop }}</text>
-          <switch color="#00f3ff" style="transform:scale(0.8)" :checked="form.is_loop" @change="onLoopChange"/>
-        </view>
-      </view>
-
-      <view class="cyber-card action-card">
-        <view class="card-header">
-          <view class="decor-line bg-green"></view>
-          <text class="section-label">{{ t.sec_action }}</text>
+          <view class="decor-line bg-yellow"></view>
+          <text class="section-label">TIMELINE (執行週期)</text>
         </view>
         
-        <view class="type-grid">
-          <view class="cyber-btn" :class="{ active: form.type === 'APP' }" @click="form.type = 'APP'">📱 APP</view>
-          <view class="cyber-btn" :class="{ active: form.type === 'LINK' }" @click="form.type = 'LINK'">🔗 LINK</view>
-          <view class="cyber-btn" :class="{ active: form.type === 'SCRIPT' }" @click="form.type = 'SCRIPT'">💻 CODE</view>
-        </view>
-
-        <view class="dynamic-input">
-          <text class="input-helper">{{ getInputHelper() }}</text>
-          
-          <view class="input-wrapper">
-            <input 
-              class="big-input cyber-input-box" 
-              v-model="form.target" 
-              :placeholder="getPlaceholder()" 
-              placeholder-class="cyber-placeholder"
-            />
-            
-            <view 
-              v-if="form.type === 'APP'" 
-              class="match-btn" 
-              @click="autoMatchPackage"
-            >
-              🔍 匹配
-            </view>
+        <view class="slider-container">
+          <text class="slider-val">{{ planForm.days }} <text class="unit">DAYS</text></text>
+          <slider 
+            class="cyber-slider" 
+            :value="planForm.days" 
+            min="3" 
+            max="30" 
+            activeColor="#bc13fe" 
+            backgroundColor="#333" 
+            block-color="#00f3ff" 
+            block-size="20"
+            @change="(e) => planForm.days = e.detail.value"
+          />
+          <view class="slider-labels">
+            <text>3D</text>
+            <text>30D</text>
           </view>
-          
-          <text v-if="matchResult" class="match-tip">Found: {{ matchResult }}</text>
         </view>
+      </view>
+
+      <view class="footer-action">
+        <button 
+          class="submit-btn plan-btn" 
+          :class="{ loading: isGenerating }" 
+          @click="generatePlan"
+          :disabled="isGenerating"
+        >
+          <text class="btn-content">
+            {{ isGenerating ? 'UPLOADING TO NEURAL NET...' : 'INITIALIZE PROTOCOL (生成計劃)' }}
+          </text>
+          <view class="btn-glitch"></view>
+        </button>
       </view>
 
     </view>
 
-    <view class="footer-normal">
-      <button class="submit-btn cyber-glitch" @click="submitTask">
-        {{ isEdit ? t.btn_save : t.btn_create }}
-      </button>
+    <view class="generating-overlay" v-if="isGenerating">
+      <view class="scanner-line"></view>
+      <view class="terminal-window">
+        <text class="cmd-line">> ACCESSING CORE...</text>
+        <text class="cmd-line">> ANALYZING TARGET: {{ planForm.goal.substring(0, 10) }}...</text>
+        <text class="cmd-line blink">> GENERATING TACTICAL PATH...</text>
+      </view>
     </view>
+
   </view>
 </template>
 
 <script setup>
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import messages from '@/utils/language.js';
 
-const API_BASE = 'http://192.168.10.28:5000';
-const isEdit = ref(false);
-const form = ref({ id: null, title: '', desc: '', time: '', is_loop: false, type: 'APP', target: '' });
-const t = ref(messages.zh.add);
-const matchResult = ref(''); // 存储匹配到的应用名
+// ⚠️ 請確保 IP 正確
+const API_BASE = 'http://192.168.10.28:5000'; 
+
+const planForm = ref({ goal: '', days: 7 });
+const isGenerating = ref(false);
 
 onShow(() => {
-  const lang = uni.getStorageSync('lang') || 'zh';
-  t.value = messages[lang].add;
-
-  const editTask = uni.getStorageSync('edit_task_data');
-  if (editTask) {
-    isEdit.value = true;
-    form.value = { 
-      id: editTask.id, 
-      title: editTask.title, 
-      desc: editTask.description || '', 
-      time: editTask.time || editTask.trigger_time, 
-      is_loop: editTask.is_loop || false, 
-      type: editTask.type || editTask.action_type, 
-      target: editTask.target || editTask.target_value 
-    };
-    uni.removeStorageSync('edit_task_data');
-    uni.setNavigationBarTitle({ title: t.value.title_edit });
-  } else {
-    resetForm();
-    uni.setNavigationBarTitle({ title: t.value.title_new });
-  }
+  // 每次進入頁面重置狀態，或者保留上次輸入（這裡選擇重置以獲得清爽體驗）
+  // planForm.value = { goal: '', days: 7 };
 });
-// --- 🔥 核心功能：自动匹配包名 (修复版) ---
-const autoMatchPackage = () => {
-  // 1. 检查输入
-  const keyword = form.value.target.trim();
-  if (!keyword) {
-    uni.showToast({ title: '请输入应用名称', icon: 'none' });
+
+const generatePlan = () => {
+  if (!planForm.value.goal.trim()) {
+    uni.showToast({ title: '請輸入目標指令', icon: 'none' });
     return;
   }
 
-  // 2. 检查环境
-  // #ifdef H5
-  uni.showToast({ title: '网页端不支持扫描本地应用', icon: 'none' });
-  return;
-  // #endif
-
-  // #ifdef APP-PLUS
-  if (uni.getSystemInfoSync().platform !== 'android') {
-    uni.showToast({ title: '仅支持 Android 自动匹配', icon: 'none' });
+  const userInfo = uni.getStorageSync('userInfo');
+  if (!userInfo) {
+    uni.showToast({ title: '用戶未登錄', icon: 'none' });
     return;
-  }
-
-  uni.showLoading({ title: 'SCANNING...' });
-
-  // 3. 使用 Native.js 调用 Android API (使用 invoke 避免报错)
-  try {
-    const main = plus.android.runtimeMainActivity();
-    const pManager = plus.android.invoke(main, 'getPackageManager'); // 稳妥获取 pManager
-    
-    // 🔥 修复点：使用 invoke 调用 getInstalledPackages
-    // 参数 0 代表 GET_ACTIVITIES 等默认标志
-    const pInfo = plus.android.invoke(pManager, 'getInstalledPackages', 0);
-    
-    // 获取 List 大小
-    const total = plus.android.invoke(pInfo, 'size');
-    
-    let found = false;
-    let matchedPkg = '';
-    let matchedLabel = '';
-
-    // 遍历所有应用
-    for (let i = 0; i < total; i++) {
-      // 获取第 i 个 PackageInfo
-      const p = plus.android.invoke(pInfo, 'get', i);
-      
-      // 获取 ApplicationInfo
-      const appInfo = plus.android.getAttribute(p, 'applicationInfo');
-      
-      // 获取应用名 (Label) - 同样使用 invoke 调用 loadLabel
-      const labelObj = plus.android.invoke(appInfo, 'loadLabel', pManager);
-      const label = labelObj ? labelObj.toString() : '';
-      
-      // 获取包名
-      const pname = plus.android.getAttribute(p, 'packageName');
-      
-      // 模糊匹配：如果应用名包含关键字 (忽略大小写)
-      if (label && label.toLowerCase().includes(keyword.toLowerCase())) {
-        matchedPkg = pname;
-        matchedLabel = label;
-        found = true;
-        break; 
-      }
-    }
-
-    uni.hideLoading();
-
-    if (found) {
-      // 匹配成功，自动填入
-      form.value.target = matchedPkg;
-      matchResult.value = `匹配成功: ${matchedLabel}`;
-      uni.showToast({ title: 'MATCHED!', icon: 'success' });
-    } else {
-      uni.showToast({ title: '未找到该应用', icon: 'none' });
-      matchResult.value = '';
-    }
-
-  } catch (e) {
-    uni.hideLoading();
-    console.error(e); // 在控制台打印详细错误
-    uni.showToast({ title: '扫描失败: 权限或兼容性问题', icon: 'none' });
-  }
-  // #endif
-};
-const resetForm = () => { 
-  isEdit.value = false; 
-  form.value = { id: null, title: '', desc: '', time: '', is_loop: false, type: 'APP', target: '' }; 
-  matchResult.value = '';
-};
-const onTimeChange = (e) => { form.value.time = e.detail.value; };
-const onLoopChange = (e) => { form.value.is_loop = e.detail.value; }
-
-// --- 🔥 核心功能：自动匹配包名 (仅限 Android) ---
-
-const getInputHelper = () => {
-    if (form.value.type === 'APP') return t.value.helper_app;
-    if (form.value.type === 'LINK') return t.value.helper_link;
-    return t.value.helper_script;
-}
-
-const getPlaceholder = () => {
-  if (form.value.type === 'APP') return "输入app点击匹配 ->";
-  if (form.value.type === 'LINK') return t.value.ph_target_link;
-  return t.value.ph_target_script;
-};
-
-const submitTask = () => {
-  if (!form.value.title || !form.value.time || !form.value.target) { 
-    uni.showToast({ title: t.value.toast_err, icon: 'none' }); 
-    return; 
   }
   
-  const userInfo = uni.getStorageSync('userInfo');
-  uni.showLoading({ title: 'PROCESSING...' });
-
-  const method = isEdit.value ? 'PUT' : 'POST';
-  const url = isEdit.value ? `${API_BASE}/api/tasks/${form.value.id}` : `${API_BASE}/api/tasks`;
-
+  isGenerating.value = true;
+  
+  // 調用後端 DeepSeek 接口
   uni.request({
-    url: url, 
-    method: method,
+    url: `${API_BASE}/api/plan/generate`,
+    method: 'POST',
     data: { 
       user_id: userInfo.id, 
-      title: form.value.title, 
-      description: form.value.desc, 
-      is_loop: form.value.is_loop, 
-      time: form.value.time, 
-      type: form.value.type, 
-      target: form.value.target 
+      goal: planForm.value.goal, 
+      days: planForm.value.days 
     },
+    timeout: 60000, // 60秒超時，給 AI 足夠思考時間
     success: (res) => {
-      uni.hideLoading();
-      if (res.data.code === 200) { 
-        uni.showToast({ title: t.value.toast_succ }); 
-        setTimeout(() => uni.switchTab({ url: '/pages/index/index' }), 800); 
-      } else { 
-        uni.showToast({ title: 'ERROR', icon: 'none' }); 
+      if (res.data.code === 200) {
+        uni.vibrateShort(); // 震動反饋
+        uni.showToast({ title: '協議已生成', icon: 'success' });
+        
+        // 獲取計劃 ID 並跳轉詳情頁
+        const planId = res.data.data.plan_id;
+        setTimeout(() => {
+          isGenerating.value = false;
+          uni.navigateTo({ url: `/pages/plan/detail?id=${planId}` });
+        }, 1000);
+      } else {
+        isGenerating.value = false;
+        uni.showToast({ title: '生成失敗: ' + res.data.msg, icon: 'none' });
       }
     },
-    fail: () => {
-      uni.hideLoading();
-      uni.showToast({ title: 'NET_ERR', icon: 'none' });
+    fail: (err) => {
+      isGenerating.value = false;
+      console.error(err);
+      uni.showToast({ title: '網絡連接中斷', icon: 'none' });
     }
   });
 };
 </script>
 
 <style>
-/* ... (保留之前的样式) ... */
 page { background-color: #050505; color: #e0e0e0; font-family: 'Courier New', monospace; }
-.container { padding: 20px; padding-bottom: 40px; min-height: 100vh; }
-.cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 30%, #1a1a2e 0%, #000000 70%); z-index: -1; pointer-events: none; }
+.container { padding: 25px; min-height: 100vh; display: flex; flex-direction: column; }
+.cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 10%, #1a1a2e 0%, #000000 80%); z-index: -1; }
 
-.header-section { margin-bottom: 30px; border-left: 4px solid #00f3ff; padding-left: 15px; }
-.page-title { font-size: 28px; font-weight: 900; color: #fff; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0, 243, 255, 0.5); display: block; }
-.page-desc { font-size: 12px; color: #00f3ff; margin-top: 5px; opacity: 0.8; display: block; }
+/* 頭部樣式 */
+.header-section { margin-bottom: 40px; margin-top: 20px; border-left: 5px solid #00f3ff; padding-left: 20px; }
+.glitch-title { font-size: 32px; font-weight: 900; color: #fff; letter-spacing: 2px; text-shadow: 2px 2px 0px #bc13fe; display: block; }
+.page-desc { font-size: 12px; color: #00f3ff; margin-top: 8px; opacity: 0.8; letter-spacing: 1px; }
 
-.cyber-card { 
-  background: #141419; 
-  border: 1px solid rgba(0, 243, 255, 0.2); 
-  border-radius: 4px; 
-  padding: 20px; 
-  margin-bottom: 20px; 
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.5); 
+/* 動畫類 */
+.fade-in { animation: fadeIn 0.8s ease-out; }
+.fade-in-up { animation: fadeInUp 0.8s ease-out; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* 卡片通用 */
+.cyber-card { background: rgba(20, 20, 25, 0.8); border: 1px solid rgba(255,255,255,0.1); padding: 25px; margin-bottom: 30px; border-radius: 4px; backdrop-filter: blur(5px); }
+.glow-card { border-color: rgba(188, 19, 254, 0.5); box-shadow: 0 0 20px rgba(188, 19, 254, 0.1); }
+
+.card-header { display: flex; align-items: center; margin-bottom: 20px; position: relative; }
+.decor-line { width: 4px; height: 18px; margin-right: 12px; }
+.bg-red { background: #ff003c; box-shadow: 0 0 8px #ff003c; }
+.bg-yellow { background: #f3ff00; box-shadow: 0 0 8px #f3ff00; }
+.section-label { font-size: 14px; font-weight: bold; color: #fff; letter-spacing: 1px; }
+.header-decoration { position: absolute; right: 0; }
+.tech-text { font-size: 10px; color: #444; border: 1px solid #333; padding: 2px 4px; }
+
+/* 輸入區 */
+.input-area { position: relative; margin: 10px 0; }
+.cyber-textarea { width: 100%; height: 120px; background: #0a0a0a; color: #00f3ff; padding: 15px; font-size: 16px; border: 1px solid #333; box-sizing: border-box; font-weight: bold; line-height: 1.5; }
+.cyber-placeholder { color: #333; font-weight: normal; }
+.corner-decor { position: absolute; width: 10px; height: 10px; border: 2px solid #bc13fe; pointer-events: none; }
+.tr { top: -2px; right: -2px; border-bottom: none; border-left: none; }
+.bl { bottom: -2px; left: -2px; border-top: none; border-right: none; }
+.input-footer { text-align: right; }
+.char-count { font-size: 10px; color: #555; }
+
+/* 滑塊區 */
+.slider-container { text-align: center; padding: 10px 0; }
+.slider-val { font-size: 48px; font-weight: 900; color: #fff; text-shadow: 0 0 15px rgba(255,255,255,0.3); display: block; margin-bottom: 10px; }
+.unit { font-size: 14px; color: #bc13fe; font-weight: normal; }
+.cyber-slider { width: 100%; }
+.slider-labels { display: flex; justify-content: space-between; color: #666; font-size: 12px; margin-top: 5px; }
+
+/* 按鈕 */
+.footer-action { margin-top: 20px; }
+.submit-btn { 
+  background: linear-gradient(90deg, #bc13fe, #00f3ff); 
+  color: #000; 
+  font-weight: 900; 
+  height: 60px; 
+  line-height: 60px; 
+  font-size: 18px; 
+  border: none; 
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  position: relative;
+  overflow: hidden;
 }
+.submit-btn:active { transform: scale(0.98); opacity: 0.9; }
+.submit-btn.loading { filter: grayscale(1); opacity: 0.8; }
+.btn-glitch { position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: rgba(255,255,255,0.2); transform: skewX(-20deg); animation: glitch-slide 3s infinite; }
+@keyframes glitch-slide { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
 
-.card-header { display: flex; align-items: center; margin-bottom: 15px; }
-.decor-line { width: 4px; height: 16px; background: #00f3ff; margin-right: 10px; box-shadow: 0 0 8px #00f3ff; }
-.decor-line.bg-purple { background: #bc13fe; box-shadow: 0 0 8px #bc13fe; }
-.decor-line.bg-green { background: #00ff9d; box-shadow: 0 0 8px #00ff9d; }
-.section-label { font-size: 14px; color: #fff; font-weight: bold; letter-spacing: 1px; }
-
-.form-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding: 15px 0; }
-.form-row.no-border { border-bottom: none; }
-.label { color: #888; font-size: 12px; font-weight: bold; }
-
-.cyber-input { flex: 1; text-align: right; color: #00f3ff; font-size: 16px; font-weight: bold; height: 24px; min-height: 24px; }
-.cyber-placeholder { color: #444; font-weight: normal; }
-.picker-value { font-size: 20px; color: #bc13fe; font-weight: bold; text-shadow: 0 0 5px rgba(188, 19, 254, 0.5); }
-
-.type-grid { display: flex; gap: 10px; margin-bottom: 20px; }
-.cyber-btn { flex: 1; text-align: center; padding: 12px 0; background: #0a0a0a; border: 1px solid #333; color: #666; font-size: 12px; clip-path: polygon(10% 0, 100% 0, 100% 90%, 90% 100%, 0 100%, 0 10%); transition: all 0.3s; }
-.cyber-btn.active { background: rgba(0, 243, 255, 0.1); border-color: #00f3ff; color: #00f3ff; text-shadow: 0 0 8px #00f3ff; }
-
-.dynamic-input { margin-top: 10px; }
-.input-helper { font-size: 10px; color: #555; display: block; margin-bottom: 8px; }
-
-/* 🔥 修改：输入框 + 按钮的容器 */
-.input-wrapper { display: flex; align-items: center; position: relative; }
-
-.cyber-input-box { 
-  background: #111; 
-  border: 1px solid #333; 
-  color: #fff; 
-  padding: 0 15px; 
-  width: 100%; 
-  border-radius: 4px; 
-  box-sizing: border-box;
-  height: 50px;
-  caret-color: #00f3ff;
-}
-.cyber-input-box:focus { border-color: #00ff9d; box-shadow: 0 0 10px rgba(0, 255, 157, 0.2); }
-
-/* 🔥 新增：匹配按钮样式 */
-.match-btn {
-  position: absolute;
-  right: 5px;
-  top: 5px;
-  bottom: 5px;
-  background: #00f3ff;
-  color: #000;
-  font-weight: bold;
-  font-size: 12px;
-  padding: 0 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 2px;
-  cursor: pointer;
-  z-index: 1000; /* 确保在最上层 */
-}
-.match-btn:active { opacity: 0.8; }
-
-.match-tip { display: block; color: #00ff9d; font-size: 12px; margin-top: 5px; text-align: right; }
-
-.footer-normal { margin-top: 40px; width: 100%; }
-.submit-btn { background: #00f3ff; color: #000; font-weight: 900; font-size: 18px; letter-spacing: 2px; border-radius: 2px; height: 50px; line-height: 50px; border: none; box-shadow: 0 0 15px #00f3ff; clip-path: polygon(5% 0, 100% 0, 100% 80%, 95% 100%, 0 100%, 0 20%); }
-.submit-btn:active { opacity: 0.8; transform: scale(0.98); }
+/* 生成遮罩 */
+.generating-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.scanner-line { position: absolute; width: 100%; height: 2px; background: #00f3ff; box-shadow: 0 0 20px #00f3ff; animation: scan 2s infinite ease-in-out; top: 0; }
+.terminal-window { width: 80%; }
+.cmd-line { display: block; color: #00ff9d; font-size: 14px; margin-bottom: 10px; font-family: 'Courier New', monospace; }
+.blink { animation: blink 0.5s infinite; }
+@keyframes scan { 0% { top: 0; opacity: 1; } 50% { top: 100%; opacity: 0.5; } 100% { top: 0; opacity: 1; } }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 </style>

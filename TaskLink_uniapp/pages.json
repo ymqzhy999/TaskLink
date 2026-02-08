@@ -10,8 +10,16 @@
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "TASK_CENTER // 任务中枢",
+				"navigationBarTitleText": "COMMAND_CENTER // 指挥中枢",
 				"enablePullDownRefresh": true
+			}
+		},
+		{
+			"path": "pages/plan/detail",
+			"style": {
+				"navigationBarTitleText": "TACTICAL_MAP // 战术蓝图",
+				"enablePullDownRefresh": true,
+				"navigationStyle": "custom"
 			}
 		},
 		{
@@ -41,6 +49,20 @@
 				"navigationBarBackgroundColor": "#000000",
 				"navigationBarTextStyle": "white"
 			}
+		},
+		{
+			"path" : "pages/detail",
+			"style" : 
+			{
+				"navigationBarTitleText" : ""
+			}
+		},
+		{
+			"path" : "pages/plan/detail",
+			"style" : 
+			{
+				"navigationBarTitleText" : ""
+			}
 		}
 	],
 	"globalStyle": {
@@ -57,7 +79,7 @@
 		"list": [
 			{
 				"pagePath": "pages/index/index",
-				"text": "任务",
+				"text": "中枢",
 				"iconPath": "static/tabs/home.png",
 				"selectedIconPath": "static/tabs/home-active.png"
 			},
@@ -75,25 +97,15 @@
 			},
 			{
 				"pagePath": "pages/history/history",
-				"text": "记录",
+				"text": "日志",
 				"iconPath": "static/tabs/history.png",
 				"selectedIconPath": "static/tabs/history-active.png"
 			},
 			{
 				"pagePath": "pages/profile/profile",
-				"text": "我的",
+				"text": "档案",
 				"iconPath": "static/tabs/me.png",
 				"selectedIconPath": "static/tabs/me-active.png"
-			}
-		]
-	},
-	"condition": {
-		"current": 0,
-		"list": [
-			{
-				"name": "登录",
-				"path": "pages/login/login",
-				"query": ""
 			}
 		]
 	}

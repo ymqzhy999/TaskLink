@@ -54,5 +54,6 @@ TaskLink/
 └── .gitignore           # Git 配置
 
 
+adb tcpip 5555  开启端口 用于无线连接手机
 adb shell ime set com.android.adbkeyboard/.AdbIM
 adb shell am broadcast -a ADB_INPUT_TEXT --es msg "用qq给老己发送消息:老己你辛苦了"

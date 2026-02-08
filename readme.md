@@ -2,8 +2,7 @@
 
 ---
 ## 下载安装
-点击下载最新版安装包：[TaskLink_v1.0.0.apk](F:\项目\TaskLink\dist\tasklink1.0.apk)
-
+点击下载最新版本：[TaskLink_v1.0.0.apk](https://github.com/ymqzhy999/TaskLink/raw/main/tasklink1.0.apk)
 
 # ⚡ TaskLink | 赛博朋克·智能战术终端
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)

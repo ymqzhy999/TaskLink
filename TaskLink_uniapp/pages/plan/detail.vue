@@ -44,7 +44,7 @@
               
               <view class="action-bar fade-in-slow" v-if="isTypingFinished || typingIndex !== index">
                  <button class="mark-btn" :class="{ done: task.is_completed }" @click.stop="toggleComplete(task)">
-                   {{ task.is_completed ? '✅ 节点已完成' : '⚡ 标记为完成' }}
+                   {{ task.is_completed ? '✅ 节点已归档' : '⚡ 标记为完成' }}
                  </button>
               </view>
             </view>
@@ -59,7 +59,7 @@
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 
-const API_BASE = 'http://192.168.10.28:5000'; 
+const API_BASE = 'http://192.168.10.28:5000'; // ⚠️ 请确保 IP 正确
 const planId = ref(null);
 const loading = ref(true);
 const plan = ref({});
@@ -125,10 +125,8 @@ const startTypewriter = (index, fullText) => {
   displayTexts.value[index] = '';
   
   let i = 0;
-  // 加快打字速度：5ms/字，减少等待焦虑
   timers[index] = setInterval(() => {
     if (i < fullText.length) {
-      // 每次加2个字，提升渲染速度
       displayTexts.value[index] += fullText.substring(i, i+2);
       i += 2;
     } else {
@@ -138,17 +136,37 @@ const startTypewriter = (index, fullText) => {
   }, 5); 
 };
 
+// 🔥 修复：调用后端接口真实保存状态
 const toggleComplete = (task) => {
+  // 1. 乐观更新 (先改界面，感觉快)
+  const originalStatus = task.is_completed;
   task.is_completed = !task.is_completed;
-  // 可以在这里加一个后端请求同步状态
-  uni.showToast({ title: task.is_completed ? '节点已归档' : '状态重置', icon: 'none' });
+
+  // 2. 后端同步
+  uni.request({
+    url: `${API_BASE}/api/plan/task/${task.id}/toggle`,
+    method: 'POST',
+    success: (res) => {
+      if (res.data.code === 200) {
+        uni.showToast({ title: task.is_completed ? '已归档' : '已重置', icon: 'none' });
+      } else {
+        // 失败回滚
+        task.is_completed = originalStatus;
+        uni.showToast({ title: '保存失败', icon: 'none' });
+      }
+    },
+    fail: () => {
+      task.is_completed = originalStatus;
+      uni.showToast({ title: '网络错误', icon: 'none' });
+    }
+  });
 };
 </script>
 
 <style>
 page { background: #050505; color: #fff; font-family: 'Courier New', monospace; }
 .container { padding: 20px; min-height: 100vh; }
-.cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 10% 10%, #1a1a2e 0%, #000000 80%); z-index: -1; }
+.cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 10% 10%, #111 0%, #000 80%); z-index: -1; }
 
 .nav-header { display: flex; align-items: center; margin-bottom: 30px; margin-top: 40px; }
 .back-btn { color: #00f3ff; font-size: 14px; border: 1px solid #00f3ff; padding: 6px 12px; margin-right: 15px; cursor: pointer; background: rgba(0, 243, 255, 0.1); }
@@ -172,7 +190,15 @@ page { background: #050505; color: #fff; font-family: 'Courier New', monospace; 
 
 .day-header { padding: 15px; display: flex; align-items: center; justify-content: space-between; }
 .day-idx { color: #00f3ff; font-weight: bold; margin-right: 10px; font-size: 16px; min-width: 70px; }
-.day-title { flex: 1; color: #eee; font-size: 14px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.day-title { 
+  flex: 1; 
+  color: #eee; 
+  font-size: 14px; 
+  font-weight: bold; 
+  white-space: normal; /* 允许标题换行 */
+  word-break: break-all;
+  line-height: 1.4;
+}
 .arrow { color: #666; font-size: 12px; transition: transform 0.3s; }
 .arrow.rotated { transform: rotate(180deg); color: #00f3ff; }
 
@@ -192,6 +218,6 @@ page { background: #050505; color: #fff; font-family: 'Courier New', monospace; 
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 @keyframes loadingWidth { 0% { width: 0; } 50% { width: 100px; } 100% { width: 0; } }
 </style>

@@ -95,9 +95,8 @@
 
 <script setup>
 import { ref, nextTick, onUnmounted } from 'vue';
-import { onShow } from '@dcloudio/uni-app';
+import { onUnload,onLoad,onShow } from '@dcloudio/uni-app';
 import io from '@hyoga/uni-socket.io'; 
-
 // 记得改成你自己的 IP
 const FLASK_URL = 'http://192.168.10.28:5000'; 
 const NODE_URL = 'http://192.168.10.28:3000';
@@ -113,6 +112,9 @@ const isSelectionMode = ref(false);
 const selectedIds = ref([]);        
 
 onShow(() => {
+	uni.removeTabBarBadge({
+		index: 1
+	});
   const user = uni.getStorageSync('userInfo');
   if (!user) {
     uni.showToast({ title: '请先登录', icon: 'none' });

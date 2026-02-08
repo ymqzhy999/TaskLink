@@ -17,7 +17,7 @@ import json
 app = Flask(__name__)
 CORS(app)  # 允许跨域
 warnings.filterwarnings("ignore")
-# --- 数据库配置 ---
+# 数据库配置
 # 格式: mysql+pymysql://用户名:密码@地址:端口/数据库名
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost:3306/tasklink'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -91,12 +91,6 @@ def call_deepseek_json(system_prompt, user_prompt):
         print(f"API Call Failed: {e}")
         return None
 
-
-# TaskLink_backend/app.py
-
-# ... (保持前面的引用) ...
-
-# TaskLink_backend/app.py
 
 @app.route('/api/plan/generate', methods=['POST'])
 def generate_plan():
@@ -331,7 +325,7 @@ def login():
 
 
 
-# --- 获取任务列表 ---
+# 获取任务列表
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
 
@@ -349,7 +343,7 @@ def get_tasks():
     })
 
 
-# --- 添加任务 ---
+# 添加任务
 @app.route('/api/tasks', methods=['POST'])
 def add_task():
     data = request.json
@@ -379,7 +373,7 @@ def add_task():
 
     return jsonify({"code": 200, "msg": "任务创建成功", "data": new_task.to_dict()})
 
-# --- 删除任务 ---
+# 删除任务
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
     # 根据主键 ID 查找任务
@@ -395,7 +389,7 @@ def delete_task(task_id):
         db.session.rollback()
         return jsonify({"code": 500, "msg": str(e)}), 500
 
-# --- 更新任务 (修改内容 或 切换开关) ---
+# 更新任务
 @app.route('/api/tasks/<int:task_id>', methods=['PUT'])
 def update_task(task_id):
     task = Task.query.get(task_id)
@@ -425,7 +419,7 @@ def update_task(task_id):
         db.session.rollback()
         return jsonify({"code": 500, "msg": str(e)}), 500
 
-# --- 修改密码 (个人中心用) ---
+# 修改密码 (个人中心用)
 @app.route('/api/user/password', methods=['POST'])
 def update_password():
     data = request.json
@@ -450,7 +444,7 @@ def update_password():
 
     return jsonify({"code": 200, "msg": "密码修改成功"})
 
-# --- 上报执行日志 (App端执行时调用) ---
+# 上报执行日志
 @app.route('/api/logs', methods=['POST'])
 def add_log():
     data = request.json
@@ -473,7 +467,7 @@ def add_log():
 
     return jsonify({"code": 200, "msg": "日志记录成功"})
 
-# --- 获取执行日志 (历史页调用) ---
+# 获取执行日志
 @app.route('/api/logs', methods=['GET'])
 def get_logs():
     user_id = request.args.get('user_id')
@@ -546,10 +540,7 @@ def get_square_history():
         "data": [m.to_dict() for m in messages][::-1]  # 翻转列表，旧的在上面
     })
 
-
-# [在 app.py 中添加此接口]
-
-# --- 获取计划列表 ---
+# 获取计划列表
 @app.route('/api/plans', methods=['GET'])
 def get_plans():
     user_id = request.args.get('user_id')
@@ -965,7 +956,6 @@ def toggle_task_status(task_id):
 if __name__ == '__main__':
     # # 配置你手机的局域网 IP
     # PHONE_IP = "192.168.10.8"  # 👈 替换成你手机在 WiFi 下的真实 IP
-    #
     # # 尝试无线连接
     # ADBController.connect_wireless(PHONE_IP)
     app.run(host='0.0.0.0', port=5000, debug=True)

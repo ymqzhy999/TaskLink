@@ -1,8 +1,12 @@
 
-
----
-
+```markdown
 # ⚡ TaskLink | 赛博朋克·智能战术终端
+
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![Python](https://img.shields.io/badge/Backend-Flask_2.x-yellow)
+![Node.js](https://img.shields.io/badge/RealTime-Socket.IO-green)
+![Vue3](https://img.shields.io/badge/Frontend-UniApp-bc13fe)
+![AI](https://img.shields.io/badge/Core-DeepSeek_V3-ff003c)
 
 > **"连接现实与数字边界，阿琪的专属贾维斯战术终端。"**
 
@@ -40,7 +44,7 @@
 | 🧠 战术规划终端 (AI Planner) |             📊 个人主页 (Profile)             |
 | :---: |:-----------------------------------------:|
 | ![战术生成页](docs/images/screenshot_add.png) | ![个人信息](docs/images/screenshot_index.png) |
-| *▲ 接入 DeepSeek 的沉浸式生成界面* |              *▲ 赛博朋克风格的个人主页*              |
+| *▲ 接入 DeepSeek 的沉浸式生成界面* |              *▲ 赛博朋克风格的个人主页* |
 
 | 📅 战术执行详情 (Execution) | 💬 网络广场 (Net Square) |
 | :---: | :---: |
@@ -70,6 +74,7 @@ TaskLink/
 │   └── uni.scss           # 全局赛博样式
 │
 └── .env                   # 🔐 环境变量 (配置 API Key)
+
 
 ```
 
@@ -105,7 +110,8 @@ pip install -r requirements.txt
 
 # 4. 启动服务
 python app.py
-# 服务将运行在: http://0.0.0.0:5000
+# 服务将运行在: [http://0.0.0.0:5000](http://0.0.0.0:5000)
+
 
 ```
 
@@ -122,7 +128,8 @@ npm install
 
 # 3. 启动服务
 node index.js
-# 服务将运行在: http://0.0.0.0:3000
+# 服务将运行在: [http://0.0.0.0:3000](http://0.0.0.0:3000)
+
 
 ```
 
@@ -151,3 +158,7 @@ This project is licensed under the MIT License.
 ---
 
 > **TaskLink** - *Wake up, Samurai. We have a city to burn.*
+
+```
+
+```

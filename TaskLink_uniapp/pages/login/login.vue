@@ -38,7 +38,7 @@ import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import messages from '@/utils/language.js'; 
 
-const API_BASE = 'http://192.168.10.28:5000';
+const API_BASE = 'http://101.35.132.175:5000';
 const username = ref('');
 const password = ref('');
 const isRegister = ref(false);

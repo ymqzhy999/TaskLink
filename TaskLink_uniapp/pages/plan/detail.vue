@@ -59,7 +59,7 @@
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 
-const API_BASE = 'http://192.168.10.28:5000'; // ⚠️ 请确保 IP 正确
+const API_BASE = 'http://101.35.132.175:5000'; // ⚠️ 请确保 IP 正确
 const planId = ref(null);
 const loading = ref(true);
 const plan = ref({});

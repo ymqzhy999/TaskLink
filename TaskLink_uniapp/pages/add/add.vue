@@ -110,7 +110,7 @@
 import { ref, onUnmounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 
-const API_BASE = 'http://192.168.10.28:5000'; 
+const API_BASE = 'http://101.35.132.175:5000'; 
 const planForm = ref({ goal: '', expectation: '', days: 7 });
 const isGenerating = ref(false);
 

@@ -98,8 +98,8 @@ import { ref, nextTick, onUnmounted } from 'vue';
 import { onUnload,onLoad,onShow } from '@dcloudio/uni-app';
 import io from '@hyoga/uni-socket.io'; 
 // 记得改成你自己的 IP
-const FLASK_URL = 'http://192.168.10.28:5000'; 
-const NODE_URL = 'http://192.168.10.28:3000';
+const FLASK_URL = 'http://101.35.132.175:5000'; 
+const NODE_URL = 'http://101.35.132.175:3000';
 
 const socket = ref(null);
 const myInfo = ref({});

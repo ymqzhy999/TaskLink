@@ -74,7 +74,7 @@
 import { ref, computed } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 
-const API_BASE = 'http://192.168.10.28:5000'; 
+const API_BASE = 'http://101.35.132.175:5000'; 
 const activePlans = ref([]);
 
 onShow(() => {

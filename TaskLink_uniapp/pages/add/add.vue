@@ -92,7 +92,7 @@ import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import messages from '@/utils/language.js';
 
-const API_BASE = 'http://192.168.10.26:5000';
+const API_BASE = 'http://192.168.10.28:5000';
 const isEdit = ref(false);
 const form = ref({ id: null, title: '', desc: '', time: '', is_loop: false, type: 'APP', target: '' });
 const t = ref(messages.zh.add);

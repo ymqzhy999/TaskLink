@@ -52,3 +52,7 @@ TaskLink/
 │   └── 赛博朋克 UI 组件库
 │
 └── .gitignore           # Git 配置
+
+
+adb shell ime set com.android.adbkeyboard/.AdbIM
+adb shell am broadcast -a ADB_INPUT_TEXT --es msg "用qq给老己发送消息:老己你辛苦了"

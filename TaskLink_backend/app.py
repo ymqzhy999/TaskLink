@@ -63,6 +63,13 @@ class ADBController:
         return True, f"已启动 {app_name}"
 
     @staticmethod
+    def click_coord(x, y):
+        """直接点击屏幕上的固定坐标"""
+        print(f"📍 直接点击坐标: ({x}, {y})")
+        ADBController.run(f"shell input tap {x} {y}")
+        return True, f"已点击坐标 ({x}, {y})"
+
+    @staticmethod
     def click_text(target_text, offset_x=0, offset_y=0):
         # 使用绝对路径，防止文件找不到
         current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -145,7 +152,7 @@ class ADBController:
     @staticmethod
     def press_enter():
         ADBController.run("shell input keyevent 66")
-        return True, "已点击搜索/回车"
+        return True, "已点击搜索"
 
     @staticmethod
     def swipe(direction):
@@ -180,17 +187,19 @@ class ADBController:
 
 
 def execute_action(action, value, offset_x=0, offset_y=0):
-    """
-    内部执行单元，返回 (success, msg)
-    已解除中文限制，支持 offset_x, offset_y 偏移点击
-    """
     try:
         if action == 'OPEN_APP':
             return ADBController.start_app(value)
 
         elif action == 'CLICK_TEXT':
-            # 传递偏移量
             return ADBController.click_text(value, offset_x, offset_y)
+
+        elif action == 'CLICK_COORD':
+            try:
+                x, y = map(int, str(value).split(','))
+                return ADBController.click_coord(x, y)
+            except Exception as e:
+                return False, f"坐标格式错误: {value}"
 
         elif action == 'INPUT_TEXT':
             return ADBController.input_text(value)
@@ -214,7 +223,6 @@ def execute_action(action, value, offset_x=0, offset_y=0):
 
     except Exception as e:
         return False, str(e)
-
 # --- 🧠 AI 聊天接口 (更新 System Prompt) ---
 @app.route('/api/chat', methods=['POST'])
 def chat_ai():
@@ -223,52 +231,42 @@ def chat_ai():
 
     if not user_message:
         return jsonify({"code": 400, "msg": "说点什么吧"}), 400
-
-    # 🔥🔥 Prompt 终极升级：支持连招 🔥🔥
     system_prompt = """
-    你是一个手机自动化助手。请分析指令，生成 JSON 数组。
-    
-    【核心能力：锚点偏移点击】
-    如果目标区域没有文字(如空白输入框)，请寻找旁边的文字作为"锚点"，并设置偏移量。
-    - 向左偏移：offset_x 为负数 (如 -250)
-    - 向右偏移：offset_x 为正数 (如 250)
-    - 向上偏移：offset_y 为负数
-    - 向下偏移：offset_y 为正数
-    *注：通常输入框在"发送"或"搜索"按钮的左侧约 200-300 像素处。
+        # Role: 手机自动化指令生成器
+        你必须根据用户需求生成一个严谨的 JSON 数组指令链，不准输出任何解释文字。
 
-    【支持的指令结构】
-    {
-      "action": "操作类型", 
-      "value": "内容", 
-      "offset_x": 0, // 可选，水平偏移像素
-      "offset_y": 0  // 可选，垂直偏移像素
-    }
+        ## 核心规则 (优先级最高)
+        1. **完整性检查**：所有发消息任务必须以 {"action": "CLICK_TEXT", "value": "发送"} 结尾，严禁中途结束。
+        2. **禁止回车**：严禁使用 PRESS_ENTER，它在移动端只会导致换行。
+        3. **QQ 逻辑**：QQ 输入框定位必须使用 "发送" 按钮作为锚点进行负向偏移。
+           - 示例：{"action": "CLICK_TEXT", "value": "发送", "offset_x": -250}
+        4. **微信逻辑**：微信输入框无文字时使用坐标。
+           - 示例：{"action": "CLICK_COORD", "value": "540,2600"}
+        5. **延迟必带**：打开应用后延迟 4 秒，进入聊天窗口后延迟 2 秒。
 
-    【操作类型列表】
-    1. OPEN_APP: 打开应用。
-    2. CLICK_TEXT: 点击文字(可配合偏移)。value填锚点文字。
-    3. INPUT_TEXT: 输入内容(拼音/英文)。
-    4. PRESS_ENTER: 回车/发送。
-    5. DELAY: 等待秒数。
-    
-    【场景示例：在QQ发消息】
-    用户："在QQ给当前好友发一句 hello"
-    思考过程：输入框是空白的，但右边有"发送"两个字。我要点"发送"的左边 250px 处来激活输入框。
-    回复：
-    [
-      {
-        "action": "CLICK_TEXT", 
-        "value": "发送", 
-        "offset_x": -250, 
-        "offset_y": 0,
-        "memo": "点击发送按钮左侧250px以激活输入框"
-      },
-      {"action": "DELAY", "value": 1},
-      {"action": "INPUT_TEXT", "value": "hello"},
-      {"action": "CLICK_TEXT", "value": "发送"}
-    ]
-    """
+        ## 强制输出格式
+        [
+          {"action": "OPEN_APP", "value": "应用名"},
+          {"action": "DELAY", "value": 4},
+          {"action": "CLICK_TEXT", "value": "目标名"},
+          {"action": "DELAY", "value": 2},
+          {"action": "定位输入框指令"},
+          {"action": "INPUT_TEXT", "value": "消息内容"},
+          {"action": "CLICK_TEXT", "value": "发送"}
+        ]
 
+        ## 示例：给 QQ 的 [张三] 发送 [你好]
+        回复：
+        [
+          {"action": "OPEN_APP", "value": "QQ"},
+          {"action": "DELAY", "value": 4},
+          {"action": "CLICK_TEXT", "value": "张三"},
+          {"action": "DELAY", "value": 2},
+          {"action": "CLICK_TEXT", "value": "发送", "offset_x": -250},
+          {"action": "INPUT_TEXT", "value": "你好"},
+          {"action": "CLICK_TEXT", "value": "发送"}
+        ]
+        """
     try:
         ollama_payload = {
             "model": "gemma3:4b",  # 确保你本地有这个模型
@@ -317,6 +315,7 @@ def phone_control():
 
     return jsonify({"code": 200 if success else 400, "msg": msg})
 
+
 @app.route('/api/phone/batch_run', methods=['POST'])
 def batch_run():
     data = request.json
@@ -325,7 +324,7 @@ def batch_run():
     if not tasks or not isinstance(tasks, list):
         return jsonify({"code": 400, "msg": "任务列表为空或格式错误"}), 400
 
-    print(f"📦 收到批量任务: {len(tasks)} 个步骤")
+    print(f"📦 收到批量任务: {len(tasks)} 个步骤 (后端托管执行)")
 
     results = []
     all_success = True
@@ -334,24 +333,34 @@ def batch_run():
         action = task.get('action')
         value = task.get('value')
 
-        print(f"▶️ 步骤 {i + 1}/{len(tasks)}: {action} -> {value}")
+        # 🔥🔥 关键修复：提取 offset 参数 (之前漏了这里) 🔥🔥
+        # 如果不传这两个参数，Execute_action 就会使用默认值 0，导致点击偏离
+        offset_x = task.get('offset_x', 0)
+        offset_y = task.get('offset_y', 0)
 
-        # 执行单步
-        success, msg = execute_action(action, value)
+        print(f"▶️ 步骤 {i + 1}/{len(tasks)}: {action} -> {value} (偏移: {offset_x}, {offset_y})")
+
+        # 执行单步，并将偏移量传进去
+        success, msg = execute_action(action, value, offset_x, offset_y)
 
         results.append({"step": i + 1, "action": action, "success": success, "msg": msg})
 
         if not success:
             print(f"❌ 步骤 {i + 1} 失败，任务终止！原因: {msg}")
             all_success = False
-            # 🔥🔥 关键：如果这一步失败（比如没找到输入框，或输入失败），直接 break，不执行后面的“发送” 🔥🔥
+            # 遇到错误立即停止，防止后续操作产生连锁反应
             break
+    print("✨ 任务结束，正在将 TaskLink 调回前台...")
+    # 这里的包名要对应你打包时的 App 包名，通常 UniApp 默认是 io.dcloud.HBuilder 或你的自定义包名
+    tasklink_pkg = "io.dcloud.HBuilder"
+    ADBController.run(f"shell monkey -p {tasklink_pkg} -c android.intent.category.LAUNCHER 1")
 
     return jsonify({
         "code": 200 if all_success else 500,
-        "msg": "执行完毕" if all_success else "执行中途失败",
+        "msg": "执行完毕",
         "data": results
     })
+
 
 
 @app.route('/api/register', methods=['POST'])

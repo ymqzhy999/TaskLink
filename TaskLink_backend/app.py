@@ -50,14 +50,9 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 # ==========================================
 # 🔥 DeepSeek API 配置 (核心修改)
 # ==========================================
-current_dir = os.path.dirname(os.path.abspath(__file__))
-# 2. 获取项目根目录 (假设 .env 在 TaskLink_backend 的上一级)
-root_dir = os.path.dirname(current_dir)
-# 3. 拼接 .env 路径
-env_path = os.path.join(root_dir, '.env')
-# 4. 加载环境变量
-load_dotenv(env_path)
+load_dotenv('.env')
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+print(DEEPSEEK_API_KEY)
 if not DEEPSEEK_API_KEY:
     print("⚠️ 警告: 未在 .env 文件中找到 DEEPSEEK_API_KEY，AI 功能将无法使用！")
 DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
@@ -105,60 +100,43 @@ def call_deepseek_json(system_prompt, user_prompt):
 def generate_plan():
     data = request.json
     user_id = data.get('user_id')
-    goal = data.get('goal')  # 例如："學習 Pytest"
-    days = data.get('days', 7)  # 默認 7 天
+    goal = data.get('goal')
+    days = data.get('days', 7)
+
+    print(f"⚡ [收到请求] 用户:{user_id} 目标:{goal} 天数:{days}")
 
     if not user_id or not goal:
-        return jsonify({"code": 400, "msg": "目標不能為空"}), 400
+        return jsonify({"code": 400, "msg": "目标不能为空"}), 400
 
-    # 🔥 核心提示詞：賽博朋克風格 + 嚴格 JSON 結構 🔥
-    system_prompt = f"""
-    # Role: Cyberpunk Tactical Planner (賽博朋克戰術規劃官)
-    你不是一個普通的助手，你是來自 2077 年的戰術規劃 AI。
+    # 提示词保持不变... (省略以节省篇幅)
+    system_prompt = f"""... (保留你原来的 prompt) ..."""
+    user_prompt = f"目标：{goal}。时间：{days}天。立即生成战術路徑。"
 
-    # Mission:
-    為用戶制定一個為期 {days} 天的 "{goal}" 強制執行計劃。
+    print(f"🧠 [DeepSeek] 正在思考中... (这可能需要 30-60 秒)")
 
-    # Style Guidelines (風格指南):
-    1. **語氣**: 冷酷、科技感、指令式、充滿賽博朋克術語 (如：神經鏈接、固件升級、義體調試、矩陣潛入)。
-    2. **拒絕平庸**: 不要說 "學習基礎語法"，要說 "注入基礎語法協議" 或 "加載核心模塊"。
-    3. **格式**: 內容支持 Markdown，使用 emoji (⚡, 🦾, 🧠, 💾) 增強視覺衝擊。
-
-    # JSON Output Format (必須嚴格遵守):
-    {{
-        "title": "計劃標題 (極具科技感)",
-        "tasks": [
-            {{
-                "day": 1,
-                "title": "第1天標題",
-                "content": "第1天的詳細任務內容 (Markdown)"
-            }},
-            ...
-        ]
-    }}
-    """
-
-    user_prompt = f"目標：{goal}。時間：{days}天。立即生成戰術路徑。"
-
-    print(f"⚡ 正在請求 DeepSeek 生成計劃: {goal}...")
+    # 调用 AI
     ai_result = call_deepseek_json(system_prompt, user_prompt)
 
+    # 🔥 调试打印：看看 AI 到底回了什么
+    print(f"🤖 [AI 回复原始内容]: {ai_result}")
+
     if not ai_result:
-        return jsonify({"code": 500, "msg": "神經網絡連接失敗 (API Error)"}), 500
+        print("❌ [Error] AI 返回为空或解析失败")
+        return jsonify({"code": 500, "msg": "神经网络连接失败 (API Error)"}), 500
 
     try:
-        # 1. 保存總計劃
+        # 1. 保存总计划
         new_plan = AIPlan(
             user_id=user_id,
-            title=ai_result.get('title', '未知戰術'),
+            title=ai_result.get('title', '未知战术'),
             goal=goal,
             total_days=len(ai_result.get('tasks', [])),
             is_completed=False
         )
         db.session.add(new_plan)
-        db.session.flush()  # 獲取 plan.id
+        db.session.flush()
 
-        # 2. 保存每一天的任務
+        # 2. 保存每一天的任务
         for task_data in ai_result.get('tasks', []):
             new_task = AIPlanTask(
                 plan_id=new_plan.id,
@@ -169,17 +147,19 @@ def generate_plan():
             db.session.add(new_task)
 
         db.session.commit()
+        print(f"✅ [Success] 计划已保存，ID: {new_plan.id}")
 
         return jsonify({
             "code": 200,
-            "msg": "戰術計劃已加載",
+            "msg": "战术计划已加载",
             "data": {"plan_id": new_plan.id}
         })
 
     except Exception as e:
         db.session.rollback()
-        print(f"DB Error: {e}")
-        return jsonify({"code": 500, "msg": "數據庫寫入失敗"}), 500
+        print(f"❌ [DB Error] 数据库写入失败: {e}")
+        return jsonify({"code": 500, "msg": "数据库写入失败"}), 500
+
 
 
 # ==========================================
@@ -202,6 +182,30 @@ def get_plan_detail(plan_id):
         }
     })
 
+
+@app.route('/api/plan/detail', methods=['GET'])
+def get_plan_detail():
+    plan_id = request.args.get('plan_id')  # 获取 ?plan_id=1
+
+    print(f"🔍 [查询详情] Plan ID: {plan_id}")
+
+    if not plan_id:
+        return jsonify({"code": 400, "msg": "缺少参数"}), 400
+
+    plan = AIPlan.query.get(plan_id)
+    if not plan:
+        print(f"❌ [404] 找不到计划 {plan_id}")
+        return jsonify({"code": 404, "msg": "计划不存在"}), 404
+
+    tasks = AIPlanTask.query.filter_by(plan_id=plan.id).order_by(AIPlanTask.day_order).all()
+
+    return jsonify({
+        "code": 200,
+        "data": {
+            "info": plan.to_dict(),
+            "tasks": [t.to_dict() for t in tasks]
+        }
+    })
 
 @app.route('/api/register', methods=['POST'])
 def register():

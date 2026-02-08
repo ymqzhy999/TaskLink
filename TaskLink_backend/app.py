@@ -1,3 +1,4 @@
+import pathlib
 import uuid
 import warnings
 from flask import Flask, request, jsonify
@@ -7,6 +8,7 @@ from database import db
 from models import User,Task,TaskLog,ChatMessage,AIPlan, AIPlanTask
 import requests
 import re
+from dotenv import load_dotenv
 import subprocess
 from paddleocr import PaddleOCR
 import os
@@ -32,23 +34,32 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 # --- 🔥 初始化 OCR (修复参数) ---
-print("正在加载 OCR 模型...")
-try:
-    # 核心修改：enable_mkldnn=False
-    ocr_engine = PaddleOCR(use_angle_cls=False, lang="ch", show_log=False, enable_mkldnn=False)
-except Exception:
-    try:
-        # 重试
-        ocr_engine = PaddleOCR(use_angle_cls=False, lang="ch", enable_mkldnn=False)
-    except Exception as e:
-        print(f"OCR 初始化降级: {e}")
-        ocr_engine = PaddleOCR(lang="ch")
-print("OCR 模型加载完成!")
+# print("正在加载 OCR 模型...")
+# try:
+#     # 核心修改：enable_mkldnn=False
+#     ocr_engine = PaddleOCR(use_angle_cls=False, lang="ch", show_log=False, enable_mkldnn=False)
+# except Exception:
+#     try:
+#         # 重试
+#         ocr_engine = PaddleOCR(use_angle_cls=False, lang="ch", enable_mkldnn=False)
+#     except Exception as e:
+#         print(f"OCR 初始化降级: {e}")
+#         ocr_engine = PaddleOCR(lang="ch")
+# print("OCR 模型加载完成!")
 
 # ==========================================
 # 🔥 DeepSeek API 配置 (核心修改)
 # ==========================================
-DEEPSEEK_API_KEY = "sk-7c54130b96bc4ac4aa7def9024e4573d"  # 🔴 請填入你的 Key
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# 2. 获取项目根目录 (假设 .env 在 TaskLink_backend 的上一级)
+root_dir = os.path.dirname(current_dir)
+# 3. 拼接 .env 路径
+env_path = os.path.join(root_dir, '.env')
+# 4. 加载环境变量
+load_dotenv(env_path)
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+if not DEEPSEEK_API_KEY:
+    print("⚠️ 警告: 未在 .env 文件中找到 DEEPSEEK_API_KEY，AI 功能将无法使用！")
 DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
 
 
@@ -77,7 +88,6 @@ def call_deepseek_json(system_prompt, user_prompt):
 
         if 'choices' in response_data:
             content = response_data['choices'][0]['message']['content']
-            # 清洗可能存在的 Markdown 標記
             content = content.replace('```json', '').replace('```', '').strip()
             return json.loads(content)
         else:

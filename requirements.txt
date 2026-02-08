@@ -1,0 +1,26 @@
+# Web Framework & Core
+Flask==3.1.2
+Flask-Cors==6.0.2
+Flask-SQLAlchemy==3.1.1
+Werkzeug==3.1.5
+
+# Database Driver
+PyMySQL==1.1.2
+SQLAlchemy==2.0.46
+
+# HTTP Client (For DeepSeek API)
+requests==2.32.5
+urllib3==2.6.3
+
+# Utilities
+python-dotenv==1.2.1
+click==8.3.1
+colorlog==6.10.1
+
+# Core Dependencies (Pinned for stability)
+Jinja2==3.1.6
+itsdangerous==2.2.0
+MarkupSafe==3.0.3
+greenlet==3.3.1
+typing-extensions==4.15.0
+idna==3.11

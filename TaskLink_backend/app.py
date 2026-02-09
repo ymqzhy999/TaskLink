@@ -26,11 +26,18 @@ app.config['SECRET_KEY'] = 'your_secret_key'
 # 初始化数据库
 db.init_app(app)
 # 配置上传文件夹 (放在 static 下方便直接访问)
-UPLOAD_FOLDER = 'static/uploads'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+AVATAR_FOLDER = 'static/uploads'      # 用来存头像
+CHAT_FOLDER = 'static/chat_images'    # 用来存聊天图片/表情包
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+# 2. 自动创建文件夹 (如果不存在)
+for folder in [AVATAR_FOLDER, CHAT_FOLDER]:
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+# 3. 写入 Flask 配置
+app.config['UPLOAD_FOLDER'] = AVATAR_FOLDER  # 保持这个不变，兼容原来的 upload_avatar 接口
+app.config['CHAT_FOLDER'] = CHAT_FOLDER      # 新增这个配置给聊天用
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 限制最大上传 16MB
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 # --- 🔥 初始化 OCR (修复参数) ---
@@ -55,6 +62,8 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 if not DEEPSEEK_API_KEY:
     print("⚠️ 警告: 未在 .env 文件中找到 DEEPSEEK_API_KEY，AI 功能将无法使用！")
 DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
+
+
 
 
 def call_deepseek_json(system_prompt, user_prompt):
@@ -607,6 +616,49 @@ def toggle_task_status(task_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"code": 500, "msg": str(e)}), 500
+
+
+@app.route('/api/chat/upload', methods=['POST'])
+def upload_chat_image():
+    # 1. 检查是否有文件
+    if 'file' not in request.files:
+        return jsonify({"code": 400, "msg": "未接收到文件"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"code": 400, "msg": "文件名为空"}), 400
+
+    # 2. 检查文件类型
+    if file and allowed_file(file.filename):
+        try:
+            # 获取后缀 (如 .jpg)
+            ext = os.path.splitext(file.filename)[1]
+
+            # 生成唯一文件名 (防止文件名冲突覆盖)
+            # 格式: chat_时间戳_随机串.jpg
+            filename = f"chat_{int(time.time())}_{uuid.uuid4().hex[:8]}{ext}"
+
+            # 3. 保存到 CHAT_FOLDER (static/chat_images)
+            save_path = os.path.join(app.config['CHAT_FOLDER'], filename)
+            file.save(save_path)
+
+            # 4. 生成访问 URL
+            # 这里的 URL 不需要加 http 域名，前端会自动拼接或者由 Nginx 处理
+            image_url = f"/static/chat_images/{filename}"
+
+            return jsonify({
+                "code": 200,
+                "msg": "上传成功",
+                "data": {
+                    "url": image_url,
+                    "name": filename
+                }
+            })
+        except Exception as e:
+            return jsonify({"code": 500, "msg": f"保存失败: {str(e)}"}), 500
+    else:
+        return jsonify({"code": 400, "msg": "不支持的文件格式"}), 400
+
 
 """ai控制手机"""
 # # adb命令

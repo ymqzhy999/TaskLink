@@ -57,8 +57,21 @@
             class="bubble" 
             @longpress.stop="onLongPressMessage(msg)"
             @click.stop="onSelectMessage(msg)"
+            :style="msg.type === 'image' ? 'background: transparent; border: none; padding: 0;' : ''"
           >
-            <rich-text :nodes="parseEmoji(msg.content)" style="font-size: 15px; line-height: 24px; color: #e0e0e0;"></rich-text>
+            <image 
+              v-if="msg.type === 'image'"
+              :src="formatAvatar(msg.content)" 
+              mode="widthFix" 
+              style="max-width: 200px; border-radius: 8px; display: block;"
+              @click.stop="previewImage(msg.content)"
+            ></image>
+
+            <rich-text 
+              v-else
+              :nodes="parseEmoji(msg.content)" 
+              style="font-size: 15px; line-height: 24px; color: #e0e0e0;"
+            ></rich-text>
           </view>
         </view>
 
@@ -80,6 +93,10 @@
           <text style="font-size: 24px;">☺</text>
         </view>
 
+        <view class="emoji-btn" @click="chooseImage" style="margin-left: 10px;">
+          <text style="font-size: 24px;">📷</text>
+        </view>
+
         <input 
           class="cyber-input" 
           v-model="inputText" 
@@ -88,6 +105,7 @@
           confirm-type="send"
           @confirm="sendMessage"
           @focus="closeEmojiPanel"
+          style="margin-left: 10px;"
         />
         <view class="send-btn" @click="sendMessage">➤</view>
       </view>
@@ -95,12 +113,12 @@
       <view class="emoji-panel" v-if="showEmojiPanel">
         <scroll-view scroll-y style="height: 200px;">
           <view class="emoji-grid">
-<view v-for="i in 135" :key="i" class="emoji-item" @click="selectEmoji(i-1)">
-  <image 
-    :src="`${FLASK_URL}/static/emoji/${(i-1).toString().padStart(2, '0')}.gif`" 
-    class="emoji-icon"
-  ></image>
-</view>
+            <view v-for="i in 135" :key="i" class="emoji-item" @click="selectEmoji(i-1)">
+              <image 
+                :src="`${FLASK_URL}/static/emoji/${(i-1).toString().padStart(2, '0')}.gif`" 
+                class="emoji-icon"
+              ></image>
+            </view>
           </view>
         </scroll-view>
       </view>
@@ -119,6 +137,7 @@ import { ref, nextTick, onUnmounted } from 'vue';
 import { onUnload, onLoad, onShow } from '@dcloudio/uni-app';
 import io from '@hyoga/uni-socket.io'; 
 
+// 配置服务器地址
 const FLASK_URL = 'http://101.35.132.175:5000'; 
 const NODE_URL = 'http://101.35.132.175:3000';
 
@@ -130,7 +149,7 @@ const scrollTarget = ref('');
 const onlineCount = ref(1);
 const isSelectionMode = ref(false); 
 const selectedIds = ref([]);  
-const showEmojiPanel = ref(false); // 控制表情面板显示
+const showEmojiPanel = ref(false); 
 
 onShow(() => {
   uni.removeTabBarBadge({ index: 1 });
@@ -149,12 +168,66 @@ onUnmounted(() => {
   if (socket.value) socket.value.disconnect();
 });
 
+// --- 🔥 图片发送功能 ---
+
+// 1. 选择图片
+const chooseImage = () => {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'], // 压缩图
+    sourceType: ['album', 'camera'],
+    success: (res) => {
+      const filePath = res.tempFilePaths[0];
+      uploadImage(filePath);
+    }
+  });
+};
+
+// 2. 上传图片
+const uploadImage = (filePath) => {
+  uni.showLoading({ title: '发送中...' });
+  uni.uploadFile({
+    url: `${FLASK_URL}/api/chat/upload`, // 这里对应 Flask 新增的接口
+    filePath: filePath,
+    name: 'file',
+    success: (uploadFileRes) => {
+      uni.hideLoading();
+      try {
+        const data = JSON.parse(uploadFileRes.data);
+        if (data.code === 200) {
+          // 上传成功，发送图片消息
+          const imageUrl = data.data.url;
+          sendSocketMessage(imageUrl, 'image');
+        } else {
+          uni.showToast({ title: '上传失败: ' + data.msg, icon: 'none' });
+        }
+      } catch (e) {
+        console.error(e);
+        uni.showToast({ title: '图片解析失败', icon: 'none' });
+      }
+    },
+    fail: () => {
+      uni.hideLoading();
+      uni.showToast({ title: '网络错误', icon: 'none' });
+    }
+  });
+};
+
+// 3. 预览大图
+const previewImage = (url) => {
+  const fullUrl = formatAvatar(url);
+  uni.previewImage({
+    urls: [fullUrl],
+    current: fullUrl
+  });
+};
+
 // --- 表情包逻辑 ---
 
 const toggleEmojiPanel = () => {
   showEmojiPanel.value = !showEmojiPanel.value;
   if(showEmojiPanel.value) {
-    uni.hideKeyboard(); // 打开表情时收起键盘
+    uni.hideKeyboard(); 
     scrollToBottom();
   }
 };
@@ -164,23 +237,19 @@ const closeEmojiPanel = () => {
 };
 
 const selectEmoji = (index) => {
-  // 插入表情代码，例如 [face:12]
   inputText.value += `[face:${index}]`;
 };
-
-
 
 const parseEmoji = (content) => {
   if (!content) return '';
   return content.replace(/\[face:(\d+)\]/g, (match, id) => {
     const filename = id.toString().padStart(2, '0');
-    // 🔥 这里改成您的服务器地址
     const serverUrl = `${FLASK_URL}/static/emoji/${filename}.gif`;
-    
     return `<img style="width:24px; height:24px; vertical-align:middle; margin:0 2px;" src="${serverUrl}" />`;
   });
 };
-// -----------------
+
+// --- 消息操作逻辑 ---
 
 const onLongPressMessage = (msg) => {
   isSelectionMode.value = true;
@@ -247,6 +316,8 @@ const fetchHistory = () => {
   });
 };
 
+// --- Socket 连接与发送 ---
+
 const connectSocket = () => {
   if (socket.value && socket.value.connected) return;
   socket.value = io(NODE_URL, {
@@ -267,18 +338,25 @@ const connectSocket = () => {
   });
 };
 
+// 通用发送函数 (支持 text 和 image)
+const sendSocketMessage = (content, type = 'text') => {
+  socket.value.emit("send_message", {
+    user_id: myInfo.value.id,
+    content: content,
+    type: type, // 🔥 关键：增加类型字段
+    username: myInfo.value.username, 
+    avatar: myInfo.value.avatar
+  });
+};
+
+// 点击发送按钮 (仅发送文本)
 const sendMessage = () => {
   if (!inputText.value.trim()) return;
   const content = inputText.value;
   inputText.value = ''; 
-  showEmojiPanel.value = false; // 发送后关闭面板
-
-  socket.value.emit("send_message", {
-    user_id: myInfo.value.id,
-    content: content,
-    username: myInfo.value.username, 
-    avatar: myInfo.value.avatar
-  });
+  showEmojiPanel.value = false;
+  
+  sendSocketMessage(content, 'text');
 };
 
 const scrollToBottom = () => {

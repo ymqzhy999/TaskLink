@@ -9,26 +9,19 @@ TaskLink_backend/venv/
 __pycache__/
 *.py[cod]
 
-# 忽略 PyCharm 配置 (你的截图里有 .idea)
 .idea/
 
-# 忽略上传的用户文件 (保留文件夹但忽略内容)
 TaskLink_backend/static/uploads/*
 !TaskLink_backend/static/uploads/.gitkeep
 
 node_modules/
 
-# HBuilderX 编译产生的文件夹 (非常重要，否则仓库会很大)
 TaskLink_uniapp/unpackage/
 
-# 这里的 .hbuilderx 是编辑器配置，建议忽略
 TaskLink_uniapp/.hbuilderx/
 
-# 这里的 .env 你的截图里似乎在 utils 下，或者根目录
 TaskLink_uniapp/.env
 
-# MacOS 系统垃圾 (防止队友是 Mac 用户)
 .DS_Store
 
-# Windows 系统垃圾
 Thumbs.db

@@ -138,9 +138,11 @@ import { onUnload, onLoad, onShow } from '@dcloudio/uni-app';
 import io from '@hyoga/uni-socket.io'; 
 
 // 配置服务器地址
+console.log( import.meta.env.VITE_SERVICE_HOST)
 const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1';
 
 const FLASK_URL = `http://${SERVICE_HOST}:5000`;
+console.log(FLASK_URL)
 const NODE_URL = `http://${SERVICE_HOST}:3000`;
 
 const socket = ref(null);

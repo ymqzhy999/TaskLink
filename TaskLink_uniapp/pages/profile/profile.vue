@@ -89,8 +89,8 @@ import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import messages from '@/utils/language.js';
 
-const API_BASE = 'http://101.35.132.175:5000'; // ⚠️ 请确保这里是你电脑的局域网IP
-const userInfo = ref({});
+const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1';
+const API_BASE = `http://${SERVICE_HOST}:5000`;const userInfo = ref({});
 const currentLang = ref('zh');
 const t = ref(messages.zh.profile);
 

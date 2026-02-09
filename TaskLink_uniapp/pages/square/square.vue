@@ -138,8 +138,10 @@ import { onUnload, onLoad, onShow } from '@dcloudio/uni-app';
 import io from '@hyoga/uni-socket.io'; 
 
 // 配置服务器地址
-const FLASK_URL = 'http://101.35.132.175:5000'; 
-const NODE_URL = 'http://101.35.132.175:3000';
+const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1';
+
+const FLASK_URL = `http://${SERVICE_HOST}:5000`;
+const NODE_URL = `http://${SERVICE_HOST}:3000`;
 
 const socket = ref(null);
 const myInfo = ref({});
@@ -419,4 +421,26 @@ page { background-color: #050505; height: 100vh; overflow: hidden; font-family: 
 .delete-btn { color: #ff003c; font-weight: bold; font-size: 16px; padding: 10px 30px; border: 1px solid #ff003c; border-radius: 20px; background: rgba(255, 0, 60, 0.1); }
 .delete-btn:active { background: #ff003c; color: #fff; }
 @keyframes blink { 0%,100% {opacity:1} 50% {opacity:0.5} }
+/* 找到这个类，替换为以下代码 */
+.emoji-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  color: #888;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background: #111;
+  
+  /* 🔥 新增这两行：消除字体行高影响，微调垂直位置 */
+  line-height: 1; 
+  padding-bottom: 4px; /* 向上提一点 */
+}
+
+/* 另外，给相机图标单独加个微调（如果你觉得还是歪） */
+.emoji-btn text {
+    font-size: 22px; /* 稍微改小一点点 */
+}
 </style>

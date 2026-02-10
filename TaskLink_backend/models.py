@@ -149,3 +149,24 @@ class ChatMessage(db.Model):
             "type": self.msg_type,
             "created_at": self.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }
+
+
+class InvitationCode(db.Model):
+    __tablename__ = 'invitation_code'
+
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(6), unique=True, nullable=False)  # 6位邀请码
+    is_used = db.Column(db.Boolean, default=False)  # 是否已使用
+    created_at = db.Column(db.DateTime, default=datetime.now)  # 创建时间
+    used_at = db.Column(db.DateTime, nullable=True)  # 使用时间
+
+    # (可选) 记录是被谁使用的
+    used_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'code': self.code,
+            'is_used': self.is_used,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        }

@@ -5,8 +5,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import db
-from models import User,Task,TaskLog,ChatMessage,AIPlan, AIPlanTask
-import requests
+from models import User, Task, TaskLog, ChatMessage, AIPlan, AIPlanTask, InvitationCode
 import re
 from dotenv import load_dotenv
 import subprocess
@@ -256,20 +255,33 @@ def get_plan_detail():
         }
     })
 
+
+# 记得在文件头部导入这两个模块
+from datetime import datetime
+from models import User, InvitationCode  # 确保导入了 InvitationCode 模型
+
+
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
     username = data.get('username')
     password = data.get('password')
+    invitation_code = data.get('invitation_code')  # 1. 获取邀请码
 
     if not username or not password:
         return jsonify({"code": 400, "msg": "用户名或密码不能为空"}), 400
 
-    # --- 2. 用户名严格校验 (对标大厂) ---
-    # 规则：6-20位，仅允许字母、数字、下划线，且必须以字母开头
-    # 微信/QQ通常不允许纯数字或特殊字符作为账号
-    username_pattern = r'^[a-zA-Z][a-zA-Z0-9_]{5,19}$'
+    if not invitation_code:
+        return jsonify({"code": 400, "msg": "请输入邀请码"}), 400
 
+    # 查询该邀请码是否存在，且 is_used 为 False (未使用)
+    code_record = InvitationCode.query.filter_by(code=invitation_code, is_used=False).first()
+
+    if not code_record:
+        return jsonify({"code": 400, "msg": "邀请码无效或已被使用"}), 400
+
+    # --- 2. 用户名严格校验 ---
+    username_pattern = r'^[a-zA-Z][a-zA-Z0-9_]{5,19}$'
     if not re.match(username_pattern, username):
         return jsonify({
             "code": 400,
@@ -277,35 +289,44 @@ def register():
         }), 400
 
     # --- 3. 密码强度强校验 ---
-    # 规则：8-20位，必须包含大小写字母和数字
     if len(password) < 8 or len(password) > 20:
         return jsonify({"code": 400, "msg": "密码长度需在 8-20 位之间"}), 400
-
     if not re.search(r'[a-z]', password):
         return jsonify({"code": 400, "msg": "密码必须包含小写字母"}), 400
-
     if not re.search(r'[A-Z]', password):
         return jsonify({"code": 400, "msg": "密码必须包含大写字母"}), 400
-
     if not re.search(r'[0-9]', password):
         return jsonify({"code": 400, "msg": "密码必须包含数字"}), 400
 
-    # --- 4. 检查数据库是否已存在 ---
+    # --- 4. 检查用户名是否已存在 ---
     if User.query.filter_by(username=username).first():
         return jsonify({"code": 400, "msg": "该用户名已被注册"}), 400
 
     try:
-        # 5. 密码加密 & 入库
+        # --- 5. 密码加密 & 入库流程 ---
         hashed_password = generate_password_hash(password)
         new_user = User(username=username, password_hash=hashed_password)
+
+        # 关键步骤：先 add 但不 commit
         db.session.add(new_user)
+
+        # flush() 会执行 SQL 插入语句，生成 new_user.id，但事务还没提交
+        # 这样我们才能拿到 ID 去关联邀请码
+        db.session.flush()
+
+        code_record.is_used = True
+        code_record.used_at = datetime.now()
+        code_record.used_by_user_id = new_user.id  # 记录是谁用了这个码
+
+        # 最后统一提交所有更改
         db.session.commit()
+
         return jsonify({"code": 200, "msg": "注册成功", "data": new_user.to_dict()})
 
     except Exception as e:
-        db.session.rollback()
+        db.session.rollback()  # 如果出错，回滚所有操作（用户也不会创建，邀请码也不会被废弃）
+        print(f"注册失败: {e}")  # 打印错误日志方便调试
         return jsonify({"code": 500, "msg": "服务器内部错误，注册失败"}), 500
-
 
 @app.route('/api/login', methods=['POST'])
 def login():

@@ -134,14 +134,16 @@
 
 <script setup>
 import { ref, nextTick, onUnmounted } from 'vue';
-import { onUnload, onLoad, onShow } from '@dcloudio/uni-app';
+// 🔥 必须引入 onHide，这是修复连接问题的关键
+import { onUnload, onLoad, onShow, onHide } from '@dcloudio/uni-app';
 import io from '@hyoga/uni-socket.io'; 
 
-// 配置服务器地址
-const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1';
+// --- 1. 配置服务器地址 ---
+const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1'; // 如果在真机运行，请确保这里是你的局域网IP
 const FLASK_URL = `http://${SERVICE_HOST}:5000`;
 const NODE_URL = `http://${SERVICE_HOST}:3000`;
 
+// --- 2. 状态变量 ---
 const socket = ref(null);
 const myInfo = ref({});
 const messages = ref([]);
@@ -152,8 +154,13 @@ const isSelectionMode = ref(false);
 const selectedIds = ref([]);  
 const showEmojiPanel = ref(false); 
 
+// --- 3. 生命周期管理 (修复核心) ---
+
 onShow(() => {
+  // 隐藏 TabBar 数字（可选）
   uni.removeTabBarBadge({ index: 1 });
+  
+  // 检查登录状态
   const user = uni.getStorageSync('userInfo');
   if (!user) {
     uni.showToast({ title: '请先登录', icon: 'none' });
@@ -161,21 +168,117 @@ onShow(() => {
     return;
   }
   myInfo.value = user;
+  
+  // 拉取历史消息
   fetchHistory();
+  
+  // 🔥 页面显示时：建立连接
   connectSocket();
 });
 
-onUnmounted(() => {
-  if (socket.value) socket.value.disconnect();
+// 🔥 页面隐藏时（切换Tab）：断开连接
+onHide(() => {
+  closeSocket();
 });
 
-// --- 🔥 图片发送功能 ---
+// 页面卸载时：断开连接
+onUnload(() => {
+  closeSocket();
+});
 
-// 1. 选择图片
+onUnmounted(() => {
+  closeSocket();
+});
+
+// --- 4. Socket 连接逻辑 (修复核心) ---
+
+const closeSocket = () => {
+  if (socket.value) {
+    socket.value.disconnect(); // 断开链接
+    socket.value = null;       // 清空对象
+    console.log("🔴 Socket 已断开 (页面隐藏/卸载)");
+  }
+};
+
+const connectSocket = () => {
+  // 🔥 防御性编程：如果当前有连接，先强制断开，防止重复绑定监听器
+  if (socket.value) {
+     closeSocket();
+  }
+
+  console.log("🟡 正在连接 Socket...");
+  socket.value = io(NODE_URL, {
+    query: {},
+    transports: ['websocket', 'polling'],
+    timeout: 5000,
+    forceNew: true // 强制创建新连接
+  });
+
+  // 监听连接成功
+  socket.value.on("connect", () => { 
+      console.log("🟢 Socket 连接成功 ID:", socket.value.id); 
+      // 连接成功后，可以发一个 join 事件（如果后端需要）
+      socket.value.emit('join', myInfo.value.id);
+  });
+  
+  // 监听在线人数
+  socket.value.on("update_online_count", (count) => { 
+      onlineCount.value = count; 
+  });
+  
+  // 监听新消息
+  socket.value.on("new_message", (msg) => {
+    // 简单防重（可选）：防止极短时间内收到重复ID
+    // if (messages.value.length > 0 && messages.value[messages.value.length - 1].id === msg.id) return;
+
+    // 修正当前用户的头像和昵称显示（如果是自己发的）
+    if (msg.user_id === myInfo.value.id) {
+        msg.username = myInfo.value.username;
+        msg.avatar = myInfo.value.avatar;
+    }
+    
+    messages.value.push(msg);
+    scrollToBottom();
+  });
+};
+
+// --- 5. 发送消息逻辑 ---
+
+// 通用发送函数
+const sendSocketMessage = (content, type = 'text') => {
+  if (!socket.value) {
+      uni.showToast({ title: '连接已断开，正在重连...', icon: 'none' });
+      connectSocket();
+      return;
+  }
+  
+  socket.value.emit("send_message", {
+    user_id: myInfo.value.id,
+    content: content,
+    type: type, // text 或 image
+    username: myInfo.value.username, 
+    avatar: myInfo.value.avatar
+  });
+};
+
+// 点击发送按钮
+const sendMessage = () => {
+  if (!inputText.value.trim()) return;
+  const content = inputText.value;
+  
+  // 清空输入框和面板
+  inputText.value = ''; 
+  showEmojiPanel.value = false;
+  
+  sendSocketMessage(content, 'text');
+};
+
+// --- 6. 图片发送功能 ---
+
 const chooseImage = () => {
   uni.chooseImage({
     count: 1,
-    sizeType: ['compressed'], // 压缩图
+    sizeType: ['compressed'],
     sourceType: ['album', 'camera'],
     success: (res) => {
       const filePath = res.tempFilePaths[0];
@@ -184,11 +287,10 @@ const chooseImage = () => {
   });
 };
 
-// 2. 上传图片
 const uploadImage = (filePath) => {
   uni.showLoading({ title: '发送中...' });
   uni.uploadFile({
-    url: `${FLASK_URL}/api/chat/upload`, // 这里对应 Flask 新增的接口
+    url: `${FLASK_URL}/api/chat/upload`,
     filePath: filePath,
     name: 'file',
     success: (uploadFileRes) => {
@@ -196,7 +298,7 @@ const uploadImage = (filePath) => {
       try {
         const data = JSON.parse(uploadFileRes.data);
         if (data.code === 200) {
-          // 上传成功，发送图片消息
+          // 上传成功，发送 Socket 消息
           const imageUrl = data.data.url;
           sendSocketMessage(imageUrl, 'image');
         } else {
@@ -214,7 +316,6 @@ const uploadImage = (filePath) => {
   });
 };
 
-// 3. 预览大图
 const previewImage = (url) => {
   const fullUrl = formatAvatar(url);
   uni.previewImage({
@@ -223,7 +324,7 @@ const previewImage = (url) => {
   });
 };
 
-// --- 表情包逻辑 ---
+// --- 7. 表情包功能 ---
 
 const toggleEmojiPanel = () => {
   showEmojiPanel.value = !showEmojiPanel.value;
@@ -238,11 +339,13 @@ const closeEmojiPanel = () => {
 };
 
 const selectEmoji = (index) => {
+  // 插入表情代码
   inputText.value += `[face:${index}]`;
 };
 
 const parseEmoji = (content) => {
   if (!content) return '';
+  // 解析 [face:1] -> <img src="...">
   return content.replace(/\[face:(\d+)\]/g, (match, id) => {
     const filename = id.toString().padStart(2, '0');
     const serverUrl = `${FLASK_URL}/static/emoji/${filename}.gif`;
@@ -250,7 +353,7 @@ const parseEmoji = (content) => {
   });
 };
 
-// --- 消息操作逻辑 ---
+// --- 8. 消息删除与多选功能 ---
 
 const onLongPressMessage = (msg) => {
   isSelectionMode.value = true;
@@ -289,12 +392,17 @@ const confirmDelete = () => {
 const doLocalDelete = () => {
   const storageKey = `deleted_msgs_${myInfo.value.id}`;
   let oldDeletedIds = uni.getStorageSync(storageKey) || [];
+  // 合并并去重
   const newDeletedIds = [...new Set([...oldDeletedIds, ...selectedIds.value])];
   uni.setStorageSync(storageKey, newDeletedIds);
+  
+  // 更新视图
   messages.value = messages.value.filter(m => !selectedIds.value.includes(m.id));
   exitSelectionMode();
   uni.showToast({ title: '已清理', icon: 'none' });
 };
+
+// --- 9. 辅助功能 ---
 
 const formatAvatar = (path) => {
   if (!path) return '/static/logo.png';
@@ -308,6 +416,7 @@ const fetchHistory = () => {
     success: (res) => {
       if (res.data.code === 200) {
         const allMessages = res.data.data;
+        // 过滤掉本地已删除的消息
         const storageKey = `deleted_msgs_${myInfo.value.id}`;
         const deletedIds = uni.getStorageSync(storageKey) || [];
         messages.value = allMessages.filter(m => !deletedIds.includes(m.id));
@@ -315,49 +424,6 @@ const fetchHistory = () => {
       }
     }
   });
-};
-
-// --- Socket 连接与发送 ---
-
-const connectSocket = () => {
-  if (socket.value && socket.value.connected) return;
-  socket.value = io(NODE_URL, {
-    query: {},
-    transports: ['websocket', 'polling'],
-    timeout: 5000,
-  });
-
-  socket.value.on("connect", () => { console.log("🟢 Socket Connected"); });
-  socket.value.on("update_online_count", (count) => { onlineCount.value = count; });
-  socket.value.on("new_message", (msg) => {
-    if (msg.user_id === myInfo.value.id) {
-        msg.username = myInfo.value.username;
-        msg.avatar = myInfo.value.avatar;
-    }
-    messages.value.push(msg);
-    scrollToBottom();
-  });
-};
-
-// 通用发送函数 (支持 text 和 image)
-const sendSocketMessage = (content, type = 'text') => {
-  socket.value.emit("send_message", {
-    user_id: myInfo.value.id,
-    content: content,
-    type: type, // 🔥 关键：增加类型字段
-    username: myInfo.value.username, 
-    avatar: myInfo.value.avatar
-  });
-};
-
-// 点击发送按钮 (仅发送文本)
-const sendMessage = () => {
-  if (!inputText.value.trim()) return;
-  const content = inputText.value;
-  inputText.value = ''; 
-  showEmojiPanel.value = false;
-  
-  sendSocketMessage(content, 'text');
 };
 
 const scrollToBottom = () => {

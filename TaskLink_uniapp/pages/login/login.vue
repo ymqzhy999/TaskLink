@@ -5,27 +5,41 @@
     <view class="login-box">
       <view class="logo-area">
         <view class="glitch-logo">TASK<br/>LINK</view>
-        <text class="sub-text">{{ t.subtitle }}</text>
+        <text class="sub-text">NEURAL CONNECTION ESTABLISHED</text>
       </view>
 
       <view class="form-area">
         <view class="input-group">
-          <text class="label">{{ t.label_user }}</text>
-          <input class="cyber-input" v-model="username" :placeholder="t.ph_user" placeholder-class="ph-style" />
+          <text class="label">USERNAME // 用户名</text>
+          <input class="cyber-input" v-model="username" placeholder="ENTER ID" placeholder-class="ph-style" />
         </view>
         
         <view class="input-group">
-          <text class="label">{{ t.label_pass }}</text>
-          <input class="cyber-input" v-model="password" password :placeholder="t.ph_pass" placeholder-class="ph-style" />
+          <text class="label">PASSWORD // 密码</text>
+          <input class="cyber-input" v-model="password" password placeholder="ACCESS CODE" placeholder-class="ph-style" />
         </view>
 
-        <button class="login-btn" @click="handleLogin" :loading="loading">
-          {{ isRegister ? t.btn_reg : t.btn_login }}
+        <view v-if="isRegister" class="input-group" style="position: relative;">
+          <text class="label">INVITATION CODE // 邀请码</text>
+          <input 
+            class="cyber-input" 
+            v-model="invitationCode" 
+            placeholder="6-DIGIT CODE" 
+            maxlength="6"
+            placeholder-class="ph-style" 
+          />
+          <view class="get-code-link" @click="showContactInfo">
+            <text>GET CODE ></text>
+          </view>
+        </view>
+
+        <button class="login-btn" @click="handleAction" :loading="loading">
+          {{ isRegister ? 'REGISTER // 注册' : 'LOGIN // 接入' }}
         </button>
         
-        <view class="toggle-area" @click="isRegister = !isRegister">
+        <view class="toggle-area" @click="toggleMode">
           <text class="toggle-text">
-            {{ isRegister ? t.link_login : t.link_reg }}
+            {{ isRegister ? '<< BACK TO LOGIN' : 'NEW USER REGISTRATION >>' }}
           </text>
         </view>
       </view>
@@ -36,55 +50,92 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import messages from '@/utils/language.js'; 
 
-const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1';
-const API_BASE = `http://${SERVICE_HOST}:5000`;const username = ref('');
+// 配置你的后端地址
+const SERVICE_HOST = '101.35.132.175'; 
+const API_BASE = `http://${SERVICE_HOST}:5000`;
+
+const username = ref('');
 const password = ref('');
+const invitationCode = ref(''); 
 const isRegister = ref(false);
 const loading = ref(false);
-const t = ref(messages.zh.login); 
 
-onShow(() => {
-  const lang = uni.getStorageSync('lang') || 'zh';
-  t.value = messages[lang].login;
-});
+// 🔥 修改：显示 QQ 号弹窗
+const showContactInfo = () => {
+  const qqNumber = '2335016055';
+  
+  uni.showModal({
+    title: '获取邀请码',
+    content: `请联系管理员获取邀请码\nQQ: ${qqNumber}`,
+    confirmText: '复制QQ',
+    cancelText: '关闭',
+    success: (res) => {
+      if (res.confirm) {
+        // 用户点击了“复制QQ”
+        uni.setClipboardData({
+          data: qqNumber,
+          success: () => {
+            uni.showToast({ title: 'QQ号已复制', icon: 'success' });
+          }
+        });
+      }
+    }
+  });
+};
 
-const handleLogin = () => {
+const toggleMode = () => {
+  isRegister.value = !isRegister.value;
+  username.value = '';
+  password.value = '';
+  invitationCode.value = '';
+};
+
+const handleAction = () => {
   if (!username.value || !password.value) {
-    uni.showToast({ title: 'MISSING DATA', icon: 'none' });
+    uni.showToast({ title: '请输入账号密码', icon: 'none' });
     return;
   }
+  
+  if (isRegister.value && !invitationCode.value) {
+    uni.showToast({ title: '请输入邀请码', icon: 'none' });
+    return;
+  }
+
   loading.value = true;
+  
+  let postData = {
+    username: username.value,
+    password: password.value
+  };
+  
+  if (isRegister.value) {
+    postData.invitation_code = invitationCode.value;
+  }
+
   const endpoint = isRegister.value ? '/api/register' : '/api/login';
 
   uni.request({
     url: `${API_BASE}${endpoint}`,
     method: 'POST',
-    data: { username: username.value, password: password.value },
+    data: postData,
     success: (res) => {
       loading.value = false;
       
-      // ✅ 成功的情况 (Code 200)
       if (res.data.code === 200) {
         if (!isRegister.value) {
-           // 登录成功
            uni.setStorageSync('userInfo', res.data.data);
-           uni.showToast({ title: t.value.toast_succ });
+           uni.showToast({ title: '接入成功' });
            setTimeout(() => uni.switchTab({ url: '/pages/index/index' }), 500);
         } else {
-           // 注册成功
-           uni.showToast({ title: t.value.toast_reg, icon: 'success' });
-           isRegister.value = false; // 切回登录模式
+           uni.showToast({ title: '注册成功，请登录', icon: 'success' });
+           isRegister.value = false;
+           password.value = '';
+           invitationCode.value = '';
         }
-      } 
-      // ❌ 失败的情况 (Code 400/401/500)
-      else {
-        // 🔥 关键修改：直接显示后端的 res.data.msg
-        // 设置 icon: 'none' 是为了能显示更长的文字（比如复杂的密码规则）
-        // 设置 duration: 3000 让用户有足够时间看完提示
+      } else {
         uni.showToast({ 
-            title: res.data.msg || '未知错误', 
+            title: res.data.msg || '操作失败', 
             icon: 'none',
             duration: 3000 
         });
@@ -92,14 +143,14 @@ const handleLogin = () => {
     },
     fail: () => {
       loading.value = false;
-      uni.showToast({ title: '网络连接失败', icon: 'none' });
+      uni.showToast({ title: '无法连接服务器', icon: 'none' });
     }
   });
 };
 </script>
 
 <style>
-/* 保持原有赛博风样式不变 */
+/* 保持原有赛博风样式 */
 page { background-color: #000; color: #00f3ff; font-family: 'Courier New', monospace; }
 .container { height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
 .cyber-bg { position: absolute; width: 200%; height: 200%; background: radial-gradient(circle, #111 10%, #000 60%); z-index: -1; animation: pulse 5s infinite; }
@@ -114,6 +165,18 @@ page { background-color: #000; color: #00f3ff; font-family: 'Courier New', monos
 .label { font-size: 10px; color: #666; display: block; margin-bottom: 5px; letter-spacing: 1px; }
 .cyber-input { color: #fff; font-size: 18px; letter-spacing: 1px; }
 .ph-style { color: #333; }
+
+.get-code-link {
+  position: absolute;
+  right: 0;
+  top: 20px; 
+  font-size: 12px;
+  color: #ff003c; 
+  text-decoration: underline;
+  z-index: 10;
+  padding: 5px;
+}
+.get-code-link:active { opacity: 0.7; }
 
 .login-btn { 
   background: #00f3ff; color: #000; border-radius: 0; border: none; 

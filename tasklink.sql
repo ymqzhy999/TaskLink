@@ -11,7 +11,7 @@
  Target Server Version : 80043 (8.0.43)
  File Encoding         : 65001
 
- Date: 08/02/2026 16:11:36
+ Date: 10/02/2026 11:05:56
 */
 
 SET NAMES utf8mb4;
@@ -31,7 +31,7 @@ CREATE TABLE `ai_plan_tasks`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `plan_id`(`plan_id` ASC) USING BTREE,
   CONSTRAINT `ai_plan_tasks_ibfk_1` FOREIGN KEY (`plan_id`) REFERENCES `ai_plans` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 75 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 96 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for ai_plans
@@ -48,7 +48,7 @@ CREATE TABLE `ai_plans`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `user_id`(`user_id` ASC) USING BTREE,
   CONSTRAINT `ai_plans_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 8 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for chat_messages
@@ -63,7 +63,7 @@ CREATE TABLE `chat_messages`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `fk_chat_user`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_chat_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 35 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 57 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for execution_logs
@@ -78,7 +78,22 @@ CREATE TABLE `execution_logs`  (
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `fk_task_log`(`task_id` ASC) USING BTREE,
   CONSTRAINT `fk_task_log` FOREIGN KEY (`task_id`) REFERENCES `tasks` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for invitation_code
+-- ----------------------------
+DROP TABLE IF EXISTS `invitation_code`;
+CREATE TABLE `invitation_code`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `code` varchar(6) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '6位邀请码',
+  `is_used` tinyint(1) NULL DEFAULT 0 COMMENT '0:未使用, 1:已使用',
+  `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP,
+  `used_at` datetime NULL DEFAULT NULL,
+  `used_by_user_id` int NULL DEFAULT NULL,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uniq_code`(`code` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 21 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for task_logs

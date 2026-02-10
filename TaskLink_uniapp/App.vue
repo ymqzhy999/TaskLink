@@ -24,6 +24,14 @@
 			if (userInfo) {
 				this.globalData.userInfo = userInfo;
 				this.initSocket();
+				console.log('检测到已登录，自动跳转...');
+				uni.switchTab({
+									url: '/pages/index/index', // 或者 '/pages/square/square'
+									fail: (err) => {
+										console.error('跳转失败，可能是非Tab页面，尝试 reLaunch', err);
+										uni.reLaunch({ url: '/pages/index/index' });
+									}
+								});
 			} else {
 				uni.reLaunch({ url: '/pages/login/login' });
 			}

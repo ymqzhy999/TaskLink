@@ -48,20 +48,7 @@
             },
             /* SDK配置 */
             "sdkConfigs" : {
-                "push" : {
-                    "unipush" : {
-                        "version" : "2",
-                        "offline" : false,
-                        "icons" : {
-                            "small" : {
-                                "ldpi" : "F:/项目/TaskLink/logo18.png",
-                                "mdpi" : "F:/项目/TaskLink/logo24px.png",
-                                "hdpi" : "F:/项目/TaskLink/logo36.png",
-                                "xhdpi" : "F:/项目/TaskLink/logo48px.png"
-                            }
-                        }
-                    }
-                }
+                "push" : {}
             },
             "icons" : {
                 "android" : {
@@ -139,6 +126,9 @@
     "app-harmony" : {
         "uniStatistics" : {
             "enable" : false
+        },
+        "distribute" : {
+            "bundleName" : "task.link.app"
         }
     },
     "h5" : {

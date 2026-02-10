@@ -2,11 +2,12 @@
 
 ---
 ## 下载安装
-点击下载最新版本：[TaskLink_v1.2.2.apk](https://github.com/ymqzhy999/TaskLink/blob/main/dist/tasklink1.2.2.apk)
+点击下载最新版本：[TaskLink_v1.2.3.apk](https://github.com/ymqzhy999/TaskLink/blob/main/dist/tasklink1.2.3.apk)
 
 
 * 1.2.1版本添加古老qq表情包和图片发送功能
 * 1.2.2版本解决生命周期错误导致的幽灵消息(重复消息),添加注册邀请码功能,防止脚本批量注册账号
+* 1.2.3版本添加消息弹窗和震动功能
 
 
 

@@ -5,7 +5,7 @@
     <view class="login-box">
       <view class="logo-area">
         <view class="glitch-logo">TASK<br/>LINK</view>
-        <text class="sub-text">NEURAL CONNECTION ESTABLISHED</text>
+        <text class="sub-text terminal-font">{{ terminalText }}</text>
       </view>
 
       <view class="form-area">
@@ -48,7 +48,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+// 🔥 引入生命周期钩子
+import { ref, onMounted, onUnmounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 
 // 配置你的后端地址
@@ -61,7 +62,52 @@ const invitationCode = ref('');
 const isRegister = ref(false);
 const loading = ref(false);
 
-// 🔥 修改：显示 QQ 号弹窗
+// --- 🔥 新增：终端打字机逻辑 ---
+const terminalText = ref('');
+const statusLines = [
+  "INITIALIZING NEURAL LINK...",
+  "BYPASSING FIREWALLS...",
+  "DECRYPTING GATEWAY...",
+  "ACCESS GRANTED.",
+  "NEURAL CONNECTION ESTABLISHED"
+];
+let lineIndex = 0;
+let charIndex = 0;
+let typeTimer = null;
+
+const typeWriter = () => {
+  // 如果所有行都打完了，停止
+  if (lineIndex >= statusLines.length) return;
+
+  const currentLine = statusLines[lineIndex];
+  
+  // 逐字显示当前行
+  if (charIndex < currentLine.length) {
+    // 加个下划线 "_" 模拟光标
+    terminalText.value = currentLine.substring(0, charIndex + 1) + "_";
+    charIndex++;
+    // 随机打字速度，更有真实感
+    typeTimer = setTimeout(typeWriter, 30 + Math.random() * 70);
+  } else {
+    // 这一行打完了，准备下一行
+    lineIndex++;
+    charIndex = 0;
+    // 行与行之间停顿 0.8 秒
+    typeTimer = setTimeout(typeWriter, 800);
+  }
+};
+
+// 页面加载时启动动画
+onMounted(() => {
+  typeWriter();
+});
+
+// 页面卸载时清除定时器，防止内存泄漏
+onUnmounted(() => {
+  if (typeTimer) clearTimeout(typeTimer);
+});
+// ----------------------------
+
 const showContactInfo = () => {
   const qqNumber = '2335016055';
   
@@ -72,7 +118,6 @@ const showContactInfo = () => {
     cancelText: '关闭',
     success: (res) => {
       if (res.confirm) {
-        // 用户点击了“复制QQ”
         uni.setClipboardData({
           data: qqNumber,
           success: () => {
@@ -136,7 +181,7 @@ const handleAction = () => {
       } else {
         uni.showToast({ 
             title: res.data.msg || '操作失败', 
-            icon: 'none',
+            icon: 'none', 
             duration: 3000 
         });
       }
@@ -158,7 +203,77 @@ page { background-color: #000; color: #00f3ff; font-family: 'Courier New', monos
 
 .login-box { width: 80%; }
 .logo-area { margin-bottom: 50px; text-align: center; }
-.glitch-logo { font-size: 40px; font-weight: 900; letter-spacing: 5px; text-shadow: 2px 2px #ff003c, -2px -2px #00f3ff; color: #fff; line-height: 1.2; }
+
+/* 🔥 修改：高级故障风 Logo 样式 */
+.glitch-logo { 
+  font-size: 40px; 
+  font-weight: 900; 
+  letter-spacing: 5px; 
+  color: #fff; 
+  position: relative;
+  display: inline-block;
+  line-height: 1.2;
+}
+
+/* 创建两个重影层 */
+.glitch-logo::before,
+.glitch-logo::after {
+  content: "TASK\A LINK"; /* \A 是换行符 */
+  white-space: pre;       /* 保持换行 */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;       /* 背景色遮挡，制造撕裂感 */
+}
+
+/* 第一层：红色重影 + 随机位移 */
+.glitch-logo::before {
+  color: #ff003c;
+  z-index: -1;
+  text-shadow: 2px 0 #ff003c;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  animation: glitch-anim-1 3s infinite linear alternate-reverse;
+}
+
+/* 第二层：蓝色重影 + 随机位移 */
+.glitch-logo::after {
+  color: #00f3ff;
+  z-index: -2;
+  text-shadow: -2px 0 #00f3ff;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  animation: glitch-anim-2 2.5s infinite linear alternate-reverse;
+}
+
+/* 🔥 新增：关键帧动画 */
+@keyframes glitch-anim-1 {
+  0% { clip-path: polygon(0 2%, 100% 2%, 100% 5%, 0 5%); transform: translate(2px,0); }
+  20% { clip-path: polygon(0 15%, 100% 15%, 100% 15%, 0 15%); transform: translate(-2px,0); }
+  40% { clip-path: polygon(0 10%, 100% 10%, 100% 20%, 0 20%); transform: translate(2px,0); }
+  60% { clip-path: polygon(0 1%, 100% 1%, 100% 2%, 0 2%); transform: translate(-2px,0); }
+  80% { clip-path: polygon(0 33%, 100% 33%, 100% 33%, 0 33%); transform: translate(0,0); }
+  100% { clip-path: polygon(0 44%, 100% 44%, 100% 46%, 0 46%); transform: translate(2px,0); }
+}
+
+@keyframes glitch-anim-2 {
+  0% { clip-path: polygon(0 25%, 100% 25%, 100% 30%, 0 30%); transform: translate(-2px,0); }
+  20% { clip-path: polygon(0 3%, 100% 3%, 100% 3%, 0 3%); transform: translate(2px,0); }
+  40% { clip-path: polygon(0 5%, 100% 5%, 100% 20%, 0 20%); transform: translate(-2px,0); }
+  60% { clip-path: polygon(0 20%, 100% 20%, 100% 20%, 0 20%); transform: translate(0,0); }
+  80% { clip-path: polygon(0 40%, 100% 40%, 100% 40%, 0 40%); transform: translate(2px,0); }
+  100% { clip-path: polygon(0 52%, 100% 52%, 100% 59%, 0 59%); transform: translate(-2px,0); }
+}
+
+/* 🔥 新增：打字机字体样式 */
+.terminal-font {
+  font-family: 'Courier New', monospace;
+  color: #00ff9d; /* 黑客绿 */
+  font-weight: bold;
+  text-shadow: 0 0 5px #00ff9d;
+  min-height: 20px;
+}
+
 .sub-text { font-size: 10px; color: #666; letter-spacing: 2px; margin-top: 10px; display: block; }
 
 .input-group { margin-bottom: 25px; border-bottom: 1px solid #333; padding-bottom: 5px; }

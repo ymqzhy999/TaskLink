@@ -1,8 +1,7 @@
 <script>
 	import io from '@hyoga/uni-socket.io';
 
-	const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1';
-	const SOCKET_URL = `http://${SERVICE_HOST}:3000`;
+	const SOCKET_URL = `http://101.35.132.175:3000`;
 
 	export default {
 		globalData: {

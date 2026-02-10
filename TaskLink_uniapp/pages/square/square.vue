@@ -136,8 +136,7 @@
 import { ref, nextTick, onUnmounted } from 'vue';
 import { onUnload, onShow, onHide } from '@dcloudio/uni-app';
 
-const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1';
-const FLASK_URL = `http://${SERVICE_HOST}:5000`;
+const FLASK_URL = `http://101.35.132.175:5000`;
 
 const myInfo = ref({});
 const messages = ref([]);

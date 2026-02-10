@@ -109,8 +109,7 @@
 <script setup>
 import { ref, onUnmounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1';
-const API_BASE = `http://${SERVICE_HOST}:5000`;
+const API_BASE = `http://101.35.132.175:5000`;
 const planForm = ref({ goal: '', expectation: '', days: 7 });
 const isGenerating = ref(false);
 

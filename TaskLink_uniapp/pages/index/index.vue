@@ -74,8 +74,8 @@
 import { ref, computed } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 
-const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1';
-const API_BASE = `http://${SERVICE_HOST}:5000`;const activePlans = ref([]);
+const API_BASE = `http://101.35.132.175:5000`;
+const activePlans = ref([]);
 
 onShow(() => {
   const user = uni.getStorageSync('userInfo');

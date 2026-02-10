@@ -53,8 +53,8 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 
 // 配置你的后端地址
-const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1';
-const API_BASE = `http://${SERVICE_HOST}:5000`; // Flask 后端
+
+const API_BASE = `http://101.35.132.175:5000`; // Flask 后端
 
 const username = ref('');
 const password = ref('');

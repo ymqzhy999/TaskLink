@@ -59,8 +59,7 @@
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 
-const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1';
-const API_BASE = `http://${SERVICE_HOST}:5000`;const planId = ref(null);
+const API_BASE = `http://101.35.132.175:5000`;const planId = ref(null);
 const loading = ref(true);
 const plan = ref({});
 const tasks = ref([]);

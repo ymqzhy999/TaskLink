@@ -2,7 +2,11 @@
 
 ---
 ## 下载安装
-点击下载最新版本：[TaskLink_v1.2.1.apk](https://github.com/ymqzhy999/TaskLink/blob/main/dist/tasklink1.2.1.apk)
+点击下载最新版本：[TaskLink_v1.2.2.apk](https://github.com/ymqzhy999/TaskLink/blob/main/dist/tasklink1.2.2.apk)
+1.2.1版本添加古老qq表情包和图片发送功能
+1.2.2版本解决生命周期错误导致的幽灵消息(重复消息),添加注册邀请码功能,防止脚本批量注册账号
+
+
 
 # ⚡ TaskLink | 赛博朋克·智能战术终端
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)

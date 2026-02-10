@@ -10,6 +10,12 @@ __pycache__/
 *.py[cod]
 
 .idea/
+logo1.3.png
+logo18.png
+logo24px.png
+logo36.png
+logo48px.png
+logo216.png
 
 TaskLink_backend/static/uploads/*
 !TaskLink_backend/static/uploads/.gitkeep

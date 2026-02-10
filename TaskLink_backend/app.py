@@ -1,6 +1,8 @@
 import pathlib
 import uuid
 import warnings
+
+import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -75,7 +77,7 @@ def call_deepseek_json(system_prompt, user_prompt):
     }
 
     payload = {
-        "model": "deepseek-chat",  # 或者 deepseek-reasoner
+        "model": "deepseek-reasoner",  # 或者 deepseek-chat
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}

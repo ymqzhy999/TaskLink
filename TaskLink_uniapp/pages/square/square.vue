@@ -322,18 +322,26 @@ const formatAvatar = (path) => {
   return path.startsWith('http') ? path : `${FLASK_URL}${path}`;
 };
 
+// TaskLink_uniapp/pages/square/square.vue
+
 const fetchHistory = () => {
-  uni.request({
-    url: `${FLASK_URL}/api/square/history`,
-    success: (res) => {
-      if (res.data.code === 200 && isPageActive.value) { // 🔒 加锁：防止请求回来时页面已销毁
-        const key = `deleted_msgs_${myInfo.value.id}`;
-        const deletedIds = uni.getStorageSync(key) || [];
-        messages.value = res.data.data.filter(m => !deletedIds.includes(m.id));
-        scrollToBottom();
-      }
-    }
-  });
+    uni.request({
+        url: `${FLASK_URL}/api/square/history?user_id=${myInfo.value.id}`,
+        success: (res) => {
+            if (res.data.code === 403) {
+                 uni.removeStorageSync('userInfo');
+                 uni.reLaunch({ url: '/pages/login/login' });
+                 return;
+            }
+
+            if (res.data.code === 200 && isPageActive.value) {
+                const key = `deleted_msgs_${myInfo.value.id}`;
+                const deletedIds = uni.getStorageSync(key) || [];
+                messages.value = res.data.data.filter(m => !deletedIds.includes(m.id));
+                scrollToBottom();
+            }
+        }
+    });
 };
 
 const scrollToBottom = () => {

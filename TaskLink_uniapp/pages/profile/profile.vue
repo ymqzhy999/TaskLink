@@ -15,7 +15,9 @@
       <view class="info-box">
         <text class="username">{{ userInfo.username || t.unknown }}</text>
         <text class="user-id">ID: {{ userInfo.id ? '#' + String(userInfo.id).padStart(4, '0') : 'NULL' }}</text>
-        <view class="status-badge">{{ t.status }}</view>
+        <view class="status-badge">
+            {{ userInfo.role === 1 ? 'ADMINISTRATOR' : t.status }}
+        </view>
       </view>
     </view>
 
@@ -38,6 +40,7 @@
         <text class="arrow">></text>
       </view>
 
+
       <view class="menu-item">
         <view class="item-left">
           <text class="menu-icon">📂</text>
@@ -53,6 +56,13 @@
         </view>
         <text class="arrow warn">></text>
       </view>
+	  <view v-if="userInfo.role === 1" class="menu-item admin-entry" @click="goToAdmin">
+	    <view class="item-left">
+	      <text class="menu-icon">🛡️</text>
+	      <text class="menu-text">ADMIN CONSOLE // 用户管理</text>
+	    </view>
+	    <text class="arrow">></text>
+	  </view>
     </view>
 
     <view class="footer-version">{{ t.version }}</view>
@@ -89,8 +99,11 @@ import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import messages from '@/utils/language.js';
 
-const SERVICE_HOST = import.meta.env.VITE_SERVICE_HOST || '127.0.0.1';
-const API_BASE = `http://${SERVICE_HOST}:5000`;const userInfo = ref({});
+// 获取环境配置
+const SERVICE_HOST = '101.35.132.175'; // 确保这里是你的公网 IP
+const API_BASE = `http://${SERVICE_HOST}:5000`;
+
+const userInfo = ref({});
 const currentLang = ref('zh');
 const t = ref(messages.zh.profile);
 
@@ -106,6 +119,11 @@ onShow(() => {
   currentLang.value = savedLang;
   t.value = messages[savedLang].profile;
 });
+
+// 🔥🔥🔥 新增：跳转到管理页 🔥🔥🔥
+const goToAdmin = () => {
+  uni.navigateTo({ url: '/pages/admin/manager' });
+};
 
 const getAvatarUrl = () => {
   if (userInfo.value.avatar) {
@@ -173,7 +191,7 @@ const handleLogout = () => {
   });
 };
 
-// --- 🔥 修改密码逻辑 ---
+// --- 修改密码逻辑 ---
 const openPasswordModal = () => {
   pwdForm.value = { old: '', new: '' };
   showPwdModal.value = true;
@@ -189,7 +207,6 @@ const submitPasswordChange = () => {
     return;
   }
   
-  // 简单的前端校验
   if (pwdForm.value.new.length < 6) {
     uni.showToast({ title: '新密码太短', icon: 'none' });
     return;
@@ -210,7 +227,6 @@ const submitPasswordChange = () => {
       if (res.data.code === 200) {
         uni.showToast({ title: 'SUCCESS' });
         closePasswordModal();
-        // 强制登出让用户重新登录
         setTimeout(() => {
           uni.removeStorageSync('userInfo');
           uni.reLaunch({ url: '/pages/login/login' });
@@ -228,7 +244,7 @@ const submitPasswordChange = () => {
 </script>
 
 <style>
-/* 保持原有样式不变 */
+/* 保持原有样式 */
 page { background-color: #050505; color: #ccc; font-family: 'Courier New', monospace; }
 .container { padding: 20px; }
 .cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #111 0%, #000 100%); z-index: -1; }
@@ -263,7 +279,20 @@ page { background-color: #050505; color: #ccc; font-family: 'Courier New', monos
 .arrow.warn { color: #ff003c; }
 .footer-version { text-align: center; color: #333; font-size: 10px; margin-top: 50px; }
 
-/* 🔥 新增：模态框样式 */
+/* 🔥🔥🔥 新增：管理员菜单样式 🔥🔥🔥 */
+.admin-entry {
+  background: rgba(255, 0, 60, 0.05); /* 淡淡的红色背景 */
+  border-left: 2px solid #ff003c !important; /* 左侧红色亮条 */
+}
+.admin-entry .menu-text {
+  color: #ff003c !important; /* 红色文字 */
+  letter-spacing: 1px;
+}
+.admin-entry .menu-icon {
+  text-shadow: 0 0 5px #ff003c;
+}
+
+/* 模态框样式 */
 .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
 .cyber-modal { width: 80%; background: #0a0a0a; border: 1px solid #00f3ff; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2); padding: 0; display: flex; flex-direction: column; }
 .modal-header { background: rgba(0, 243, 255, 0.1); padding: 10px 15px; border-bottom: 1px solid #00f3ff; display: flex; justify-content: space-between; align-items: center; }

@@ -31,6 +31,14 @@
 			}
 		},
 		{
+		    "path": "pages/admin/manager",
+		    "style": {
+		        "navigationBarTitleText": "用户管理(Admin)",
+		        "navigationBarBackgroundColor": "#050505",
+		        "navigationBarTextStyle": "white"
+		    }
+		},
+		{
 			"path": "pages/add/add",
 			"style": {
 				"navigationBarTitleText": "NEW_PROTOCOL // 新建协议"
@@ -50,6 +58,7 @@
 				"navigationBarTextStyle": "white"
 			}
 		}
+
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "white",

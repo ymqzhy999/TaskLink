@@ -136,6 +136,7 @@
 import { ref, nextTick, onUnmounted } from 'vue';
 import { onUnload, onShow, onHide } from '@dcloudio/uni-app';
 
+// ⚠️ 请确保你的 FLASK_URL 是正确的
 const FLASK_URL = `http://101.35.132.175:5000`;
 
 const myInfo = ref({});
@@ -150,6 +151,12 @@ const showEmojiPanel = ref(false);
 // 🔥 新增：页面活跃状态锁
 const isPageActive = ref(true);
 
+// --- 辅助函数：获取 Token ---
+const getToken = () => {
+  const user = uni.getStorageSync('userInfo');
+  return user ? user.token : '';
+};
+
 // --- 生命周期 ---
 
 onShow(() => {
@@ -160,7 +167,8 @@ onShow(() => {
   uni.removeTabBarBadge({ index: 1 });
   
   const user = uni.getStorageSync('userInfo');
-  if (!user) {
+  // 🔥 校验 Token 是否存在，不存在直接踢
+  if (!user || !user.token) {
     uni.reLaunch({ url: '/pages/login/login' });
     return;
   }
@@ -246,7 +254,7 @@ const sendMessage = () => {
   sendSocketMessage(content, 'text');
 };
 
-// ... (以下逻辑保持不变) ...
+// ... (chooseImage, uploadImage 等逻辑保持不变，略) ...
 
 const chooseImage = () => {
   uni.chooseImage({
@@ -264,12 +272,22 @@ const uploadImage = (filePath) => {
     url: `${FLASK_URL}/api/chat/upload`,
     filePath: filePath,
     name: 'file',
+    // 🔥🔥🔥 上传图片也要带 Token (如果后端有鉴权) 🔥🔥🔥
+    header: {
+        'Authorization': getToken() 
+    },
     success: (res) => {
       uni.hideLoading();
       try {
         const data = JSON.parse(res.data);
         if (data.code === 200) {
           sendSocketMessage(data.data.url, 'image');
+        } else if (data.code === 401 || data.code === 403) {
+             uni.showToast({ title: '认证失败', icon: 'none' });
+             setTimeout(() => {
+                 uni.removeStorageSync('userInfo');
+                 uni.reLaunch({ url: '/pages/login/login' });
+             }, 1000);
         }
       } catch (e) {}
     },
@@ -322,15 +340,23 @@ const formatAvatar = (path) => {
   return path.startsWith('http') ? path : `${FLASK_URL}${path}`;
 };
 
-// TaskLink_uniapp/pages/square/square.vue
-
+// 🔥🔥🔥 核心修改：获取历史记录 🔥🔥🔥
 const fetchHistory = () => {
     uni.request({
-        url: `${FLASK_URL}/api/square/history?user_id=${myInfo.value.id}`,
+        // ❌ 不再传 user_id 参数，靠 Token 识别
+        url: `${FLASK_URL}/api/square/history`, 
+        // ✅ 必须带 Header
+        header: {
+            'Authorization': getToken()
+        },
         success: (res) => {
-            if (res.data.code === 403) {
-                 uni.removeStorageSync('userInfo');
-                 uni.reLaunch({ url: '/pages/login/login' });
+            // 🔥 401/403 封号或过期处理
+            if (res.statusCode === 401 || res.data.code === 401 || res.data.code === 403) {
+                 uni.showToast({ title: '会话过期或账号禁用', icon: 'none' });
+                 setTimeout(() => {
+                     uni.removeStorageSync('userInfo');
+                     uni.reLaunch({ url: '/pages/login/login' });
+                 }, 1000);
                  return;
             }
 
@@ -340,6 +366,9 @@ const fetchHistory = () => {
                 messages.value = res.data.data.filter(m => !deletedIds.includes(m.id));
                 scrollToBottom();
             }
+        },
+        fail: (err) => {
+            console.error('History fetch failed', err);
         }
     });
 };

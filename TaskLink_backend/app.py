@@ -1,20 +1,22 @@
 import pathlib
 import uuid
 import warnings
-
-import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import db
 from models import User, Task, TaskLog, ChatMessage, AIPlan, AIPlanTask, InvitationCode
+import requests
 import re
 from dotenv import load_dotenv
 import subprocess
-from paddleocr import PaddleOCR
 import os
 import time
 import json
+from datetime import datetime
+import jwt
+
+
 app = Flask(__name__)
 CORS(app)  # 允许跨域
 warnings.filterwarnings("ignore")
@@ -27,8 +29,8 @@ app.config['SECRET_KEY'] = 'your_secret_key'
 # 初始化数据库
 db.init_app(app)
 # 配置上传文件夹 (放在 static 下方便直接访问)
-AVATAR_FOLDER = 'static/uploads'      # 用来存头像
-CHAT_FOLDER = 'static/chat_images'    # 用来存聊天图片/表情包
+AVATAR_FOLDER = 'static/uploads'  # 用来存头像
+CHAT_FOLDER = 'static/chat_images'  # 用来存聊天图片/表情包
 
 # 2. 自动创建文件夹 (如果不存在)
 for folder in [AVATAR_FOLDER, CHAT_FOLDER]:
@@ -37,11 +39,10 @@ for folder in [AVATAR_FOLDER, CHAT_FOLDER]:
 
 # 3. 写入 Flask 配置
 app.config['UPLOAD_FOLDER'] = AVATAR_FOLDER  # 保持这个不变，兼容原来的 upload_avatar 接口
-app.config['CHAT_FOLDER'] = CHAT_FOLDER      # 新增这个配置给聊天用
+app.config['CHAT_FOLDER'] = CHAT_FOLDER  # 新增这个配置给聊天用
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 限制最大上传 16MB
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-# --- 🔥 初始化 OCR (修复参数) ---
 # print("正在加载 OCR 模型...")
 # try:
 #     # 核心修改：enable_mkldnn=False
@@ -55,16 +56,12 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 #         ocr_engine = PaddleOCR(lang="ch")
 # print("OCR 模型加载完成!")
 
-# ==========================================
-# 🔥 DeepSeek API 配置 (核心修改)
-# ==========================================
-load_dotenv(r'F:\项目\TaskLink\.env')
+
+load_dotenv(r'C:\Users\Administrator\Desktop\TaskLink\.env')
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 if not DEEPSEEK_API_KEY:
     print("⚠️ 警告: 未在 .env 文件中找到 DEEPSEEK_API_KEY，AI 功能将无法使用！")
 DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
-
-
 
 
 def call_deepseek_json(system_prompt, user_prompt):
@@ -77,7 +74,7 @@ def call_deepseek_json(system_prompt, user_prompt):
     }
 
     payload = {
-        "model": "deepseek-reasoner",  # 或者 deepseek-chat
+        "model": "deepseek-reasoner",  # 或者 deepseek-reasoner
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
@@ -217,6 +214,53 @@ def generate_plan():
         return jsonify({"code": 500, "msg": "数据库写入失败"}), 500
 
 
+"""
+@app.before_request
+def check_auth_and_status():
+    if request.method == 'OPTIONS':
+        return None
+    # 白名单 (注意：get_square_history 不在这里，所以它会被强制检查 Token)
+    allowed_endpoints = ['login', 'register', 'static', 'upload_avatar', 'upload_image', 'kick'] 
+
+    if request.endpoint in allowed_endpoints or request.endpoint is None:
+        return None
+
+    token = request.headers.get('Authorization')
+    if not token:
+        return jsonify({"code": 401, "msg": "版本过低，请更新 App"}), 401
+
+    try:
+        # 解码 Token
+        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+        user_id = payload.get('user_id')
+
+        # 🔥🔥🔥 关键：把 user_id 存入 g，供后续接口使用 🔥🔥🔥
+        g.user_id = user_id
+
+    except jwt.ExpiredSignatureError:
+        return jsonify({"code": 401, "msg": "Token 已过期"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"code": 401, "msg": "无效 Token"}), 401
+
+    # 查封号状态
+    if g.user_id:
+        user = User.query.get(g.user_id)
+        # 1. 用户不存在
+        if not user:
+             return jsonify({"code": 401, "msg": "用户不存在"}), 401
+
+        # 2. 账号被禁用
+        if getattr(user, 'status', 1) == 0:
+            return jsonify({"code": 403, "msg": "您的账号已被禁用"}), 403
+
+        # 3. (可选) 单点登录检查：比对数据库里的 Token 是否一致
+        # if user.current_token != token:
+        #     return jsonify({"code": 401, "msg": "您的账号已在其他设备登录"}), 401
+
+    return None
+"""
+
+
 @app.route('/api/plan/<int:plan_id>', methods=['DELETE'])
 def delete_plan(plan_id):
     plan = AIPlan.query.get(plan_id)
@@ -232,6 +276,7 @@ def delete_plan(plan_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"code": 500, "msg": str(e)}), 500
+
 
 @app.route('/api/plan/detail', methods=['GET'])
 def get_plan_detail():
@@ -258,9 +303,43 @@ def get_plan_detail():
     })
 
 
-# 记得在文件头部导入这两个模块
-from datetime import datetime
-from models import User, InvitationCode  # 确保导入了 InvitationCode 模型
+@app.before_request
+def check_user_status():
+    # 1. 放行白名单
+    allowed_endpoints = ['login', 'register', 'static', 'upload_avatar', 'upload_image']
+    if request.endpoint in allowed_endpoints or request.endpoint is None:
+        return None
+
+    # 2. 识别“谁在发起请求”
+    current_user_id = None
+
+    if request.method == 'GET':
+        # GET 请求通常只有 operator_id 或者 user_id (视作查看自己)
+        current_user_id = request.args.get('operator_id') or request.args.get('user_id')
+
+    elif request.method == 'POST':
+        if request.is_json:
+            data = request.get_json(silent=True)
+            if data:
+                # 🔥🔥🔥 核心修复 🔥🔥🔥
+                # 优先认定 operator_id 为操作者
+                # 如果没有 operator_id，才把 user_id 当作操作者
+                current_user_id = data.get('operator_id')
+
+                if not current_user_id:
+                    current_user_id = data.get('user_id')
+
+    # 3. 检查操作者状态
+    if current_user_id:
+        user = User.query.get(current_user_id)
+        # 如果操作者被封，才拦截
+        if user and getattr(user, 'status', 1) == 0:
+            return jsonify({
+                "code": 403,
+                "msg": "您的账号已被禁用，无法执行此操作"
+            }), 403
+
+    return None
 
 
 @app.route('/api/register', methods=['POST'])
@@ -322,7 +401,7 @@ def register():
 
         # 最后统一提交所有更改
         db.session.commit()
-
+        print(username, "注册成功")
         return jsonify({"code": 200, "msg": "注册成功", "data": new_user.to_dict()})
 
     except Exception as e:
@@ -330,38 +409,123 @@ def register():
         print(f"注册失败: {e}")  # 打印错误日志方便调试
         return jsonify({"code": 500, "msg": "服务器内部错误，注册失败"}), 500
 
+
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
     username = data.get('username')
     password = data.get('password')
 
-    # 1. 查询用户
     user = User.query.filter_by(username=username).first()
 
-    if user and check_password_hash(user.password_hash, password):
-        # 3. 返回包含最新头像的用户信息
+    if user and user.check_password(password):
+        if getattr(user, 'status', 1) == 0:
+            return jsonify({"code": 403, "msg": "该账号已被管理员禁用"})
+
+        # 生成 Token
+        import datetime
+        import jwt
+
+        expiration = datetime.datetime.utcnow() + datetime.timedelta(days=30)
+        token = jwt.encode({
+            'user_id': user.id,
+            'exp': expiration
+        }, app.config['SECRET_KEY'], algorithm="HS256")
+
+        # 🔥🔥🔥 关键步骤：把 Token 存入数据库 🔥🔥🔥
+        user.current_token = token
+        db.session.commit()
+
+        print(f"{user.username} 登录成功，Token 已更新入库")
+
         return jsonify({
             "code": 200,
             "msg": "登录成功",
             "data": {
                 "id": user.id,
                 "username": user.username,
-                # 确保返回 avatar 字段，如果没有则返回空字符串
-                "avatar": user.avatar if user.avatar else "",
-                "token": "fake-jwt-token"
+                "role": getattr(user, 'role', 0),
+                "avatar": user.avatar,
+                "token": token  # 返回给前端
             }
         })
+    else:
+        return jsonify({"code": 401, "msg": "用户名或密码错误"})
 
-    return jsonify({"code": 401, "msg": "用户名或密码错误"}), 401
 
+# --- 2. 新增：管理员获取用户列表 ---
+@app.route('/api/admin/users', methods=['GET'])
+def get_all_users():
+    # 鉴权：从 URL 参数获取操作者 ID (实际项目建议用 Token 解析)
+    operator_id = request.args.get('operator_id')
+
+    admin = User.query.get(operator_id)
+    # 只有 role == 1 才能看
+    if not admin or getattr(admin, 'role', 0) != 1:
+        return jsonify({"code": 403, "msg": "无权访问"})
+
+    users = User.query.all()
+    user_list = []
+    for u in users:
+        user_list.append({
+            "id": u.id,
+            "username": u.username,
+            "role": getattr(u, 'role', 0),
+            "status": getattr(u, 'status', 1),  # 默认 1
+            "avatar": u.avatar,
+            "created_at": u.created_at.strftime('%Y-%m-%d') if u.created_at else ''
+        })
+
+    return jsonify({"code": 200, "data": user_list})
+
+
+@app.route('/api/admin/user/status', methods=['POST'])
+def update_user_status():
+    data = request.json
+    operator_id = data.get('operator_id')
+    target_user_id = data.get('user_id')
+    new_status = data.get('status')
+
+    admin = User.query.get(operator_id)
+    if not admin or getattr(admin, 'role', 0) != 1:
+        return jsonify({"code": 403, "msg": "权限不足"})
+
+    if str(operator_id) == str(target_user_id):
+        return jsonify({"code": 400, "msg": "不能禁用自己的管理员账号"})
+
+    user = User.query.get(target_user_id)
+    if user:
+        print(f"🔥 [Flask调试] 正在修改用户 {target_user_id} 状态为: {new_status}")
+
+        user.status = int(new_status)
+        db.session.commit()
+
+        msg = "账号已启用"
+
+        # 🔥 如果是禁用操作，通知 Node.js 踢人
+        if int(new_status) == 0:
+            msg = "账号已禁用，并强制下线"
+            print(f"🚀 [Flask调试] 准备向 Node.js 发送踢人指令...")
+            try:
+                # 假设 Node.js 运行在本地 3000 端口
+                resp = requests.post(
+                    'http://127.0.0.1:3000/kick',
+                    json={'user_id': target_user_id},
+                    timeout=2
+                )
+                print(f"✅ [Flask调试] Node.js 响应: {resp.status_code} - {resp.text}")
+            except Exception as e:
+                print(f"❌ [Flask调试] 请求 Node.js 失败! 原因: {e}")
+
+        return jsonify({"code": 200, "msg": msg})
+
+    return jsonify({"code": 404, "msg": "用户不存在"})
 
 
 # 获取任务列表
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
-
-    user_id = request.args.get('user_id')
+    current_user_id = g.user_id
 
     if not user_id:
         return jsonify({"code": 400, "msg": "缺少用户ID"}), 400
@@ -405,6 +569,7 @@ def add_task():
 
     return jsonify({"code": 200, "msg": "任务创建成功", "data": new_task.to_dict()})
 
+
 # 删除任务
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
@@ -420,6 +585,7 @@ def delete_task(task_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"code": 500, "msg": str(e)}), 500
+
 
 # 更新任务
 @app.route('/api/tasks/<int:task_id>', methods=['PUT'])
@@ -451,6 +617,7 @@ def update_task(task_id):
         db.session.rollback()
         return jsonify({"code": 500, "msg": str(e)}), 500
 
+
 # 修改密码 (个人中心用)
 @app.route('/api/user/password', methods=['POST'])
 def update_password():
@@ -476,6 +643,7 @@ def update_password():
 
     return jsonify({"code": 200, "msg": "密码修改成功"})
 
+
 # 上报执行日志
 @app.route('/api/logs', methods=['POST'])
 def add_log():
@@ -499,6 +667,7 @@ def add_log():
 
     return jsonify({"code": 200, "msg": "日志记录成功"})
 
+
 # 获取执行日志
 @app.route('/api/logs', methods=['GET'])
 def get_logs():
@@ -515,8 +684,10 @@ def get_logs():
         "data": [log.to_dict() for log in logs]
     })
 
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 @app.route('/api/upload_avatar', methods=['POST'])
 def upload_avatar():
@@ -563,14 +734,28 @@ def upload_avatar():
 
     return jsonify({"code": 400, "msg": "Type not allowed"}), 400
 
+
+# TaskLink_backend/app.py
+
 @app.route('/api/square/history', methods=['GET'])
 def get_square_history():
+    # 🔥🔥🔥 1. 强制安检：必须出示身份证 (user_id)
+    user_id = request.args.get('user_id')
+
+    # 如果没传 ID，直接报警 (400)
+    # 只要传了 ID，全局的 before_request 就会自动查封号状态，如果被封会拦截并返回 403
+    if not user_id:
+        return jsonify({"code": 400, "msg": "未授权的访问: 缺少用户ID"}), 400
+
+    # ... (原有逻辑保持不变)
     # 获取最近 50 条消息，按时间倒序查，然后翻转为正序
     messages = ChatMessage.query.order_by(ChatMessage.created_at.desc()).limit(50).all()
+
     return jsonify({
         "code": 200,
         "data": [m.to_dict() for m in messages][::-1]  # 翻转列表，旧的在上面
     })
+
 
 # 获取计划列表
 @app.route('/api/plans', methods=['GET'])

@@ -31,12 +31,12 @@
 			}
 		},
 		{
-		    "path": "pages/admin/manager",
-		    "style": {
-		        "navigationBarTitleText": "用户管理(Admin)",
-		        "navigationBarBackgroundColor": "#050505",
-		        "navigationBarTextStyle": "white"
-		    }
+			"path": "pages/admin/manager",
+			"style": {
+				"navigationBarTitleText": "用户管理(Admin)",
+				"navigationBarBackgroundColor": "#050505",
+				"navigationBarTextStyle": "white"
+			}
 		},
 		{
 			"path": "pages/add/add",
@@ -57,8 +57,22 @@
 				"navigationBarBackgroundColor": "#000000",
 				"navigationBarTextStyle": "white"
 			}
+		},
+		{
+			"path": "pages/vocab/training",
+			"style": {
+				"navigationBarTitleText": "NEURAL TRAINING // 单词训练",
+				"navigationStyle": "custom",
+				"backgroundColor": "#000000"
+			}
+		},
+		{
+			"path" : "pages/vocab/vocab_list",
+			"style" : 
+			{
+				"navigationBarTitleText" : ""
+			}
 		}
-
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "white",

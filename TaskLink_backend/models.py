@@ -1,6 +1,9 @@
 # backend/models.py
 from database import db
 from datetime import datetime
+from database import db
+from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class User(db.Model):
@@ -10,17 +13,27 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     role = db.Column(db.Integer, default=0)  # 0:普通用户, 1:管理员
+    current_token = db.Column(db.String(500), nullable=True)
+    status = db.Column(db.Integer, default=1)  # 1:正常, 0:禁用 (补上这个字段以免报错)
     created_at = db.Column(db.DateTime, default=datetime.now)
     avatar = db.Column(db.String(255), nullable=True)
 
-    # 关联关系
     plans = db.relationship('AIPlan', backref='owner', lazy=True)
+
+    def set_password(self, password):
+        """生成加密密码"""
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        """验证密码是否正确"""
+        return check_password_hash(self.password_hash, password)
 
     def to_dict(self):
         return {
             "id": self.id,
             "username": self.username,
             "role": self.role,
+            "status": self.status,
             "avatar": self.avatar,
             "created_at": self.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }
@@ -170,3 +183,38 @@ class InvitationCode(db.Model):
             'is_used': self.is_used,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }
+
+
+class Vocabulary(db.Model):
+    __tablename__ = 'vocabulary'  # 👈 确认表名是 vocabulary
+    id = db.Column(db.Integer, primary_key=True)
+    word = db.Column(db.String(100), nullable=False)
+    phonetic = db.Column(db.String(100), nullable=True)
+    translate = db.Column(db.Text, nullable=True)
+    level = db.Column(db.String(20), nullable=False, index=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "word": self.word,
+            "phonetic": self.phonetic,
+            "translation": self.translate,
+            "level": self.level
+        }
+
+
+class UserWordProgress(db.Model):
+    __tablename__ = 'user_word_progress'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    word_id = db.Column(db.Integer, db.ForeignKey('vocabulary.id'), nullable=False)
+
+    next_review_at = db.Column(db.DateTime, default=None)
+    interval = db.Column(db.Float, default=0)
+    repetitions = db.Column(db.Integer, default=0)
+    easiness_factor = db.Column(db.Float, default=2.5)
+    last_reviewed_at = db.Column(db.DateTime, default=None)
+
+

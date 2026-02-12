@@ -5,24 +5,32 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import db
-from models import User, Task, TaskLog, ChatMessage, AIPlan, AIPlanTask, InvitationCode
+from models import User, Task, TaskLog, ChatMessage, AIPlan, AIPlanTask, InvitationCode, Vocabulary, UserWordProgress
 import requests
 import re
 from dotenv import load_dotenv
 import subprocess
 import os
+from sqlalchemy import or_
 import time
 import json
 from datetime import datetime
+from sqlalchemy.sql.expression import func
+
 import jwt
 
+print("--------------------------------------------------")
+print(f"【JWT 来源检查】当前加载的 jwt 路径: {jwt.__file__}")
+print(f"【JWT 属性检查】它有 encode 方法吗? {'encode' in dir(jwt)}")
+print("--------------------------------------------------")
+from flask import g
 
 app = Flask(__name__)
 CORS(app)  # 允许跨域
 warnings.filterwarnings("ignore")
 # 数据库配置
 # 格式: mysql+pymysql://用户名:密码@地址:端口/数据库名
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost:3306/tasklink'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:ymq20050704@localhost:3306/tasklink'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your_secret_key'
 
@@ -43,6 +51,7 @@ app.config['CHAT_FOLDER'] = CHAT_FOLDER  # 新增这个配置给聊天用
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 限制最大上传 16MB
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
+# --- 🔥 初始化 OCR (修复参数) ---
 # print("正在加载 OCR 模型...")
 # try:
 #     # 核心修改：enable_mkldnn=False
@@ -56,7 +65,9 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 #         ocr_engine = PaddleOCR(lang="ch")
 # print("OCR 模型加载完成!")
 
-
+# ==========================================
+# 🔥 DeepSeek API 配置 (核心修改)
+# ==========================================
 load_dotenv(r'C:\Users\Administrator\Desktop\TaskLink\.env')
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 if not DEEPSEEK_API_KEY:
@@ -214,51 +225,41 @@ def generate_plan():
         return jsonify({"code": 500, "msg": "数据库写入失败"}), 500
 
 
-"""
 @app.before_request
 def check_auth_and_status():
+    # 初始化 g.user_id 为 None，防止后面报错 AttributeError
+    g.user_id = None
+
+    # 1. 放行 OPTIONS (跨域必须)
     if request.method == 'OPTIONS':
         return None
-    # 白名单 (注意：get_square_history 不在这里，所以它会被强制检查 Token)
-    allowed_endpoints = ['login', 'register', 'static', 'upload_avatar', 'upload_image', 'kick'] 
 
-    if request.endpoint in allowed_endpoints or request.endpoint is None:
+    # 2. 尝试获取 Token
+    token = request.headers.get('Authorization')
+
+    # 如果没 Token，直接放行（不报错，交给后面接口自己判断）
+    if not token:
         return None
 
-    token = request.headers.get('Authorization')
-    if not token:
-        return jsonify({"code": 401, "msg": "版本过低，请更新 App"}), 401
-
     try:
-        # 解码 Token
+        # 3. 尝试解码 Token
         payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
         user_id = payload.get('user_id')
 
-        # 🔥🔥🔥 关键：把 user_id 存入 g，供后续接口使用 🔥🔥🔥
-        g.user_id = user_id
+        # 4. 只有 Token 有效且用户未被封禁时，才设置 g.user_id
+        if user_id:
+            user = User.query.get(user_id)
+            # 如果用户存在且状态正常(status=1)，才赋值
+            if user and getattr(user, 'status', 1) == 1:
+                g.user_id = user_id
 
-    except jwt.ExpiredSignatureError:
-        return jsonify({"code": 401, "msg": "Token 已过期"}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({"code": 401, "msg": "无效 Token"}), 401
-
-    # 查封号状态
-    if g.user_id:
-        user = User.query.get(g.user_id)
-        # 1. 用户不存在
-        if not user:
-             return jsonify({"code": 401, "msg": "用户不存在"}), 401
-
-        # 2. 账号被禁用
-        if getattr(user, 'status', 1) == 0:
-            return jsonify({"code": 403, "msg": "您的账号已被禁用"}), 403
-
-        # 3. (可选) 单点登录检查：比对数据库里的 Token 是否一致
-        # if user.current_token != token:
-        #     return jsonify({"code": 401, "msg": "您的账号已在其他设备登录"}), 401
+    except Exception as e:
+        # 🔥🔥🔥 关键：无论发生什么错误（过期、无效、解密失败），都不报错！
+        # 直接放行，打印个日志就行
+        print(f"Token 解析失败 (已忽略): {e}")
+        return None
 
     return None
-"""
 
 
 @app.route('/api/plan/<int:plan_id>', methods=['DELETE'])
@@ -869,6 +870,8 @@ def upload_chat_image():
 
 
 """ai控制手机"""
+
+
 # # adb命令
 # class ADBController:
 #     APP_MAP = {
@@ -1212,6 +1215,287 @@ def upload_chat_image():
 #         "msg": "执行完毕",
 #         "data": results
 #     })
+
+
+@app.route('/api/vocab/due', methods=['GET'])
+def get_due_vocab():
+    """获取单词 (支持强制拉取新词)"""
+    user_id = getattr(g, 'user_id', None) or request.args.get('user_id')
+    # 🔥 默认 CET4
+    target_level = request.args.get('level', 'CET4')
+    # 🔥 接收 force_new 参数 (字符串转布尔)
+    force_new = request.args.get('force_new', 'false') == 'true'
+
+    if not user_id:
+        return jsonify({"code": 400, "msg": "未授权"}), 400
+
+    due_words = []
+
+    # 1. 如果不是强制拉新，先查待复习的
+    if not force_new:
+        from datetime import datetime
+        now = datetime.now()
+
+        due_results = db.session.query(UserWordProgress, Vocabulary).join(
+            Vocabulary, UserWordProgress.word_id == Vocabulary.id
+        ).filter(
+            UserWordProgress.user_id == user_id,
+            UserWordProgress.next_review_at <= now,
+            Vocabulary.level == target_level
+        ).limit(30).all()
+
+        for progress, word in due_results:
+            word_dict = word.to_dict()
+            word_dict['is_new'] = False
+            due_words.append(word_dict)
+
+    # 2. 如果复习词不够 30 个，或者强制要求新词，就去补货
+    needed = 30 - len(due_words)
+
+    if needed > 0:
+        # 查出所有已学过的 ID
+        learned_ids = db.session.query(UserWordProgress.word_id).filter_by(user_id=user_id).subquery()
+
+        # 随机抽取没学过的新词
+        unlearned_words = Vocabulary.query.filter(
+            Vocabulary.id.notin_(learned_ids),
+            Vocabulary.level == target_level
+        ).order_by(func.rand()).limit(needed).all()
+
+        for word in unlearned_words:
+            word_dict = word.to_dict()
+            word_dict['is_new'] = True
+            due_words.append(word_dict)
+
+    return jsonify({
+        "code": 200,
+        "data": due_words,
+        "level": target_level
+    })
+
+
+@app.route('/api/vocab/review', methods=['POST'])
+def submit_vocab_review():
+    """提交单词学习结果，使用优化版 SM-2 算法"""
+    user_id = g.user_id
+    if not user_id:
+        return jsonify({"code": 400, "msg": "未授权"}), 400
+
+    data = request.json
+    word_id = data.get('word_id')
+    quality = data.get('quality')  # 0=忘记, 3=模糊, 4=认识, 5=精通
+
+    if not word_id or quality is None:
+        return jsonify({"code": 400, "msg": "参数不完整"}), 400
+
+    # 获取或创建用户单词进度记录
+    progress = UserWordProgress.query.filter_by(user_id=user_id, word_id=word_id).first()
+
+    from datetime import datetime, timedelta
+
+    # 初始化新词
+    if not progress:
+        progress = UserWordProgress(
+            user_id=user_id,
+            word_id=word_id,
+            next_review_at=datetime.now(),
+            interval=0,
+            repetitions=0,
+            easiness_factor=2.5
+        )
+        db.session.add(progress)
+        # 如果是新词，暂不提交，等算出 interval 后统一 commit
+
+    # 评分越低，EF 降得越快，下次复习间隔增长越慢
+    old_ef = progress.easiness_factor
+    new_ef = old_ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
+    new_ef = max(1.3, new_ef)  # 设定下限，防止死循环
+
+    # 2. 计算复习间隔 (Interval) & 连续次数 (Repetitions)
+    new_repetitions = progress.repetitions
+    new_interval = progress.interval
+
+    # --- 情况 A: 忘记 (0) ---
+    if quality < 3:
+        new_repetitions = 0  # 归零，重新开始积累连续次数
+        new_interval = 1  # 必须第二天复习
+
+    # --- 情况 B: 模糊 (3) ---
+    elif quality == 3:
+        new_repetitions = 0
+        new_interval = max(1, round(progress.interval * 1.2))
+
+    # --- 情况 C: 认识 (4) / 精通 (5) ---
+    else:
+        new_repetitions += 1
+
+        # 阶段 1: 第一次复习
+        if new_repetitions == 1:
+            # 差异化：精通给 2 天，认识给 1 天
+            new_interval = 2 if quality == 5 else 1
+
+        # 阶段 2: 第二次复习
+        elif new_repetitions == 2:
+            # 差异化：精通给 4 天，认识给 3 天 (原版强制 6 天太久)
+            new_interval = 4 if quality == 5 else 3
+
+        # 阶段 3+: 后续复习
+        else:
+            # 引入“精通奖励”：如果是 5分，额外乘 1.15 倍
+            bonus = 1.15 if quality == 5 else 1.0
+            new_interval = round(progress.interval * new_ef * bonus)
+
+    progress.easiness_factor = new_ef
+    progress.repetitions = new_repetitions
+    progress.interval = new_interval
+    progress.last_reviewed_at = datetime.now()
+    progress.next_review_at = datetime.now() + timedelta(days=new_interval)
+
+    try:
+        db.session.commit()
+        return jsonify({
+            "code": 200,
+            "msg": "进度已更新",
+            "data": {
+                # 返回下次复习时间，方便前端调试
+                "next_review": progress.next_review_at.strftime('%Y-%m-%d'),
+                "interval": new_interval,
+                "quality": quality
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"code": 500, "msg": str(e)}), 500
+
+
+@app.route('/api/vocab/sentence', methods=['POST'])
+def generate_sentence():
+    """调用 DeepSeek 为单词生成例句和近义词"""
+    data = request.json
+    word = data.get('word')
+
+    if not word:
+        return jsonify({"code": 400, "msg": "缺少单词参数"}), 400
+
+    try:
+        # 🔥 修改 Prompt: 明确要求返回 en, cn 和 synonyms
+        prompt = f"""
+        请为英语单词 "{word}" 生成以下数据 (必须是严格的 JSON 格式):
+        1. "en": 一个简短、地道的英语例句，包含该单词。
+        2. "cn": 例句的中文翻译。
+        3. "synonyms": 一个包含 3 个同义词或近义词的数组 (例如 ["word1", "word2", "word3"])。
+        """
+
+        headers = {
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": "deepseek-chat",  # 或 deepseek-v3
+            "messages": [
+                {"role": "system",
+                 "content": "你是一个专业的英语教学助手。请只返回 JSON 数据，不要包含任何 Markdown 格式或额外文字。"},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.7,
+            "response_format": {"type": "json_object"}  # 🔥 强制让 DeepSeek 返回 JSON 对象
+        }
+
+        response = requests.post(DEEPSEEK_API_URL, json=payload, headers=headers, timeout=15)  # 稍微增加超时时间
+
+        if response.status_code == 200:
+            result = response.json()
+            content = result['choices'][0]['message']['content']
+            print(content)
+            # --- JSON 清洗与解析 ---
+            import json
+            # 去除可能的 markdown 标记
+            clean_content = content.replace("```json", "").replace("```", "").strip()
+
+            try:
+                sentence_data = json.loads(clean_content)
+
+                if 'synonyms' not in sentence_data:
+                    sentence_data['synonyms'] = []
+                if 'en' not in sentence_data:
+                    sentence_data['en'] = f"No sentence available for {word}."
+                if 'cn' not in sentence_data:
+                    sentence_data['cn'] = "暂无例句。"
+
+                return jsonify({"code": 200, "data": sentence_data})
+
+            except json.JSONDecodeError:
+                print(f"JSON解析失败: {content}")
+                # 降级处理：如果 JSON 挂了，至少返回一个空结构防止前端报错
+                return jsonify({
+                    "code": 200,
+                    "data": {
+                        "en": f"AI response error for {word}.",
+                        "cn": "生成失败，请重试。",
+                        "synonyms": []
+                    }
+                })
+        else:
+            print(f"DeepSeek API Error: {response.status_code} - {response.text}")
+            return jsonify({"code": 500, "msg": "AI 服务响应异常"}), 500
+
+    except Exception as e:
+        print(f"DeepSeek Error: {e}")
+        return jsonify({"code": 500, "msg": "生成失败"}), 500
+
+
+@app.route('/api/vocab/search', methods=['GET'])
+def search_vocab():
+    user_id = getattr(g, 'user_id', None) or request.args.get('user_id')
+
+    # 1. 获取参数
+    search_term = request.args.get('word', '').strip()
+    first_letter = request.args.get('letter', '').strip()
+    only_difficult = request.args.get('difficult', 'false') == 'true'
+    # 🔥 新增：获取目标等级 (默认空字符串表示全部)
+    target_level = request.args.get('level', '').strip()
+
+    page = int(request.args.get('page', 1))
+    page_size = int(request.args.get('page_size', 20))
+
+    stmt = db.session.query(Vocabulary)
+
+    # 2. 难词筛选
+    if only_difficult:
+        stmt = stmt.join(UserWordProgress, Vocabulary.id == UserWordProgress.word_id) \
+            .filter(UserWordProgress.user_id == user_id, UserWordProgress.easiness_factor < 2.5)
+
+    # 3. 首字母筛选
+    if first_letter:
+        stmt = stmt.filter(Vocabulary.word.like(f"{first_letter}%"))
+
+    # 4. 🔥 新增：等级筛选 (如果传了具体等级，且不是 'ALL')
+    if target_level and target_level != 'ALL':
+        stmt = stmt.filter(Vocabulary.level == target_level)
+
+    # 5. 关键词搜索 (中英混合)
+    if search_term:
+        from sqlalchemy import or_
+        stmt = stmt.filter(
+            or_(
+                Vocabulary.word.like(f"%{search_term}%"),
+                Vocabulary.translate.like(f"%{search_term}%")
+            )
+        )
+
+    # 6. 分页与返回
+    total = stmt.count()
+    results = stmt.limit(page_size).offset((page - 1) * page_size).all()
+
+    return jsonify({
+        "code": 200,
+        "data": [w.to_dict() for w in results],
+        "total": total,
+        "page": page,
+        "has_more": (page * page_size) < total
+    })
+
 
 if __name__ == '__main__':
     # # 配置你手机的局域网 IP

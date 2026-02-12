@@ -21,6 +21,8 @@
       </view>
     </view>
 
+
+
     <view class="menu-group">
       <view class="menu-item" @click="switchLanguage">
         <view class="item-left">
@@ -40,6 +42,14 @@
         <text class="arrow">></text>
       </view>
 
+      <!-- 🔥 新增：背单词菜单项 -->
+      <view class="menu-item" @click="startVocabularyTraining">
+        <view class="item-left">
+          <text class="menu-icon">📚</text>
+          <text class="menu-text">每日单词</text>
+        </view>
+        <text class="arrow">></text>
+      </view>
 
       <view class="menu-item">
         <view class="item-left">
@@ -48,7 +58,13 @@
         </view>
         <text class="arrow">></text>
       </view>
-
+	  <view v-if="userInfo.role === 1" class="menu-item admin-entry" @click="goToAdmin">
+	    <view class="item-left">
+	      <text class="menu-icon">🛡️</text>
+	      <text class="menu-text">用户管理 // ADMIN CONSOLE</text>
+	    </view>
+	    <text class="arrow">></text>
+	  </view>
       <view class="menu-item logout" @click="handleLogout">
         <view class="item-left">
           <text class="menu-icon">⚠️</text>
@@ -56,13 +72,7 @@
         </view>
         <text class="arrow warn">></text>
       </view>
-	  <view v-if="userInfo.role === 1" class="menu-item admin-entry" @click="goToAdmin">
-	    <view class="item-left">
-	      <text class="menu-icon">🛡️</text>
-	      <text class="menu-text">ADMIN CONSOLE // 用户管理</text>
-	    </view>
-	    <text class="arrow">></text>
-	  </view>
+
     </view>
 
     <view class="footer-version">{{ t.version }}</view>
@@ -120,9 +130,15 @@ onShow(() => {
   t.value = messages[savedLang].profile;
 });
 
-// 🔥🔥🔥 新增：跳转到管理页 🔥🔥🔥
 const goToAdmin = () => {
   uni.navigateTo({ url: '/pages/admin/manager' });
+};
+
+const startVocabularyTraining = () => {
+  // 跳转到新建的训练页面
+  uni.navigateTo({
+    url: '/pages/vocab/training'
+  });
 };
 
 const getAvatarUrl = () => {
@@ -280,14 +296,7 @@ page { background-color: #050505; color: #ccc; font-family: 'Courier New', monos
 .footer-version { text-align: center; color: #333; font-size: 10px; margin-top: 50px; }
 
 /* 🔥🔥🔥 新增：管理员菜单样式 🔥🔥🔥 */
-.admin-entry {
-  background: rgba(255, 0, 60, 0.05); /* 淡淡的红色背景 */
-  border-left: 2px solid #ff003c !important; /* 左侧红色亮条 */
-}
-.admin-entry .menu-text {
-  color: #ff003c !important; /* 红色文字 */
-  letter-spacing: 1px;
-}
+
 .admin-entry .menu-icon {
   text-shadow: 0 0 5px #ff003c;
 }

@@ -2,13 +2,14 @@
 
 ---
 ## 下载安装
-点击下载最新版本：[TaskLink_v1.2.3.apk](https://github.com/ymqzhy999/TaskLink/blob/main/dist/tasklink1.2.4.apk)
+点击下载最新版本：[TaskLink_v1.4.apk](https://github.com/ymqzhy999/TaskLink/blob/main/dist/tasklink1.4.apk)
 
 
 * 1.2.1版本添加古老qq表情包和图片发送功能
 * 1.2.2版本解决生命周期错误导致的幽灵消息(重复消息),添加注册邀请码功能,防止脚本批量注册账号
 * 1.2.3版本添加消息弹窗和震动功能
 * 1.2.4版本为管理员添加了用户管理的功能,可以强制下线用户
+* 1.4版本为广大学生提供了背单词功能，后端使用SM-2算法（SuperMemo-2 间隔重复算法）它根据你对单词的掌握程度，动态计算最优复习间隔，帮你在即将遗忘前复习，实现高效、持久的单词记忆。 
 
 
 

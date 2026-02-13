@@ -3,21 +3,21 @@
 		{
 			"path": "pages/login/login",
 			"style": {
-				"navigationBarTitleText": "TASK_LINK // 身份接入",
+				"navigationBarTitleText": "身份接入",
 				"navigationBarStyle": "custom"
 			}
 		},
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "COMMAND_CENTER // 指挥中枢",
+				"navigationBarTitleText": "计划主页",
 				"enablePullDownRefresh": true
 			}
 		},
 		{
 			"path": "pages/plan/detail",
 			"style": {
-				"navigationBarTitleText": "TACTICAL_MAP // 战术蓝图",
+				"navigationBarTitleText": "计划细节",
 				"enablePullDownRefresh": true,
 				"navigationStyle": "custom"
 			}
@@ -25,7 +25,7 @@
 		{
 			"path": "pages/square/square",
 			"style": {
-				"navigationBarTitleText": "NET_SQUARE // 网络广场",
+				"navigationBarTitleText": "网络广场",
 				"enablePullDownRefresh": false,
 				"navigationStyle": "custom"
 			}
@@ -41,19 +41,27 @@
 		{
 			"path": "pages/add/add",
 			"style": {
-				"navigationBarTitleText": "NEW_PROTOCOL // 新建协议"
+				"navigationBarTitleText": "创建计划"
 			}
 		},
 		{
 			"path": "pages/history/history",
 			"style": {
-				"navigationBarTitleText": "SYSTEM_LOGS // 系统日志"
+				"navigationBarTitleText": "计划日志"
 			}
+		}
+		,{
+		    "path": "pages/help/help",
+		    "style": {
+		        "navigationBarTitleText": "操作手册",
+		        "navigationBarBackgroundColor": "#000000",
+		        "navigationBarTextStyle": "white"
+		    }
 		},
 		{
 			"path": "pages/profile/profile",
 			"style": {
-				"navigationBarTitleText": "USER_DATA // 用户档案",
+				"navigationBarTitleText": "用户档案",
 				"navigationBarBackgroundColor": "#000000",
 				"navigationBarTextStyle": "white"
 			}
@@ -61,7 +69,7 @@
 		{
 			"path": "pages/vocab/training",
 			"style": {
-				"navigationBarTitleText": "NEURAL TRAINING // 单词训练",
+				"navigationBarTitleText": "单词训练",
 				"navigationStyle": "custom",
 				"backgroundColor": "#000000"
 			}
@@ -71,7 +79,7 @@
 			"style": {
 				"navigationBarTitleText": ""
 			}
-		},
+		}
 
 	],
 	"globalStyle": {

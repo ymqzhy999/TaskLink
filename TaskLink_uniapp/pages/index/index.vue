@@ -4,8 +4,8 @@
 
     <view class="dashboard-header fade-in">
       <view class="header-title">
-        <text class="glitch-text" data-text="TACTICAL_MAP">TACTICAL_MAP</text>
-        <text class="sub-text">// 战术部署概览</text>
+        <text class="glitch-text" data-text="TACTICAL_MAP">计划中心</text>
+        
       </view>
       <view class="system-status">
         <view class="status-dot online"></view>
@@ -16,21 +16,20 @@
     <view class="stats-row fade-in">
       <view class="stat-card">
         <text class="stat-num">{{ activePlans.length }}</text>
-        <text class="stat-label">ACTIVE (进行中)</text>
+        <text class="stat-label">(进行中)</text>
       </view>
       <view class="stat-card">
         <text class="stat-num">{{ totalProgress }}%</text>
-        <text class="stat-label">SYNC_RATE (同步率)</text>
+        <text class="stat-label">(同步率)</text>
       </view>
     </view>
 
     <scroll-view scroll-y class="plan-list-scroll">
-      <view class="section-label">CURRENT PROTOCOLS (当前协议)</view>
       
       <view v-if="activePlans.length === 0" class="empty-state">
         <text class="empty-icon">∅</text>
         <text>NO ACTIVE TACTICS DETECTED</text>
-        <text class="empty-tip">请前往 [新建] 生成战术路径</text>
+        <text class="empty-tip">请前往 [新建] 生成计划</text>
       </view>
 
       <view 
@@ -158,22 +157,26 @@ const deletePlan = (id) => {
 </script>
 
 <style>
+/* 基础背景保持不变，深邃感 */
 page { background-color: #050505; color: #e0e0e0; font-family: 'Courier New', monospace; }
 .container { padding: 20px; min-height: 100vh; }
-.cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 10%, #111 0%, #000 80%); z-index: -1; }
+/* 背景微调：更冷的蓝黑色 */
+.cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 10%, #0a192f 0%, #000000 85%); z-index: -1; }
 
 /* 头部 */
 .dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; margin-top: 10px; }
-.glitch-text { font-size: 24px; font-weight: 900; color: #fff; letter-spacing: 2px; text-shadow: 2px 0 #bc13fe; }
+/* 🔥 修改：去除紫色阴影，改为冷蓝光晕 */
+.glitch-text { font-size: 24px; font-weight: 900; color: #fff; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0, 243, 255, 0.5); }
 .sub-text { font-size: 10px; color: #666; display: block; margin-top: 5px; }
-.system-status { display: flex; align-items: center; font-size: 10px; color: #00ff9d; border: 1px solid #00ff9d; padding: 2px 6px; border-radius: 2px; }
-.status-dot { width: 6px; height: 6px; background: #00ff9d; border-radius: 50%; margin-right: 6px; animation: blink 2s infinite; }
+.system-status { display: flex; align-items: center; font-size: 10px; color: #00f3ff; border: 1px solid rgba(0, 243, 255, 0.3); padding: 2px 6px; border-radius: 2px; background: rgba(0, 243, 255, 0.05); }
+.status-dot { width: 6px; height: 6px; background: #00f3ff; border-radius: 50%; margin-right: 6px; animation: blink 2s infinite; box-shadow: 0 0 8px #00f3ff; }
 
 /* 统计数据 */
 .stats-row { display: flex; gap: 15px; margin-bottom: 30px; }
-.stat-card { flex: 1; background: rgba(20, 20, 25, 0.6); border: 1px solid #333; padding: 15px; text-align: center; }
-.stat-num { font-size: 32px; font-weight: 900; color: #fff; display: block; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
-.stat-label { font-size: 10px; color: #00f3ff; letter-spacing: 1px; margin-top: 5px; }
+.stat-card { flex: 1; background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; padding: 15px; text-align: center; }
+.stat-num { font-size: 32px; font-weight: 900; color: #fff; display: block; }
+/* 🔥 修改：标签颜色更沉稳 */
+.stat-label { font-size: 10px; color: #94a3b8; letter-spacing: 1px; margin-top: 5px; }
 
 /* 列表区域 */
 .section-label { font-size: 12px; color: #888; margin-bottom: 15px; border-bottom: 1px solid #222; padding-bottom: 5px; display: inline-block; }
@@ -182,26 +185,35 @@ page { background-color: #050505; color: #e0e0e0; font-family: 'Courier New', mo
 .empty-tip { font-size: 12px; color: #00f3ff; margin-top: 10px; }
 
 /* 计划卡片 */
-.plan-card { position: relative; background: #0e0e0e; margin-bottom: 20px; border: 1px solid #222; overflow: hidden; transition: all 0.2s; }
-.plan-card:active { border-color: #00f3ff; transform: scale(0.98); }
-.card-line { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #bc13fe; box-shadow: 0 0 10px #bc13fe; }
+.plan-card { position: relative; background: #0b1120; margin-bottom: 20px; border: 1px solid #334155; overflow: hidden; transition: all 0.2s; }
+.plan-card:active { border-color: #00f3ff; transform: scale(0.99); background: #111827; }
+
+/* 🔥 修改：左侧线条改为纯粹的“战术蓝” */
+.card-line { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #00f3ff; box-shadow: 0 0 15px rgba(0, 243, 255, 0.2); }
 .card-content { padding: 20px 20px 20px 24px; }
 
 .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.plan-title { font-size: 16px; font-weight: bold; color: #fff; }
-.plan-days { font-size: 10px; color: #000; background: #bc13fe; padding: 1px 4px; font-weight: bold; }
+.plan-title { font-size: 16px; font-weight: bold; color: #fff; letter-spacing: 1px; }
+/* 🔥 修改：天数标签改为黑底白字，更像代码块 */
+.plan-days { font-size: 10px; color: #00f3ff; background: rgba(0, 243, 255, 0.1); border: 1px solid rgba(0, 243, 255, 0.3); padding: 2px 6px; font-weight: bold; font-family: monospace; }
 
-.plan-goal { font-size: 12px; color: #888; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 32px; margin-bottom: 15px; }
+.plan-goal { font-size: 12px; color: #94a3b8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 32px; margin-bottom: 15px; line-height: 1.4; }
 
 /* 进度条 */
 .progress-container { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
-.progress-bar { flex: 1; height: 6px; background: #222; position: relative; overflow: hidden; }
-.progress-fill { height: 100%; background: linear-gradient(90deg, #bc13fe, #00f3ff); box-shadow: 0 0 10px #00f3ff; transition: width 0.5s ease; }
-.progress-val { font-size: 12px; color: #00f3ff; font-weight: bold; font-family: monospace; }
+.progress-bar { flex: 1; height: 4px; background: #1e293b; position: relative; overflow: hidden; border-radius: 2px; }
+/* 🔥 修改：核心改动！进度条改为纯正的“青蓝渐变”，去除紫色 */
+.progress-fill { 
+  height: 100%; 
+  background: linear-gradient(90deg, #0ea5e9, #00f3ff); /* 这里的渐变是 科技蓝 -> 亮青 */
+  box-shadow: 0 0 10px rgba(0, 243, 255, 0.3); 
+  transition: width 0.5s ease; 
+}
+.progress-val { font-size: 12px; color: #00f3ff; font-weight: bold; font-family: monospace; text-shadow: 0 0 5px rgba(0, 243, 255, 0.5); }
 
-.card-footer { display: flex; justify-content: space-between; font-size: 10px; border-top: 1px solid #1a1a1a; padding-top: 10px; }
-.status-text { color: #00ff9d; animation: blink 3s infinite; }
-.arrow { color: #666; }
+.card-footer { display: flex; justify-content: space-between; font-size: 10px; border-top: 1px solid #1e293b; padding-top: 10px; }
+.status-text { color: #0ea5e9; font-weight: bold; letter-spacing: 1px; } /* 状态字改为科技蓝 */
+.arrow { color: #475569; font-weight: bold; }
 
 /* 动画 */
 .fade-in { animation: fadeIn 0.8s ease-out; }

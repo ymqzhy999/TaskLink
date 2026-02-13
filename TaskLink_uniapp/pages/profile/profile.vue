@@ -22,16 +22,7 @@
     </view>
 
     <view class="menu-group">
-      <view class="menu-item" @click="switchLanguage">
-        <view class="item-left">
-          <text class="menu-icon">🌐</text>
-          <text class="menu-text">{{ t.menu_lang }}</text>
-        </view>
-        <view class="item-right">
-          <text class="value-text">{{ currentLang === 'zh' ? '中文' : 'ENG' }}</text>
-          <text class="arrow">></text>
-        </view>
-      </view>
+
 
       <view class="menu-item" @click="openPasswordModal">
         <view class="item-left">
@@ -48,18 +39,17 @@
         <text class="arrow">></text>
       </view>
 
-      <view class="menu-item">
-        <view class="item-left">
-          <text class="menu-icon">📂</text>
-          <text class="menu-text">{{ t.menu_help }}</text>
-        </view>
-        <text class="arrow">></text>
-      </view>
+<view class="menu-item" @click="goToHelp">
+	<view class="item-left">
+	  <text class="menu-icon">⚠️</text>
+	  <text class="menu-text">系统帮助</text>
+	</view>
+</view>
 
       <view v-if="userInfo.role === 1" class="menu-item admin-entry" @click="goToAdmin">
         <view class="item-left">
           <text class="menu-icon">🛡️</text>
-          <text class="menu-text">用户管理 // ADMIN CONSOLE</text>
+          <text class="menu-text">用户管理</text>
         </view>
         <text class="arrow">></text>
       </view>
@@ -67,7 +57,7 @@
       <view class="menu-item logout" @click="handleLogout">
         <view class="item-left">
           <text class="menu-icon">⚠️</text>
-          <text class="menu-text warn">{{ t.menu_logout }}</text>
+          <text class="menu-text warn">断开连接</text>
         </view>
         <text class="arrow warn">></text>
       </view>
@@ -130,6 +120,9 @@ onShow(() => {
 });
 
 
+const goToHelp = () => {
+    uni.navigateTo({ url: '/pages/help/help' });
+};
 
 const goToAdmin = () => {
   uni.navigateTo({ url: '/pages/admin/manager' });
@@ -184,13 +177,7 @@ const uploadAvatar = () => {
   });
 };
 
-const switchLanguage = () => {
-  const newLang = currentLang.value === 'zh' ? 'en' : 'zh';
-  currentLang.value = newLang;
-  uni.setStorageSync('lang', newLang);
-  t.value = messages[newLang].profile;
-  uni.showToast({ title: newLang === 'zh' ? '已切换中文' : 'SWITCHED TO ENG', icon: 'none' });
-};
+
 
 const handleLogout = () => {
   uni.showModal({

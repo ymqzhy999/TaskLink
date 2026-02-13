@@ -2,7 +2,7 @@
 
 ---
 ## 下载安装
-点击下载最新版本：[TaskLink_v1.4.apk](https://github.com/ymqzhy999/TaskLink/blob/main/dist/tasklink1.4.apk)
+点击下载最新版本：[TaskLink_v1.5.apk](https://github.com/ymqzhy999/TaskLink/blob/main/dist/tasklink1.5.apk)
 
 
 * 1.2.1版本添加古老qq表情包和图片发送功能

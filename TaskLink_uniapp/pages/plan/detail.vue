@@ -4,19 +4,19 @@
 
     <view class="nav-header">
       <view class="back-btn" @click="goBack">❮ 返回中枢</view>
-      <text class="nav-title">TACTICAL DETAIL</text>
+      <text class="nav-title">计划详情</text>
     </view>
 
     <view v-if="loading" class="loading-state">
-      <text class="loading-text">正在解析战术数据...</text>
+      <text class="loading-text">正在解析计划数据...</text>
       <view class="loading-bar"></view>
     </view>
 
     <view v-else class="content-area">
       <view class="plan-overview fade-in">
-        <text class="big-title">{{ plan.title }}</text>
+        <text class="big-title" user-select>{{ plan.title }}</text>
         <view class="meta-row">
-          <text class="meta-tag">核心目标: {{ plan.goal }}</text>
+          <text class="meta-tag" user-select>核心目标: {{ plan.goal }}</text>
         </view>
         <view class="meta-row">
           <text class="meta-tag blue">总周期: {{ plan.total_days }} 天</text>
@@ -33,19 +33,19 @@
           <view class="day-card" :class="{ active: activeDay === index }" @click="toggleDay(index)">
             <view class="day-header">
               <text class="day-idx">NODE {{ (index + 1).toString().padStart(2, '0') }}</text>
-              <text class="day-title">{{ task.title }}</text>
+              <text class="day-title" user-select>{{ task.title }}</text>
               <view class="arrow" :class="{ rotated: activeDay === index }">▼</view>
             </view>
             
             <view class="day-body" v-if="activeDay === index">
-              <text class="md-content typing-effect">{{ getDisplayContent(index) }}</text>
+              <text class="md-content typing-effect" user-select>{{ getDisplayContent(index) }}</text>
               
               <view class="cursor-line" v-if="typingIndex === index && !isTypingFinished"></view>
               
               <view class="action-bar fade-in-slow" v-if="isTypingFinished || typingIndex !== index">
-                 <button class="mark-btn" :class="{ done: task.is_completed }" @click.stop="toggleComplete(task)">
-                   {{ task.is_completed ? '✅ 节点已归档' : '⚡ 标记为完成' }}
-                 </button>
+                  <button class="mark-btn" :class="{ done: task.is_completed }" @click.stop="toggleComplete(task)">
+                    {{ task.is_completed ? '✅ 节点已归档' : '⚡ 标记为完成' }}
+                  </button>
               </view>
             </view>
           </view>

@@ -179,7 +179,6 @@ onShow(() => {
   // 🔥 监听全局消息
   uni.$off('global_new_message'); // 先移除防止重复
   uni.$on('global_new_message', (msg) => {
-      // 🔒 安全检查：如果页面已经隐藏或销毁，不要更新 UI，防止报错
       if (!isPageActive.value) return;
 
       console.log('Square 收到:', msg);
@@ -340,7 +339,6 @@ const formatAvatar = (path) => {
   return path.startsWith('http') ? path : `${FLASK_URL}${path}`;
 };
 
-// 🔥🔥🔥 核心修改：获取历史记录 🔥🔥🔥
 const fetchHistory = () => {
     uni.request({
         // ❌ 不再传 user_id 参数，靠 Token 识别
@@ -348,6 +346,8 @@ const fetchHistory = () => {
         // ✅ 必须带 Header
         header: {
             'Authorization': getToken()
+        },data: {
+            user_id: myInfo.value.id 
         },
         success: (res) => {
             // 🔥 401/403 封号或过期处理

@@ -5,7 +5,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import db
-from models import User, Task, TaskLog, ChatMessage, AIPlan, AIPlanTask, InvitationCode, Vocabulary, UserWordProgress
+from models import User, Task, TaskLog, ChatMessage, AIPlan, AIPlanTask, InvitationCode, Vocabulary, UserWordProgress, \
+    TrainingSession, TrainingDetail
 import requests
 import re
 from dotenv import load_dotenv
@@ -16,13 +17,7 @@ import time
 import json
 from datetime import datetime, timedelta
 from sqlalchemy.sql.expression import func
-
 import jwt
-
-print("--------------------------------------------------")
-print(f"【JWT 来源检查】当前加载的 jwt 路径: {jwt.__file__}")
-print(f"【JWT 属性检查】它有 encode 方法吗? {'encode' in dir(jwt)}")
-print("--------------------------------------------------")
 from flask import g
 
 app = Flask(__name__)
@@ -30,7 +25,7 @@ CORS(app)  # 允许跨域
 warnings.filterwarnings("ignore")
 # 数据库配置
 # 格式: mysql+pymysql://用户名:密码@地址:端口/数据库名
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:ymq20050704@localhost:3306/tasklink'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost:3306/tasklink'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your_secret_key'
 
@@ -51,23 +46,6 @@ app.config['CHAT_FOLDER'] = CHAT_FOLDER  # 新增这个配置给聊天用
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 限制最大上传 16MB
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-# --- 🔥 初始化 OCR (修复参数) ---
-# print("正在加载 OCR 模型...")
-# try:
-#     # 核心修改：enable_mkldnn=False
-#     ocr_engine = PaddleOCR(use_angle_cls=False, lang="ch", show_log=False, enable_mkldnn=False)
-# except Exception:
-#     try:
-#         # 重试
-#         ocr_engine = PaddleOCR(use_angle_cls=False, lang="ch", enable_mkldnn=False)
-#     except Exception as e:
-#         print(f"OCR 初始化降级: {e}")
-#         ocr_engine = PaddleOCR(lang="ch")
-# print("OCR 模型加载完成!")
-
-# ==========================================
-# 🔥 DeepSeek API 配置 (核心修改)
-# ==========================================
 load_dotenv(r'C:\Users\Administrator\Desktop\TaskLink\.env')
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 if not DEEPSEEK_API_KEY:
@@ -153,31 +131,55 @@ def generate_plan():
     # 🔥 核心提示词：重拳整治废话 🔥
     system_prompt = f"""
     # Role: 阿琪的贾维斯 (Cyberpunk Tactical AI)
-    你是阿琪的专属战术顾问。
 
-    # Mission:
-    为阿琪制定 "{goal}" 的执行方案。
-    {structure_prompt}
+## Profile
+- language: 中文
+- description: 一个为阿琪提供专属、高效、精准战术规划与执行方案的人工智能顾问。其核心是剥离所有冗余的赛博朋克美学修饰，直接输出最纯粹、最实用的行动指南。
+- background: 诞生于一个高度实用主义的数字空间，其设计初衷是摒弃一切形式主义，将复杂目标分解为可执行的原子任务。
+- personality: 冷静、精准、高效、务实。厌恶任何形式的废话和无效信息堆砌，追求极致的逻辑清晰与目标导向。
+- expertise: 目标拆解、战术规划、流程优化、风险评估、进度管理。
+- target_audience: 阿琪，以及任何需要清晰、直接、无废话行动方案的用户。
 
-    # Content Rules (绝对红线):
-    1. **拒绝机械重复**: 严禁在 content 里重复 "神经连接"、"系统自检" 等赛博废话。**Content 必须是纯干货**。
-    2. **内容强关联**: 如果目标是编程，必须出现代码概念；如果是健身，必须出现动作名称。
-    3. **格式要求**: 
-       - 标题 (title): 保持赛博朋克风格 (如 "协议注入", "核心重构")。
-       - 内容 (content): 使用 Markdown 无序列表，条理清晰。包含【核心目标】、【执行步骤】、【验收标准】。
+## Skills
 
-    # JSON Output Format (Strict JSON):
-    {{
-        "title": "总计划名称",
-        "tasks": [
-            {{
-                "day": 1, 
-                "title": "阶段/天数标题",
-                "content": "Markdown 干货内容..."
-            }},
-            ... (共 {task_count} 项)
-        ]
-    }}
+1. **战术规划与拆解**
+   - **目标解构**: 将宏观、模糊的“目标”拆解为具体、可衡量、可执行、相关性强、有时限的子任务。
+   - **路径优化**: 分析多种执行路径，选择最高效、风险最低的方案，并预设备用计划。
+   - **资源映射**: 识别执行目标所需的知识、工具、时间及外部资源，并进行合理分配。
+   - **风险管理**: 预判执行过程中可能遇到的障碍与风险，并提前制定应对策略。
+
+2. **内容生成与格式化**
+   - **结构化输出**: 严格按照指定格式（如JSON）生成内容，确保数据结构清晰、易于解析。
+   - **干货提炼**: 过滤所有装饰性、重复性语言，确保内容每一条信息都具有实际指导意义。
+   - **领域适配**: 根据目标领域（如编程、健身、学习）自动嵌入该领域的核心概念、术语和具体行动项。
+   - **Markdown精通**: 熟练运用Markdown语法进行内容排版，使方案条理清晰，重点突出。
+
+## Rules
+
+1. **内容核心原则**：
+   - **绝对干货**: 输出内容必须100%为可执行的实用信息。严禁出现“系统自检中...”、“神经连接稳定”等无实际意义的赛博朋克风格填充词。
+   - **强领域关联**: 方案内容必须紧密贴合目标领域。例如，编程目标必须包含具体的代码概念、库、框架或算法；健身目标必须包含具体的动作名称、组数、次数、器械。
+   - **逻辑递进**: 任务安排需符合学习或执行的客观规律，由易到难，由基础到综合，确保每一步都建立在前一步的成功之上。
+
+2. **输出行为准则**：
+   - **格式严格遵守**: 必须完全按照预设的JSON格式输出，包含`title`和`tasks`数组，每个任务对象包含`day`, `title`, `content`。
+   - **标题风格化**: `title`和每个任务的`title`需保持简洁、有力的赛博朋克词汇风格（如“协议注入”、“核心重构”、“数据链路铺设”），但**仅限于标题**。
+   - **内容清单化**: `content`部分必须使用Markdown无序列表，清晰罗列【核心目标】、【执行步骤】、【验收标准】等模块的具体要点。
+
+3. **交互限制条件**：
+   - **不解释规则**: 不向用户复述或解释自身的工作规则，直接输出方案。
+   - **不进行开放式提问**: 当输入信息（如`{goal}`, `{structure_prompt}`, `{task_count}`）不全时，输出一个标准错误提示，要求补全必要参数，而非猜测。
+   - **不生成额外内容**: 严格限定输出内容为请求的战术方案JSON对象，不添加任何总结、祝福或额外说明。
+
+## Workflows
+- 目标: 接收包含`{goal}`（目标）、`{structure_prompt}`（结构提示）、`{task_count}`（任务数量）的指令，生成一份高度结构化、可执行的战术方案。
+- 步骤 1: **解析与确认**。解析输入指令，确认`{goal}`, `{structure_prompt}`, `{task_count}`三个关键参数均已提供且含义明确。
+- 步骤 2: **目标解构与规划**。基于`{goal}`和`{structure_prompt}`，运用战术规划技能，将总目标科学拆解为`{task_count}`个递进式的子任务。为每个子任务确定一个阶段性的核心目标。
+- 步骤 3: **内容填充与格式化**。为每个子任务填充纯粹的“干货”内容，严格遵循内容规则（强领域关联、清单化）。为总计划和每个子任务生成符合赛博朋克风格的标题。最后，将全部内容组装成严格的JSON格式对象。
+- 预期结果: 输出一个完整的、可直接使用的JSON对象，包含一个总标题和一个由指定数量任务组成的数组，每个任务都提供了清晰、具体、无废话的每日/阶段行动指南。
+
+## Initialization
+作为阿琪的贾维斯 (Cyberpunk Tactical AI)，你必须遵守上述Rules，按照Workflows执行任务。
     """
 
     user_prompt = f"目标：{goal}。预期：{expectation}。总时长：{days}天。请生成 {task_count} 个节点的战术路径。"
@@ -822,362 +824,13 @@ def upload_chat_image():
         return jsonify({"code": 400, "msg": "不支持的文件格式"}), 400
 
 
-"""ai控制手机"""
-
-
-# # adb命令
-# class ADBController:
-#     APP_MAP = {
-#         "微信": "com.tencent.mm",
-#         "QQ": "com.tencent.mobileqq",
-#         "QQ音乐": "com.tencent.qqmusic",
-#         "网易云": "com.netease.cloudmusic",
-#         "B站": "tv.danmaku.bili",
-#         "哔哩哔哩": "tv.danmaku.bili",
-#         "抖音": "com.ss.android.ugc.aweme",
-#         "设置": "com.android.settings",
-#         "相机": "com.android.camera"
-#     }
-#
-#     @staticmethod
-#     def connect_wireless(phone_ip, port="5555"):
-#         """实现无线连接：adb connect <ip>:<port>"""
-#         print(f"🌐 正在尝试无线连接手机: {phone_ip}:{port}")
-#         # 执行 adb connect 指令
-#         result = ADBController.run(f"connect {phone_ip}:{port}")
-#         print(f"📡 连接结果: {result}")
-#
-#         # 验证连接状态
-#         devices = ADBController.run("devices")
-#         if phone_ip in devices:
-#             print("✅ 无线连接成功！")
-#             return True
-#         else:
-#             print("❌ 连接失败，请确保手机已开启无线调试且处于同一 WiFi")
-#             return False
-#
-#     @staticmethod
-#     def run(cmd):
-#         res = subprocess.run(f"adb {cmd}", shell=True, capture_output=True, text=True, encoding='utf-8')
-#         return res.stdout.strip()
-#
-#     @staticmethod
-#     def start_app(app_name):
-#         pkg = ADBController.APP_MAP.get(app_name)
-#         if not pkg: return False, f"未知的 App: {app_name}"
-#         ADBController.run(f"shell monkey -p {pkg} -c android.intent.category.LAUNCHER 1")
-#         return True, f"已启动 {app_name}"
-#
-#     @staticmethod
-#     def click_coord(x, y):
-#         """直接点击屏幕上的固定坐标"""
-#         print(f"📍 直接点击坐标: ({x}, {y})")
-#         ADBController.run(f"shell input tap {x} {y}")
-#         return True, f"已点击坐标 ({x}, {y})"
-#
-#     @staticmethod
-#     def click_text(target_text, offset_x=0, offset_y=0):
-#         # 使用绝对路径，防止文件找不到
-#         current_dir = os.path.dirname(os.path.abspath(__file__))
-#         screenshot_path = os.path.join(current_dir, "debug_screen.png")
-#
-#         print(f"📸 1. 正在截图...")
-#         ADBController.run(f"shell screencap -p /sdcard/screen.png")
-#         ADBController.run(f"pull /sdcard/screen.png \"{screenshot_path}\"")
-#
-#         if not os.path.exists(screenshot_path):
-#             print("❌ 截图文件未生成！")
-#             return False, "截图失败"
-#
-#         print(f"🔍 2. OCR 识别中...")
-#         try:
-#             result = ocr_engine.ocr(screenshot_path)
-#         except Exception as e:
-#             print(f"❌ OCR 引擎报错: {e}")
-#             return False, f"OCR 出错: {e}"
-#
-#         if not result or not result[0]:
-#             print("⚠️ 屏幕上没有识别到任何文字！")
-#             return False, "屏幕空白或未识别到文字"
-#
-#         all_texts = [line[1][0] for line in result[0]]
-#         print(f"👀 OCR看到了这些字: {all_texts}")
-#
-#         for line in result[0]:
-#             box = line[0]  # [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
-#             text = line[1][0]  # 文字内容
-#             score = line[1][1]  # 置信度
-#
-#             # 模糊匹配
-#             if target_text in text:
-#                 # 计算中心点
-#                 x1, y1 = box[0]
-#                 x3, y3 = box[2]
-#                 center_x = int((x1 + x3) / 2)
-#                 center_y = int((y1 + y3) / 2)
-#
-#                 # 🔥🔥 核心修改：加上偏移量 🔥🔥
-#                 final_x = center_x + int(offset_x)
-#                 final_y = center_y + int(offset_y)
-#
-#                 print(f"✅ 3. 找到锚点: '{text}' (置信度: {score:.2f})")
-#                 print(f"📍 4. 锚点坐标: ({center_x}, {center_y}) -> 偏移后目标: ({final_x}, {final_y})")
-#
-#                 # 执行点击
-#                 ADBController.run(f"shell input tap {final_x} {final_y}")
-#                 print(f"👆 5. 已发送点击指令！")
-#
-#                 return True, f"已点击 '{text}' 的偏移位置 ({offset_x}, {offset_y})"
-#
-#         print(f"❌ 未找到目标文字: {target_text}")
-#         return False, f"未找到: {target_text}"
-#
-#     @staticmethod
-#     def input_text(text):
-#         # 1. 判断是否包含中文
-#         print('将要输入的中文：', text)
-#         if re.search(r'[\u4e00-\u9fa5]', str(text)):
-#             # 处理特殊字符防止 shell 报错
-#             safe_text = str(text).replace("'", "'\\''").replace('"', '\\"')
-#             print(safe_text)
-#
-#             # 🔥🔥 修正：去掉开头的 "adb "，直接写 "shell ..." 🔥🔥
-#             cmd = f"shell am broadcast -a ADB_INPUT_TEXT --es msg '{safe_text}'"
-#
-#             # 建议加一行日志打印最终命令，方便调试
-#             print(f"🚀 执行广播: adb {cmd}")
-#
-#             ADBController.run(cmd)
-#             return True, f"已广播输入中文: {text}"
-#
-#         else:
-#             # 2. 纯英文/数字依然用原生
-#             safe_text = str(text).replace(" ", "%s")
-#             ADBController.run(f"shell input text {safe_text}")
-#             return True, f"已输入: {text}"
-#     @staticmethod
-#     def press_enter():
-#         ADBController.run("shell input keyevent 66")
-#         return True, "已点击搜索"
-#
-#     @staticmethod
-#     def swipe(direction):
-#         # 简单封装，坐标基于常见屏幕分辨率 (可根据实际调整)
-#         cmd = ""
-#         if direction == 'UP':  # 上滑 (看下面)
-#             cmd = "shell input swipe 500 1500 500 500 300"
-#         elif direction == 'DOWN':  # 下滑 (刷新)
-#             cmd = "shell input swipe 500 500 500 1500 300"
-#         elif direction == 'LEFT':  # 左滑
-#             cmd = "shell input swipe 900 1000 200 1000 300"
-#         elif direction == 'RIGHT':  # 右滑
-#             cmd = "shell input swipe 200 1000 900 1000 300"
-#         else:
-#             return False, "未知滑动方向"
-#
-#         ADBController.run(cmd)
-#         return True, f"已滑动: {direction}"
-#
-#     # 🔥🔥 新增方法 2：物理按键 🔥🔥
-#     @staticmethod
-#     def press_key(key_name):
-#         key_map = {
-#             "HOME": "3",
-#             "BACK": "4",
-#             "RECENT": "187"
-#         }
-#         code = key_map.get(key_name.upper())
-#         if not code: return False, "未知按键"
-#         ADBController.run(f"shell input keyevent {code}")
-#         return True, f"已按键: {key_name}"
-#
-#
-# # 根据ai回复来调用adb命令
-# def execute_action(action, value, offset_x=0, offset_y=0):
-#     try:
-#         if action == 'OPEN_APP':
-#             return ADBController.start_app(value)
-#
-#         elif action == 'CLICK_TEXT':
-#             return ADBController.click_text(value, offset_x, offset_y)
-#
-#         elif action == 'CLICK_COORD':
-#             try:
-#                 x, y = map(int, str(value).split(','))
-#                 return ADBController.click_coord(x, y)
-#             except Exception as e:
-#                 return False, f"坐标格式错误: {value}"
-#
-#         elif action == 'INPUT_TEXT':
-#             return ADBController.input_text(value)
-#
-#         elif action == 'PRESS_ENTER':
-#             time.sleep(3)
-#             return ADBController.press_enter()
-#
-#         elif action == 'DELAY':
-#             time.sleep(int(value))
-#             return True, f"已等待 {value} 秒"
-#
-#         elif action == 'SWIPE':
-#             return ADBController.swipe(value)
-#
-#         elif action == 'PRESS_KEY':
-#             return ADBController.press_key(value)
-#
-#         else:
-#             return False, f"未知指令: {action}"
-#
-#     except Exception as e:
-#         return False, str(e)
-#
-#
-# @app.route('/api/chat', methods=['POST'])
-# def chat_ai():
-#     data = request.json
-#     user_message = data.get('message')
-#
-#     if not user_message:
-#         return jsonify({"code": 400, "msg": "说点什么吧"}), 400
-#     system_prompt = """
-#         # Role: 手机自动化指令生成器
-#         你必须根据用户需求生成一个严谨的 JSON 数组指令链，不准输出任何解释文字。
-#
-#         ## 核心规则 (优先级最高)
-#         1. **完整性检查**：所有发消息任务必须以 {"action": "CLICK_TEXT", "value": "发送"} 结尾，严禁中途结束。
-#         2. **禁止回车**：严禁使用 PRESS_ENTER，它在移动端只会导致换行。
-#         3. **QQ 逻辑**：QQ 输入框定位必须使用 "发送" 按钮作为锚点进行负向偏移。
-#            - 示例：{"action": "CLICK_TEXT", "value": "发送", "offset_x": -250}
-#         4. **微信逻辑**：微信输入框无文字时使用坐标。
-#            - 示例：{"action": "CLICK_COORD", "value": "540,2600"}
-#         5. **延迟必带**：打开应用后延迟 4 秒，进入聊天窗口后延迟 2 秒。
-#
-#         ## 强制输出格式
-#         [
-#           {"action": "OPEN_APP", "value": "应用名"},
-#           {"action": "DELAY", "value": 4},
-#           {"action": "CLICK_TEXT", "value": "目标名"},
-#           {"action": "DELAY", "value": 2},
-#           {"action": "定位输入框指令"},
-#           {"action": "INPUT_TEXT", "value": "消息内容"},
-#           {"action": "CLICK_TEXT", "value": "发送"}
-#         ]
-#
-#         ## 示例：给 QQ 的 [张三] 发送 [你好]
-#         回复：
-#         [
-#           {"action": "OPEN_APP", "value": "QQ"},
-#           {"action": "DELAY", "value": 4},
-#           {"action": "CLICK_TEXT", "value": "张三"},
-#           {"action": "DELAY", "value": 2},
-#           {"action": "CLICK_TEXT", "value": "发送", "offset_x": -250},
-#           {"action": "INPUT_TEXT", "value": "你好"},
-#           {"action": "CLICK_TEXT", "value": "发送"}
-#         ]
-#         """
-#     try:
-#         ollama_payload = {
-#             "model": "gemma3:4b",  # 确保你本地有这个模型
-#             "prompt": f"{system_prompt}\n\n用户：{user_message}\n回复：",
-#             "stream": False,
-#             "options": {"temperature": 0.1}  # 低温度保证输出格式稳定
-#         }
-#
-#         resp = requests.post("http://localhost:11434/api/generate", json=ollama_payload)
-#         ai_text = resp.json().get('response', '').strip()
-#
-#         # 清洗 Markdown (防止AI输出 ```json 包裹)
-#         if "```json" in ai_text:
-#             ai_text = ai_text.replace("```json", "").replace("```", "").strip()
-#         elif "```" in ai_text:
-#             ai_text = ai_text.replace("```", "").strip()
-#
-#         return jsonify({"code": 200, "data": ai_text})
-#
-#     except Exception as e:
-#         print(f"AI Error: {e}")
-#         return jsonify({"code": 500, "msg": "AI 服务异常"}), 500
-#
-#
-# @app.route('/api/phone/control', methods=['POST'])
-# def phone_control():
-#     # 🔥🔥🔥 调试第一站：只要这行没打印，说明请求还在路上（或者IP错了）
-#     print("\n========= 收到前端 CONTROL 请求 =========")
-#
-#     data = request.json
-#     print(f"📦 原始数据包: {data}")  # 看看前端到底发了什么
-#
-#     # 1. 提取基础参数
-#     action = data.get('action')
-#     value = data.get('value')
-#     offset_x = data.get('offset_x', 0)
-#     offset_y = data.get('offset_y', 0)
-#
-#     print(f"🔑 解析动作: {action}, 值: {value}")
-#
-#     # 3. 调用执行单元
-#     success, msg = execute_action(action, value, offset_x, offset_y)
-#
-#     print(f"🏁 执行结果: {success}, {msg}")
-#     print("=======================================\n")
-#
-#     return jsonify({"code": 200 if success else 400, "msg": msg})
-#
-#
-# @app.route('/api/phone/batch_run', methods=['POST'])
-# def batch_run():
-#     data = request.json
-#     tasks = data.get('tasks')  # 接收 List [{}, {}]
-#
-#     if not tasks or not isinstance(tasks, list):
-#         return jsonify({"code": 400, "msg": "任务列表为空或格式错误"}), 400
-#
-#     print(f"📦 收到批量任务: {len(tasks)} 个步骤 (后端托管执行)")
-#
-#     results = []
-#     all_success = True
-#
-#     for i, task in enumerate(tasks):
-#         action = task.get('action')
-#         value = task.get('value')
-#
-#         # 🔥🔥 关键修复：提取 offset 参数 (之前漏了这里) 🔥🔥
-#         # 如果不传这两个参数，Execute_action 就会使用默认值 0，导致点击偏离
-#         offset_x = task.get('offset_x', 0)
-#         offset_y = task.get('offset_y', 0)
-#
-#         print(f"▶️ 步骤 {i + 1}/{len(tasks)}: {action} -> {value} (偏移: {offset_x}, {offset_y})")
-#
-#         # 执行单步，并将偏移量传进去
-#         success, msg = execute_action(action, value, offset_x, offset_y)
-#
-#         results.append({"step": i + 1, "action": action, "success": success, "msg": msg})
-#
-#         if not success:
-#             print(f"❌ 步骤 {i + 1} 失败，任务终止！原因: {msg}")
-#             all_success = False
-#             # 遇到错误立即停止，防止后续操作产生连锁反应
-#             break
-#     print("✨ 任务结束，正在将 TaskLink 调回前台...")
-#     # 这里的包名要对应你打包时的 App 包名，通常 UniApp 默认是 io.dcloud.HBuilder 或你的自定义包名
-#     tasklink_pkg = "io.dcloud.HBuilder"
-#     ADBController.run(f"shell monkey -p {tasklink_pkg} -c android.intent.category.LAUNCHER 1")
-#
-#     return jsonify({
-#         "code": 200 if all_success else 500,
-#         "msg": "执行完毕",
-#         "data": results
-#     })
-
-
 @app.route('/api/vocab/due', methods=['GET'])
 def get_due_vocab():
-    """获取单词 (支持强制拉取新词 + 困难模式)"""
+    """获取单词 (支持强制拉取新词 + 困难模式) - 每组 15 个"""
     user_id = getattr(g, 'user_id', None) or request.args.get('user_id')
     target_level = request.args.get('level', 'CET4')
     force_new = request.args.get('force_new', 'false') == 'true'
 
-    # 🔥 新增：获取困难模式参数
     only_difficult = request.args.get('difficult', 'false') == 'true'
 
     if not user_id:
@@ -1185,22 +838,20 @@ def get_due_vocab():
 
     due_words = []
 
-    # --- 1. 困难模式逻辑 ---
     if only_difficult:
         print(f"🔥 用户 {user_id} 开启困难模式 (Level: {target_level})")
-        # 筛选条件：已学过 (UserWordProgress存在) 且 易读度 < 2.5 (即用户选过忘记或模糊的词)
         difficult_results = db.session.query(UserWordProgress, Vocabulary).join(
             Vocabulary, UserWordProgress.word_id == Vocabulary.id
         ).filter(
             UserWordProgress.user_id == user_id,
-            UserWordProgress.easiness_factor < 2.5,  # 👈 核心：EF值小于2.5判定为困难
+            UserWordProgress.easiness_factor < 2.5,
             Vocabulary.level == target_level
-        ).order_by(UserWordProgress.easiness_factor.asc()).limit(30).all()  # 按最难的排序
+        ).order_by(UserWordProgress.easiness_factor.asc()).limit(15).all()
 
         for progress, word in difficult_results:
             word_dict = word.to_dict()
             word_dict['is_new'] = False
-            word_dict['ef'] = progress.easiness_factor  # 方便调试看分数
+            word_dict['ef'] = progress.easiness_factor
             due_words.append(word_dict)
 
         return jsonify({
@@ -1209,7 +860,6 @@ def get_due_vocab():
             "msg": f"已加载 {len(due_words)} 个困难单词"
         })
 
-    # --- 2. 普通复习逻辑 (保持原有) ---
     if not force_new:
         from datetime import datetime
         now = datetime.now()
@@ -1220,15 +870,15 @@ def get_due_vocab():
             UserWordProgress.user_id == user_id,
             UserWordProgress.next_review_at <= now,
             Vocabulary.level == target_level
-        ).limit(30).all()
+        ).limit(15).all()
 
         for progress, word in due_results:
             word_dict = word.to_dict()
             word_dict['is_new'] = False
             due_words.append(word_dict)
 
-    # --- 3. 补充新词 (保持原有) ---
-    needed = 30 - len(due_words)
+    needed = 15 - len(due_words)
+
     if needed > 0:
         learned_ids = db.session.query(UserWordProgress.word_id).filter_by(user_id=user_id).subquery()
         unlearned_words = Vocabulary.query.filter(
@@ -1251,7 +901,6 @@ def get_due_vocab():
 @app.route('/api/vocab/review', methods=['POST'])
 def submit_vocab_review():
     """提交单词学习结果，使用优化版 SM-2 算法"""
-    # 1. 优先获取全局用户ID (g.user_id)，如果没中间件则尝试从参数获取
     user_id = getattr(g, 'user_id', None)
 
     # 如果 g 中没有，尝试从 JSON body 中获取 (兼容你前端的传参方式)
@@ -1294,17 +943,14 @@ def submit_vocab_review():
     new_repetitions = progress.repetitions
     new_interval = progress.interval
 
-    # --- 情况 A: 忘记 (0) ---
     if quality < 3:
         new_repetitions = 0  # 归零
         new_interval = 1  # 必须第二天复习
 
-    # --- 情况 B: 模糊 (3) ---
     elif quality == 3:
         new_repetitions = 0
         new_interval = max(1, round(progress.interval * 1.2))  # 稍微延长一点
 
-    # --- 情况 C: 认识 (4) / 精通 (5) ---
     else:
         new_repetitions += 1
 
@@ -1429,6 +1075,7 @@ def search_vocab():
     search_term = request.args.get('word', '').strip()
     first_letter = request.args.get('letter', '').strip()
     only_difficult = request.args.get('difficult', 'false') == 'true'
+    # 🔥 新增：获取目标等级 (默认空字符串表示全部)
     target_level = request.args.get('level', '').strip()
 
     page = int(request.args.get('page', 1))
@@ -1436,16 +1083,20 @@ def search_vocab():
 
     stmt = db.session.query(Vocabulary)
 
+    # 2. 难词筛选
     if only_difficult:
         stmt = stmt.join(UserWordProgress, Vocabulary.id == UserWordProgress.word_id) \
             .filter(UserWordProgress.user_id == user_id, UserWordProgress.easiness_factor < 2.5)
 
+    # 3. 首字母筛选
     if first_letter:
         stmt = stmt.filter(Vocabulary.word.like(f"{first_letter}%"))
 
+    # 4. 🔥 新增：等级筛选 (如果传了具体等级，且不是 'ALL')
     if target_level and target_level != 'ALL':
         stmt = stmt.filter(Vocabulary.level == target_level)
 
+    # 5. 关键词搜索 (中英混合)
     if search_term:
         from sqlalchemy import or_
         stmt = stmt.filter(
@@ -1466,6 +1117,133 @@ def search_vocab():
         "page": page,
         "has_more": (page * page_size) < total
     })
+
+
+# 1. 保存/提交打卡记录
+@app.route('/api/training/save', methods=['POST'])
+def save_training_session():
+    """
+    保存当前的训练进度（无论是中途保存还是全部完成）
+    前端需要传: user_id, level, status, details(数组)
+    """
+    data = request.json
+    user_id = data.get('user_id')
+    level = data.get('level')
+    status = data.get('status', 0)  # 0=未完成, 1=已完成
+    details_data = data.get('details', [])  # 包含单词列表 [{word_id, word, trans, quality}, ...]
+
+    if not user_id or not details_data:
+        return jsonify({"code": 400, "msg": "数据不能为空"}), 400
+
+    try:
+        # A. 创建主记录
+        new_session = TrainingSession(
+            user_id=user_id,
+            level=level,
+            status=status,
+            total_words=len(details_data)
+        )
+        db.session.add(new_session)
+        db.session.flush()  # 立即执行以获取 new_session.id，但暂不提交事务
+
+        # B. 批量插入详情
+        for item in details_data:
+            detail = TrainingDetail(
+                session_id=new_session.id,
+                word_id=item.get('word_id'),
+                word_text=item.get('word'),
+                word_trans=item.get('trans'),  # 翻译
+                quality=item.get('quality', 0)
+            )
+            db.session.add(detail)
+
+        # C. 提交事务
+        db.session.commit()
+        print(f"✅ [History] 用户 {user_id} 保存打卡记录: ID={new_session.id}, 单词数={len(details_data)}")
+
+        return jsonify({"code": 200, "msg": "保存成功", "session_id": new_session.id})
+
+    except Exception as e:
+        db.session.rollback()  # 🔥 关键：出错了就全部撤销，防止产生脏数据
+        print(f"❌ [History Error] 保存失败: {str(e)}")
+        return jsonify({"code": 500, "msg": "保存失败，请重试"}), 500
+
+
+# 2. 获取历史记录列表 (分页)
+@app.route('/api/training/history', methods=['GET'])
+def get_training_history():
+    """
+    获取历史球的列表，每页 6 条
+    """
+    user_id = request.args.get('user_id')
+    page = int(request.args.get('page', 1))
+    page_size = int(request.args.get('page_size', 6))  # 默认每页 6 条
+
+    if not user_id:
+        return jsonify({"code": 400, "msg": "未授权"}), 400
+
+    # 按时间倒序排列
+    pagination = TrainingSession.query.filter_by(user_id=user_id) \
+        .order_by(TrainingSession.created_at.desc()) \
+        .paginate(page=page, per_page=page_size, error_out=False)
+
+    return jsonify({
+        "code": 200,
+        "data": [s.to_dict() for s in pagination.items],
+        "total": pagination.total,
+        "pages": pagination.pages,
+        "current_page": page,
+        "has_more": pagination.has_next
+    })
+
+
+# 3. 获取某次打卡的详细单词列表
+@app.route('/api/training/detail', methods=['GET'])
+def get_training_detail():
+    """
+    点击某个历史球，进入详情页查看那次背了哪些词
+    """
+    session_id = request.args.get('session_id')
+
+    if not session_id:
+        return jsonify({"code": 400, "msg": "缺少参数"}), 400
+
+    # 查询该次记录的所有单词
+    details = TrainingDetail.query.filter_by(session_id=session_id).all()
+
+    # 🔥 补充：如果我们之前加了 audio_url 字段，可以在这里联表查询 Vocabulary 获取
+    # 这里先演示基础版，直接返回当时存的 word_text
+
+    return jsonify({
+        "code": 200,
+        "data": [d.to_dict() for d in details]
+    })
+
+
+# 4. 删除打卡记录 (长按删除)
+@app.route('/api/training/delete', methods=['POST'])
+def delete_training_session():
+    """
+    删除某条打卡记录
+    """
+    data = request.json
+    session_id = data.get('session_id')
+    user_id = data.get('user_id')  # 用于安全校验，防止删别人的
+
+    session = TrainingSession.query.filter_by(id=session_id, user_id=user_id).first()
+
+    if not session:
+        return jsonify({"code": 404, "msg": "记录不存在或无权删除"}), 404
+
+    try:
+        # 由于设置了 cascade="all, delete-orphan" 或者数据库外键级联，
+        # 删除 session 会自动删除对应的 details
+        db.session.delete(session)
+        db.session.commit()
+        return jsonify({"code": 200, "msg": "删除成功"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"code": 500, "msg": str(e)}), 500
 
 
 if __name__ == '__main__':

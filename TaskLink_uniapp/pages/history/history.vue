@@ -2,8 +2,7 @@
   <view class="container dark-theme">
     <view class="cyber-bg"></view>
     <view class="header-box fade-in">
-      <text class="title">DATA_ARCHIVES</text>
-      <text class="subtitle">// 已完成的战术协议历史记录</text>
+      <text class="title">已完成的计划历史记录</text>
     </view>
 
     <scroll-view scroll-y class="history-list">

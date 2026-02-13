@@ -30,14 +30,7 @@
         </view>
 
         <scroll-view class="letter-index" scroll-x>
-          <view 
-            v-for="l in letters" :key="l" 
-            class="letter-item" 
-            :class="{active: activeLetter === l}"
-            @click="filterByLetter(l)"
-          >
-            {{ l }}
-          </view>
+          <view v-for="l in letters" :key="l" class="letter-item" :class="{active: activeLetter === l}" @click="filterByLetter(l)">{{ l }}</view>
         </scroll-view>
 
         <view class="filter-tabs">
@@ -52,11 +45,17 @@
         @scrolltolower="loadMore"
         lower-threshold="50"
     >
-      <view v-for="(item, index) in displayList" :key="index" class="word-item">
+      <view 
+        v-for="(item, index) in displayList" 
+        :key="index" 
+        class="word-item"
+        @click="playAudio(item.word)"
+      >
         <view class="w-row">
           <text class="w-word">{{ item.word }}</text>
           <text class="w-level-tag">{{ item.level }}</text> 
           <text class="w-phonetic" v-if="item.phonetic">[{{ item.phonetic }}]</text>
+          <text class="audio-hint">🔊</text>
         </view>
         <text class="w-trans">{{ item.translation }}</text>
       </view>
@@ -80,16 +79,15 @@ const searchKeyword = ref('');
 const activeLetter = ref('');
 const showDifficult = ref(false);
 
-// 🔥 新增：等级筛选配置
 const levelOptions = [
-    { label: '全部 (ALL SECTORS)', value: 'ALL' },
+    { label: '全部 (ALL)', value: 'ALL' },
     { label: '初中 (JUNIOR)', value: 'JUNIOR' },
     { label: '高中 (SENIOR)', value: 'SENIOR' },
     { label: '四级 (CET-4)', value: 'CET4' },
     { label: '六级 (CET-6)', value: 'CET6' },
     { label: '托福 (TOEFL)', value: 'TOEFL' }
 ];
-const levelIndex = ref(0); // 默认选中 "全部"
+const levelIndex = ref(0); 
 
 const page = ref(1);
 const pageSize = 20;
@@ -98,10 +96,18 @@ const loading = ref(false);
 
 const getToken = () => uni.getStorageSync('userInfo')?.token || '';
 
-// 切换等级事件
+// 播放音频 (保留)
+const playAudio = (word) => {
+    const url = `https://dict.youdao.com/dictvoice?audio=${word}&type=2`;
+    const audio = uni.createInnerAudioContext();
+    audio.src = url;
+    audio.play();
+    uni.vibrateShort();
+};
+
 const handleLevelChange = (e) => {
     levelIndex.value = e.detail.value;
-    doSearch(true); // 重置并搜索
+    doSearch(true); 
 };
 
 const doSearch = (isRefresh = false) => {
@@ -117,7 +123,6 @@ const doSearch = (isRefresh = false) => {
   
   loading.value = true;
   const user = uni.getStorageSync('userInfo');
-  // 获取当前选中的等级
   const selectedLevel = levelOptions[levelIndex.value].value;
 
   uni.request({
@@ -129,7 +134,6 @@ const doSearch = (isRefresh = false) => {
       cn: searchKeyword.value,
       letter: activeLetter.value,
       difficult: showDifficult.value,
-      // 🔥 传递 Level 参数
       level: selectedLevel,
       page: page.value,
       page_size: pageSize
@@ -156,98 +160,40 @@ const doSearch = (isRefresh = false) => {
   });
 };
 
-const loadMore = () => {
-    doSearch(false);
-};
-
-const filterByLetter = (l) => {
-  activeLetter.value = activeLetter.value === l ? '' : l;
-  doSearch(true);
-};
-
-const toggleDifficult = (val) => {
-  showDifficult.value = val;
-  doSearch(true);
-};
+const loadMore = () => { doSearch(false); };
+const filterByLetter = (l) => { activeLetter.value = activeLetter.value === l ? '' : l; doSearch(true); };
+const toggleDifficult = (val) => { showDifficult.value = val; doSearch(true); };
 
 onMounted(() => doSearch(true));
 </script>
 
 <style scoped>
 page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', monospace; height: 100vh; overflow: hidden; }
-
-/* 容器必须定高且不允许溢出 */
-.container { 
-    height: 100vh; 
-    display: flex; 
-    flex-direction: column; 
-    overflow: hidden; 
-}
-
+.container { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 .cyber-bg { position: fixed; width: 100%; height: 100%; background: radial-gradient(circle, #111 0%, #000 100%); z-index: -1; }
+.fixed-header { background: #050505; z-index: 10; border-bottom: 1px solid #222; }
 
-/* 头部区域不滚动 */
-.fixed-header {
-    background: #050505; 
-    z-index: 10;
-    border-bottom: 1px solid #222;
-}
-
-/* 搜索栏 */
 .search-bar { display: flex; padding: 30rpx; gap: 20rpx; }
 .cyber-input { flex: 1; border: 1px solid #333; color: #fff; padding: 15rpx 20rpx; background: #0a0a0a; border-radius: 4rpx; }
 .search-btn { padding: 15rpx 30rpx; background: #222; border: 1px solid #444; border-radius: 4rpx; }
-
-/* 🔥 新增：等级选择条样式 */
-.level-filter-bar {
-    padding: 0 30rpx 20rpx;
-}
-.level-select-btn {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: rgba(0, 243, 255, 0.1);
-    border: 1px solid #00f3ff;
-    padding: 15rpx 20rpx;
-    border-radius: 4rpx;
-}
+.level-filter-bar { padding: 0 30rpx 20rpx; }
+.level-select-btn { display: flex; justify-content: space-between; align-items: center; background: rgba(0, 243, 255, 0.1); border: 1px solid #00f3ff; padding: 15rpx 20rpx; border-radius: 4rpx; }
 .l-label { font-size: 22rpx; color: #00f3ff; font-weight: bold; }
 .l-value { font-size: 24rpx; color: #fff; }
-.l-arrow { font-size: 20rpx; color: #00f3ff; }
-
-/* 字母索引 */
 .letter-index { white-space: nowrap; padding: 20rpx 0; border-top: 1px dashed #222; height: 80rpx; }
 .letter-item { display: inline-block; padding: 10rpx 25rpx; color: #666; font-weight: bold; font-size: 28rpx; }
 .letter-item.active { color: #00ff9d; border-bottom: 2px solid #00ff9d; }
-
-/* 难度Tabs */
 .filter-tabs { display: flex; border-top: 1px solid #222; }
 .tab { flex: 1; text-align: center; padding: 25rpx; color: #666; font-size: 24rpx; background: #080808; }
 .tab.active { color: #fff; background: #1a1a1a; border-bottom: 2px solid #00f3ff; }
-.tab.danger.active { color: #ff003c; border-color: #ff003c; }
-
-/* 列表区域 */
-.list-area { 
-    flex: 1; 
-    padding: 0 30rpx; 
-    box-sizing: border-box;
-    height: 0; 
-    overflow-y: scroll;
-}
-
+.list-area { flex: 1; padding: 0 30rpx; box-sizing: border-box; height: 0; overflow-y: scroll; }
 .word-item { padding: 30rpx 0; border-bottom: 1px dashed #222; }
+.word-item:active { background: #111; }
 .w-row { display: flex; align-items: baseline; gap: 15rpx; margin-bottom: 10rpx; flex-wrap: wrap; }
 .w-word { font-size: 36rpx; color: #fff; font-weight: bold; }
-
-/* 列表中的等级小标签 */
-.w-level-tag { 
-    font-size: 18rpx; color: #000; background: #00f3ff; 
-    padding: 2rpx 8rpx; border-radius: 4rpx; font-weight: bold; 
-    vertical-align: middle;
-}
-
+.w-level-tag { font-size: 18rpx; color: #000; background: #00f3ff; padding: 2rpx 8rpx; border-radius: 4rpx; font-weight: bold; vertical-align: middle; }
 .w-phonetic { color: #00f3ff; font-size: 24rpx; font-family: sans-serif; }
 .w-trans { display: block; color: #888; font-size: 26rpx; line-height: 1.4; }
-
+.audio-hint { font-size: 24rpx; margin-left: auto; opacity: 0.5; }
 .loading-more { text-align: center; padding: 40rpx; font-size: 22rpx; color: #444; }
 </style>

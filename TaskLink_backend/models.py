@@ -218,3 +218,49 @@ class UserWordProgress(db.Model):
     last_reviewed_at = db.Column(db.DateTime, default=None)
 
 
+class TrainingSession(db.Model):
+    __tablename__ = 'training_sessions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False)
+    level = db.Column(db.String(20))
+    status = db.Column(db.Integer, default=0)  # 0=未完成, 1=已完成
+    total_words = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # 建立关系，方便级联查询
+    details = db.relationship('TrainingDetail', backref='session', lazy='dynamic', cascade="all, delete-orphan")
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'level': self.level,
+            'status': self.status,
+            'total_words': self.total_words,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M'),
+            'timestamp': int(self.created_at.timestamp())
+        }
+
+
+# 2. 日志详情模型
+class TrainingDetail(db.Model):
+    __tablename__ = 'training_details'
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('training_sessions.id'), nullable=False)
+    word_id = db.Column(db.Integer, nullable=False)
+    word_text = db.Column(db.String(100))
+    word_trans = db.Column(db.String(255))
+    quality = db.Column(db.Integer, default=0)  # 0=忘记, 3=模糊...
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'word_id': self.word_id,
+            'word': self.word_text,
+            'trans': self.word_trans,
+            'quality': self.quality
+        }
+
+

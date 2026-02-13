@@ -21,8 +21,6 @@
       </view>
     </view>
 
-
-
     <view class="menu-group">
       <view class="menu-item" @click="switchLanguage">
         <view class="item-left">
@@ -42,7 +40,6 @@
         <text class="arrow">></text>
       </view>
 
-      <!-- 🔥 新增：背单词菜单项 -->
       <view class="menu-item" @click="startVocabularyTraining">
         <view class="item-left">
           <text class="menu-icon">📚</text>
@@ -58,13 +55,15 @@
         </view>
         <text class="arrow">></text>
       </view>
-	  <view v-if="userInfo.role === 1" class="menu-item admin-entry" @click="goToAdmin">
-	    <view class="item-left">
-	      <text class="menu-icon">🛡️</text>
-	      <text class="menu-text">用户管理 // ADMIN CONSOLE</text>
-	    </view>
-	    <text class="arrow">></text>
-	  </view>
+
+      <view v-if="userInfo.role === 1" class="menu-item admin-entry" @click="goToAdmin">
+        <view class="item-left">
+          <text class="menu-icon">🛡️</text>
+          <text class="menu-text">用户管理 // ADMIN CONSOLE</text>
+        </view>
+        <text class="arrow">></text>
+      </view>
+
       <view class="menu-item logout" @click="handleLogout">
         <view class="item-left">
           <text class="menu-icon">⚠️</text>
@@ -129,6 +128,8 @@ onShow(() => {
   currentLang.value = savedLang;
   t.value = messages[savedLang].profile;
 });
+
+
 
 const goToAdmin = () => {
   uni.navigateTo({ url: '/pages/admin/manager' });
@@ -295,11 +296,7 @@ page { background-color: #050505; color: #ccc; font-family: 'Courier New', monos
 .arrow.warn { color: #ff003c; }
 .footer-version { text-align: center; color: #333; font-size: 10px; margin-top: 50px; }
 
-/* 🔥🔥🔥 新增：管理员菜单样式 🔥🔥🔥 */
-
-.admin-entry .menu-icon {
-  text-shadow: 0 0 5px #ff003c;
-}
+.admin-entry .menu-icon { text-shadow: 0 0 5px #ff003c; }
 
 /* 模态框样式 */
 .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }

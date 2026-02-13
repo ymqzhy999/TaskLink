@@ -67,12 +67,12 @@
 			}
 		},
 		{
-			"path" : "pages/vocab/vocab_list",
-			"style" : 
-			{
-				"navigationBarTitleText" : ""
+			"path": "pages/vocab/vocab_list",
+			"style": {
+				"navigationBarTitleText": ""
 			}
-		}
+		},
+
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "white",

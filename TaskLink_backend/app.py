@@ -14,7 +14,7 @@ import os
 from sqlalchemy import or_
 import time
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.sql.expression import func
 
 import jwt
@@ -223,43 +223,6 @@ def generate_plan():
         db.session.rollback()
         print(f"❌ [DB Error] {e}")
         return jsonify({"code": 500, "msg": "数据库写入失败"}), 500
-
-
-@app.before_request
-def check_auth_and_status():
-    # 初始化 g.user_id 为 None，防止后面报错 AttributeError
-    g.user_id = None
-
-    # 1. 放行 OPTIONS (跨域必须)
-    if request.method == 'OPTIONS':
-        return None
-
-    # 2. 尝试获取 Token
-    token = request.headers.get('Authorization')
-
-    # 如果没 Token，直接放行（不报错，交给后面接口自己判断）
-    if not token:
-        return None
-
-    try:
-        # 3. 尝试解码 Token
-        payload = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
-        user_id = payload.get('user_id')
-
-        # 4. 只有 Token 有效且用户未被封禁时，才设置 g.user_id
-        if user_id:
-            user = User.query.get(user_id)
-            # 如果用户存在且状态正常(status=1)，才赋值
-            if user and getattr(user, 'status', 1) == 1:
-                g.user_id = user_id
-
-    except Exception as e:
-        # 🔥🔥🔥 关键：无论发生什么错误（过期、无效、解密失败），都不报错！
-        # 直接放行，打印个日志就行
-        print(f"Token 解析失败 (已忽略): {e}")
-        return None
-
-    return None
 
 
 @app.route('/api/plan/<int:plan_id>', methods=['DELETE'])
@@ -740,16 +703,6 @@ def upload_avatar():
 
 @app.route('/api/square/history', methods=['GET'])
 def get_square_history():
-    # 🔥🔥🔥 1. 强制安检：必须出示身份证 (user_id)
-    user_id = request.args.get('user_id')
-
-    # 如果没传 ID，直接报警 (400)
-    # 只要传了 ID，全局的 before_request 就会自动查封号状态，如果被封会拦截并返回 403
-    if not user_id:
-        return jsonify({"code": 400, "msg": "未授权的访问: 缺少用户ID"}), 400
-
-    # ... (原有逻辑保持不变)
-    # 获取最近 50 条消息，按时间倒序查，然后翻转为正序
     messages = ChatMessage.query.order_by(ChatMessage.created_at.desc()).limit(50).all()
 
     return jsonify({
@@ -1219,19 +1172,44 @@ def upload_chat_image():
 
 @app.route('/api/vocab/due', methods=['GET'])
 def get_due_vocab():
-    """获取单词 (支持强制拉取新词)"""
+    """获取单词 (支持强制拉取新词 + 困难模式)"""
     user_id = getattr(g, 'user_id', None) or request.args.get('user_id')
-    # 🔥 默认 CET4
     target_level = request.args.get('level', 'CET4')
-    # 🔥 接收 force_new 参数 (字符串转布尔)
     force_new = request.args.get('force_new', 'false') == 'true'
+
+    # 🔥 新增：获取困难模式参数
+    only_difficult = request.args.get('difficult', 'false') == 'true'
 
     if not user_id:
         return jsonify({"code": 400, "msg": "未授权"}), 400
 
     due_words = []
 
-    # 1. 如果不是强制拉新，先查待复习的
+    # --- 1. 困难模式逻辑 ---
+    if only_difficult:
+        print(f"🔥 用户 {user_id} 开启困难模式 (Level: {target_level})")
+        # 筛选条件：已学过 (UserWordProgress存在) 且 易读度 < 2.5 (即用户选过忘记或模糊的词)
+        difficult_results = db.session.query(UserWordProgress, Vocabulary).join(
+            Vocabulary, UserWordProgress.word_id == Vocabulary.id
+        ).filter(
+            UserWordProgress.user_id == user_id,
+            UserWordProgress.easiness_factor < 2.5,  # 👈 核心：EF值小于2.5判定为困难
+            Vocabulary.level == target_level
+        ).order_by(UserWordProgress.easiness_factor.asc()).limit(30).all()  # 按最难的排序
+
+        for progress, word in difficult_results:
+            word_dict = word.to_dict()
+            word_dict['is_new'] = False
+            word_dict['ef'] = progress.easiness_factor  # 方便调试看分数
+            due_words.append(word_dict)
+
+        return jsonify({
+            "code": 200,
+            "data": due_words,
+            "msg": f"已加载 {len(due_words)} 个困难单词"
+        })
+
+    # --- 2. 普通复习逻辑 (保持原有) ---
     if not force_new:
         from datetime import datetime
         now = datetime.now()
@@ -1249,14 +1227,10 @@ def get_due_vocab():
             word_dict['is_new'] = False
             due_words.append(word_dict)
 
-    # 2. 如果复习词不够 30 个，或者强制要求新词，就去补货
+    # --- 3. 补充新词 (保持原有) ---
     needed = 30 - len(due_words)
-
     if needed > 0:
-        # 查出所有已学过的 ID
         learned_ids = db.session.query(UserWordProgress.word_id).filter_by(user_id=user_id).subquery()
-
-        # 随机抽取没学过的新词
         unlearned_words = Vocabulary.query.filter(
             Vocabulary.id.notin_(learned_ids),
             Vocabulary.level == target_level
@@ -1277,7 +1251,13 @@ def get_due_vocab():
 @app.route('/api/vocab/review', methods=['POST'])
 def submit_vocab_review():
     """提交单词学习结果，使用优化版 SM-2 算法"""
-    user_id = g.user_id
+    # 1. 优先获取全局用户ID (g.user_id)，如果没中间件则尝试从参数获取
+    user_id = getattr(g, 'user_id', None)
+
+    # 如果 g 中没有，尝试从 JSON body 中获取 (兼容你前端的传参方式)
+    if not user_id and request.json:
+        user_id = request.json.get('user_id')
+
     if not user_id:
         return jsonify({"code": 400, "msg": "未授权"}), 400
 
@@ -1291,8 +1271,6 @@ def submit_vocab_review():
     # 获取或创建用户单词进度记录
     progress = UserWordProgress.query.filter_by(user_id=user_id, word_id=word_id).first()
 
-    from datetime import datetime, timedelta
-
     # 初始化新词
     if not progress:
         progress = UserWordProgress(
@@ -1304,12 +1282,13 @@ def submit_vocab_review():
             easiness_factor=2.5
         )
         db.session.add(progress)
-        # 如果是新词，暂不提交，等算出 interval 后统一 commit
 
-    # 评分越低，EF 降得越快，下次复习间隔增长越慢
+    # --- SM-2 算法核心 ---
+
+    # 1. 更新易读度 (EF)
     old_ef = progress.easiness_factor
     new_ef = old_ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
-    new_ef = max(1.3, new_ef)  # 设定下限，防止死循环
+    new_ef = max(1.3, new_ef)  # 设定下限
 
     # 2. 计算复习间隔 (Interval) & 连续次数 (Repetitions)
     new_repetitions = progress.repetitions
@@ -1317,13 +1296,13 @@ def submit_vocab_review():
 
     # --- 情况 A: 忘记 (0) ---
     if quality < 3:
-        new_repetitions = 0  # 归零，重新开始积累连续次数
+        new_repetitions = 0  # 归零
         new_interval = 1  # 必须第二天复习
 
     # --- 情况 B: 模糊 (3) ---
     elif quality == 3:
         new_repetitions = 0
-        new_interval = max(1, round(progress.interval * 1.2))
+        new_interval = max(1, round(progress.interval * 1.2))  # 稍微延长一点
 
     # --- 情况 C: 认识 (4) / 精通 (5) ---
     else:
@@ -1331,20 +1310,18 @@ def submit_vocab_review():
 
         # 阶段 1: 第一次复习
         if new_repetitions == 1:
-            # 差异化：精通给 2 天，认识给 1 天
             new_interval = 2 if quality == 5 else 1
 
         # 阶段 2: 第二次复习
         elif new_repetitions == 2:
-            # 差异化：精通给 4 天，认识给 3 天 (原版强制 6 天太久)
             new_interval = 4 if quality == 5 else 3
 
         # 阶段 3+: 后续复习
         else:
-            # 引入“精通奖励”：如果是 5分，额外乘 1.15 倍
             bonus = 1.15 if quality == 5 else 1.0
             new_interval = round(progress.interval * new_ef * bonus)
 
+    # 应用计算结果
     progress.easiness_factor = new_ef
     progress.repetitions = new_repetitions
     progress.interval = new_interval
@@ -1357,7 +1334,6 @@ def submit_vocab_review():
             "code": 200,
             "msg": "进度已更新",
             "data": {
-                # 返回下次复习时间，方便前端调试
                 "next_review": progress.next_review_at.strftime('%Y-%m-%d'),
                 "interval": new_interval,
                 "quality": quality
@@ -1453,7 +1429,6 @@ def search_vocab():
     search_term = request.args.get('word', '').strip()
     first_letter = request.args.get('letter', '').strip()
     only_difficult = request.args.get('difficult', 'false') == 'true'
-    # 🔥 新增：获取目标等级 (默认空字符串表示全部)
     target_level = request.args.get('level', '').strip()
 
     page = int(request.args.get('page', 1))
@@ -1461,20 +1436,16 @@ def search_vocab():
 
     stmt = db.session.query(Vocabulary)
 
-    # 2. 难词筛选
     if only_difficult:
         stmt = stmt.join(UserWordProgress, Vocabulary.id == UserWordProgress.word_id) \
             .filter(UserWordProgress.user_id == user_id, UserWordProgress.easiness_factor < 2.5)
 
-    # 3. 首字母筛选
     if first_letter:
         stmt = stmt.filter(Vocabulary.word.like(f"{first_letter}%"))
 
-    # 4. 🔥 新增：等级筛选 (如果传了具体等级，且不是 'ALL')
     if target_level and target_level != 'ALL':
         stmt = stmt.filter(Vocabulary.level == target_level)
 
-    # 5. 关键词搜索 (中英混合)
     if search_term:
         from sqlalchemy import or_
         stmt = stmt.filter(

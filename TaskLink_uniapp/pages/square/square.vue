@@ -200,12 +200,24 @@ onShow(() => {
   if (app.initSocket) app.initSocket();
 
   const socket = app.globalData.socket;
-  if (socket) {
-      socket.off('update_online_count');
-      socket.on('update_online_count', (count) => { 
-          if (isPageActive.value) onlineCount.value = count; 
-      });
-  }
+if (socket) {
+        // 监听连接成功
+        socket.on('connect', () => {
+            console.log('✅ Socket 已连接:', socket.id);
+            uni.showToast({ title: '服务已连接', icon: 'success' });
+        });
+        
+        // 监听连接错误
+        socket.on('connect_error', (error) => {
+            console.error('❌ Socket 连接错误:', error);
+            uni.showToast({ title: '连接服务器失败', icon: 'none' });
+        });
+        
+        // 监听断开
+        socket.on('disconnect', (reason) => {
+            console.log('⚠️ Socket 断开:', reason);
+        });
+    }
 });
 
 onHide(() => {
@@ -253,7 +265,6 @@ const sendMessage = () => {
   sendSocketMessage(content, 'text');
 };
 
-// ... (chooseImage, uploadImage 等逻辑保持不变，略) ...
 
 const chooseImage = () => {
   uni.chooseImage({
@@ -271,7 +282,6 @@ const uploadImage = (filePath) => {
     url: `${FLASK_URL}/api/chat/upload`,
     filePath: filePath,
     name: 'file',
-    // 🔥🔥🔥 上传图片也要带 Token (如果后端有鉴权) 🔥🔥🔥
     header: {
         'Authorization': getToken() 
     },
@@ -341,16 +351,13 @@ const formatAvatar = (path) => {
 
 const fetchHistory = () => {
     uni.request({
-        // ❌ 不再传 user_id 参数，靠 Token 识别
         url: `${FLASK_URL}/api/square/history`, 
-        // ✅ 必须带 Header
         header: {
             'Authorization': getToken()
         },data: {
             user_id: myInfo.value.id 
         },
         success: (res) => {
-            // 🔥 401/403 封号或过期处理
             if (res.statusCode === 401 || res.data.code === 401 || res.data.code === 403) {
                  uni.showToast({ title: '会话过期或账号禁用', icon: 'none' });
                  setTimeout(() => {
@@ -374,7 +381,6 @@ const fetchHistory = () => {
 };
 
 const scrollToBottom = () => {
-  // 🔒 加锁：防止页面销毁后操作 DOM
   if (!isPageActive.value) return;
   
   scrollTarget.value = '';

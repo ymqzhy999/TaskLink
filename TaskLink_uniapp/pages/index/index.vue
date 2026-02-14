@@ -112,16 +112,14 @@ const goToDetail = (id) => {
   uni.navigateTo({ url: `/pages/plan/detail?id=${id}` });
 };
 
-// 🔥 长按删除逻辑
+
 const onLongPressPlan = (plan) => {
-  // 震动反馈 (提升手感)
   uni.vibrateShort();
-  
   uni.showModal({
     title: '⚠️ 销毁协议',
     content: `确认要永久销毁战术计划：\n【${plan.title}】吗？`,
     confirmText: '销毁',
-    confirmColor: '#ff003c', // 红色警示
+    confirmColor: '#ff003c',
     cancelText: '取消',
     success: (res) => {
       if (res.confirm) {
@@ -131,7 +129,6 @@ const onLongPressPlan = (plan) => {
   });
 };
 
-// 🔥 调用后端删除接口
 const deletePlan = (id) => {
   uni.showLoading({ title: 'DELETING...' });
   
@@ -142,7 +139,6 @@ const deletePlan = (id) => {
       uni.hideLoading();
       if (res.data.code === 200) {
         uni.showToast({ title: '战术已销毁', icon: 'success' });
-        // 刷新列表
         fetchPlans();
       } else {
         uni.showToast({ title: '删除失败', icon: 'none' });
@@ -157,65 +153,42 @@ const deletePlan = (id) => {
 </script>
 
 <style>
-/* 基础背景保持不变，深邃感 */
 page { background-color: #050505; color: #e0e0e0; font-family: 'Courier New', monospace; }
 .container { padding: 20px; min-height: 100vh; }
-/* 背景微调：更冷的蓝黑色 */
 .cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 10%, #0a192f 0%, #000000 85%); z-index: -1; }
-
-/* 头部 */
 .dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; margin-top: 10px; }
-/* 🔥 修改：去除紫色阴影，改为冷蓝光晕 */
 .glitch-text { font-size: 24px; font-weight: 900; color: #fff; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0, 243, 255, 0.5); }
 .sub-text { font-size: 10px; color: #666; display: block; margin-top: 5px; }
 .system-status { display: flex; align-items: center; font-size: 10px; color: #00f3ff; border: 1px solid rgba(0, 243, 255, 0.3); padding: 2px 6px; border-radius: 2px; background: rgba(0, 243, 255, 0.05); }
 .status-dot { width: 6px; height: 6px; background: #00f3ff; border-radius: 50%; margin-right: 6px; animation: blink 2s infinite; box-shadow: 0 0 8px #00f3ff; }
-
-/* 统计数据 */
 .stats-row { display: flex; gap: 15px; margin-bottom: 30px; }
 .stat-card { flex: 1; background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; padding: 15px; text-align: center; }
 .stat-num { font-size: 32px; font-weight: 900; color: #fff; display: block; }
-/* 🔥 修改：标签颜色更沉稳 */
 .stat-label { font-size: 10px; color: #94a3b8; letter-spacing: 1px; margin-top: 5px; }
-
-/* 列表区域 */
 .section-label { font-size: 12px; color: #888; margin-bottom: 15px; border-bottom: 1px solid #222; padding-bottom: 5px; display: inline-block; }
 .empty-state { text-align: center; margin-top: 50px; color: #444; }
 .empty-icon { font-size: 40px; display: block; margin-bottom: 10px; }
 .empty-tip { font-size: 12px; color: #00f3ff; margin-top: 10px; }
-
-/* 计划卡片 */
 .plan-card { position: relative; background: #0b1120; margin-bottom: 20px; border: 1px solid #334155; overflow: hidden; transition: all 0.2s; }
 .plan-card:active { border-color: #00f3ff; transform: scale(0.99); background: #111827; }
-
-/* 🔥 修改：左侧线条改为纯粹的“战术蓝” */
 .card-line { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #00f3ff; box-shadow: 0 0 15px rgba(0, 243, 255, 0.2); }
 .card-content { padding: 20px 20px 20px 24px; }
-
 .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .plan-title { font-size: 16px; font-weight: bold; color: #fff; letter-spacing: 1px; }
-/* 🔥 修改：天数标签改为黑底白字，更像代码块 */
 .plan-days { font-size: 10px; color: #00f3ff; background: rgba(0, 243, 255, 0.1); border: 1px solid rgba(0, 243, 255, 0.3); padding: 2px 6px; font-weight: bold; font-family: monospace; }
-
 .plan-goal { font-size: 12px; color: #94a3b8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 32px; margin-bottom: 15px; line-height: 1.4; }
-
-/* 进度条 */
 .progress-container { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
 .progress-bar { flex: 1; height: 4px; background: #1e293b; position: relative; overflow: hidden; border-radius: 2px; }
-/* 🔥 修改：核心改动！进度条改为纯正的“青蓝渐变”，去除紫色 */
 .progress-fill { 
   height: 100%; 
-  background: linear-gradient(90deg, #0ea5e9, #00f3ff); /* 这里的渐变是 科技蓝 -> 亮青 */
+  background: linear-gradient(90deg, #0ea5e9, #00f3ff);
   box-shadow: 0 0 10px rgba(0, 243, 255, 0.3); 
   transition: width 0.5s ease; 
 }
 .progress-val { font-size: 12px; color: #00f3ff; font-weight: bold; font-family: monospace; text-shadow: 0 0 5px rgba(0, 243, 255, 0.5); }
-
 .card-footer { display: flex; justify-content: space-between; font-size: 10px; border-top: 1px solid #1e293b; padding-top: 10px; }
-.status-text { color: #0ea5e9; font-weight: bold; letter-spacing: 1px; } /* 状态字改为科技蓝 */
+.status-text { color: #0ea5e9; font-weight: bold; letter-spacing: 1px; }
 .arrow { color: #475569; font-weight: bold; }
-
-/* 动画 */
 .fade-in { animation: fadeIn 0.8s ease-out; }
 .slide-up { animation: slideUp 0.6s ease-out backwards; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }

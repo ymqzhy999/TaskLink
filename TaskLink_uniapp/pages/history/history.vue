@@ -52,7 +52,7 @@ onShow(() => {
   }
 });
 
-// 🔥 新增：下拉刷新支持
+
 onPullDownRefresh(() => {
   const user = uni.getStorageSync('userInfo');
   if (user) fetchArchived(user.id);
@@ -77,7 +77,6 @@ const goToDetail = (id) => {
   uni.navigateTo({ url: `/pages/plan/detail?id=${id}` });
 };
 
-// 简单的日期格式化
 const formatDate = (str) => {
   if (!str) return '';
   return str.split(' ')[0]; // 只显示 YYYY-MM-DD
@@ -85,7 +84,6 @@ const formatDate = (str) => {
 </script>
 
 <style>
-/* 保持原有赛博朋克风格 */
 page { background-color: #050505; color: #ccc; font-family: 'Courier New', monospace; }
 .container { padding: 20px; min-height: 100vh; }
 .cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 10% 10%, #111 0%, #000 80%); z-index: -1; }

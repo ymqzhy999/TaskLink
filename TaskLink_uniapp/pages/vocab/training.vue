@@ -102,14 +102,23 @@
 
     <view class="history-fab" @click="openHistoryDrawer"><text>📜</text></view>
     <view class="drawer-mask" v-if="showHistory" @click="closeHistoryDrawer"></view>
+    
     <view class="history-drawer" :class="{ open: showHistory }">
       <view class="drawer-header">
         <text class="dh-title">HISTORY LOGS</text>
         <text class="dh-close" @click="closeHistoryDrawer">✕</text>
       </view>
-      <scroll-view scroll-y class="drawer-list" @scrolltolower="loadMoreHistory">
+      
+      <scroll-view scroll-y class="drawer-list" @scrolltolower="loadMoreHistory" lower-threshold="100">
         <view v-if="historySessions.length === 0" class="empty-log">暂无打卡记录</view>
-        <view class="session-item" v-for="(item, index) in historySessions" :key="index" @click="goToSessionDetail(item.id)" @longpress="deleteSession(item.id, index)">
+        
+        <view 
+          class="session-item" 
+          v-for="(item, index) in historySessions" 
+          :key="index"
+          @click="goToSessionDetail(item.id)"
+          @longpress="deleteSession(item.id, index)"
+        >
           <view class="s-left">
             <text class="s-date">{{ item.created_at }}</text>
             <text class="s-level">{{ item.level }}</text>
@@ -119,9 +128,12 @@
              <text class="s-status">{{ item.status === 1 ? 'DONE' : 'SAVED' }}</text>
           </view>
         </view>
-        <view class="loading-more" v-if="historySessions.length > 0">
-           {{ hasMoreHistory ? 'LOADING MORE...' : '--- END ---' }}
+        
+        <view class="loading-more" v-if="historySessions.length > 0" @click="loadMoreHistory">
+           {{ hasMoreHistory ? '⬇ 点击加载更多 (LOAD MORE)' : '--- END ---' }}
         </view>
+        
+        <view style="height: calc(80rpx + env(safe-area-inset-bottom));"></view>
       </scroll-view>
     </view>
 
@@ -131,7 +143,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 
-const API_BASE = `http://101.35.132.175:5000`; 
+const API_BASE = `http://101.35.132.175:5000`; // 请确保地址正确
 const vocabList = ref([]);
 const currentIndex = ref(0);
 const currentWord = ref(null);
@@ -143,13 +155,14 @@ const showHistory = ref(false);
 const historySessions = ref([]);
 const historyPage = ref(1);
 const hasMoreHistory = ref(true);
+const isLoadingHistory = ref(false); // 加载锁
 
 const aiSentence = ref(null);
 const loadingSentence = ref(false);
 
 const levelOptions = [
-	{label: "初中",value:"JUNIOR"},
-	{label: "高中",value:"SENIOR"},
+    { label: "初中", value:"JUNIOR" },
+    { label: "高中", value:"SENIOR" },
     { label: '四级 (CET-4)', value: 'CET4' },
     { label: '六级 (CET-6)', value: 'CET6' },
     { label: '托福 (TOEFL)', value: 'TOEFL' }
@@ -222,7 +235,6 @@ const submitResult = (quality) => {
     loadWord(currentIndex.value + 1);
 };
 
-// 🔥🔥🔥 修复：找回 AI 请求函数 🔥🔥🔥
 const getAiSentence = () => {
     if (!currentWord.value || loadingSentence.value) return;
     loadingSentence.value = true;
@@ -242,19 +254,13 @@ const getAiSentence = () => {
     });
 };
 
-const openHistoryDrawer = () => {
-    showHistory.value = true;
-    historyPage.value = 1;
-    historySessions.value = [];
-    hasMoreHistory.value = true;
-    loadMoreHistory();
-};
-
-const closeHistoryDrawer = () => showHistory.value = false;
-
+// --- 历史记录分页逻辑 (修复版) ---
 const loadMoreHistory = () => {
-    if (!hasMoreHistory.value) return;
+    if (!hasMoreHistory.value || isLoadingHistory.value) return;
+    
+    isLoadingHistory.value = true;
     const user = uni.getStorageSync('userInfo');
+    
     uni.request({
         url: `${API_BASE}/api/training/history`,
         method: 'GET',
@@ -267,12 +273,31 @@ const loadMoreHistory = () => {
             if (res.data.code === 200) {
                 const newItems = res.data.data;
                 historySessions.value = [...historySessions.value, ...newItems];
+                
                 hasMoreHistory.value = res.data.has_more;
-                if (hasMoreHistory.value) historyPage.value++;
+                if (hasMoreHistory.value) {
+                    historyPage.value++;
+                }
             }
+        },
+        complete: () => {
+            isLoadingHistory.value = false;
         }
     });
 };
+
+const openHistoryDrawer = () => {
+    showHistory.value = true;
+    historyPage.value = 1;       
+    historySessions.value = [];  
+    hasMoreHistory.value = true; 
+    
+    uni.showLoading({ title: '加载记录...' });
+    loadMoreHistory(); 
+    setTimeout(() => uni.hideLoading(), 500);
+};
+
+const closeHistoryDrawer = () => showHistory.value = false;
 
 const goToSessionDetail = (sessionId) => {
     uni.navigateTo({ url: `/pages/vocab/session_detail?id=${sessionId}` });
@@ -338,7 +363,7 @@ const loadWord = (index) => {
     currentIndex.value = index;
     currentWord.value = vocabList.value[index];
     showAnswer.value = false;
-    aiSentence.value = null; // 重置 AI 数据
+    aiSentence.value = null;
 };
 
 const prevWord = () => {
@@ -359,17 +384,16 @@ page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', mo
 .container { height: 100%; display: flex; flex-direction: column; position: relative; }
 .cyber-bg { position: fixed; width: 100%; height: 100%; background: radial-gradient(circle, #111 0%, #000 100%); z-index: -1; }
 
-/* 🔥 1. 顶部导航栏 (简化) */
+/* 1. 顶部导航栏 */
 .nav-header { 
   display: flex; justify-content: space-between; align-items: center; 
-  padding: 100rpx 30rpx 20rpx; /* 增加顶部padding适配刘海屏 */
+  padding: 100rpx 30rpx 20rpx; 
   background: rgba(5, 5, 5, 0.9);
   z-index: 10;
 }
 .back-btn { color: #666; font-size: 24rpx; display: flex; align-items: center; }
 .back-btn .icon { font-size: 30rpx; margin-right: 6rpx; }
 
-/* 等级选择器 */
 .level-selector { 
   display: flex; align-items: center; justify-content: center;
   border: 1px solid #00f3ff; border-radius: 4rpx; 
@@ -378,15 +402,14 @@ page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', mo
 .level-val { font-size: 24rpx; font-weight: bold; color: #fff; margin-right: 10rpx; }
 .level-arrow { font-size: 20rpx; color: #00f3ff; }
 
-/* 词库按钮 */
 .dict-btn { width: 60rpx; height: 60rpx; display: flex; align-items: center; justify-content: center; border: 1px solid #333; border-radius: 50%; background: #111; }
 .dict-btn .icon { font-size: 28rpx; }
 
-/* 🔥 2. 进度条 (独立一行) */
+/* 2. 进度条 */
 .progress-track { height: 4rpx; background: #222; width: 100%; margin-top: 0; }
 .progress-bar { height: 100%; background: #00f3ff; transition: width 0.3s; box-shadow: 0 0 10rpx #00f3ff; }
 
-/* 🔥 3. 工具控制栏 (新设计) */
+/* 3. 工具控制栏 */
 .tool-bar { 
   display: flex; justify-content: space-between; align-items: center; 
   padding: 20rpx 40rpx; border-bottom: 1px solid #1a1a1a; 
@@ -420,7 +443,6 @@ page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', mo
 .details-area { width: 100%; margin-top: 40rpx; padding-top: 40rpx; border-top: 1px solid #222; }
 .meaning-text { font-size: 34rpx; color: #00ff9d; text-align: center; display: block; margin-bottom: 30rpx; font-weight: bold; line-height: 1.6; }
 
-/* AI 样式 */
 .sentence-container { background: #0e0e0e; border: 1px solid #222; padding: 20rpx; margin-bottom: 20rpx; border-radius: 6rpx; }
 .sentence-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10rpx; }
 .ai-label { font-size: 20rpx; color: #666; font-weight: bold; }
@@ -444,7 +466,7 @@ page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', mo
 .r-val { font-size: 32rpx; font-weight: bold; color: #fff; margin-bottom: 4rpx; }
 .r-txt { font-size: 20rpx; color: #888; }
 
-/* 其他浮层 */
+/* 历史记录浮窗 */
 .finished-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .finish-hex { font-size: 80rpx; color: #00ff9d; margin-bottom: 40rpx; }
 .f-title { font-size: 36rpx; color: #00ff9d; margin-bottom: 60rpx; letter-spacing: 2rpx; }
@@ -457,7 +479,15 @@ page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', mo
 .drawer-header { padding: 20rpx 30rpx; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background: #111; }
 .dh-title { color: #00f3ff; font-weight: bold; font-size: 28rpx; }
 .dh-close { color: #666; font-size: 32rpx; padding: 10rpx; }
-.drawer-list { flex: 1; padding: 20rpx; box-sizing: border-box; }
+
+.drawer-list { 
+  flex: 1; 
+  padding: 20rpx; 
+  box-sizing: border-box; 
+  height: 0; 
+  width: 100%;
+}
+
 .session-item { display: flex; justify-content: space-between; align-items: center; padding: 25rpx; margin-bottom: 15rpx; background: #161616; border-left: 3rpx solid #444; }
 .session-item:active { background: #222; }
 .s-date { color: #fff; font-size: 24rpx; font-weight: bold; display: block; margin-bottom: 6rpx; }
@@ -465,4 +495,5 @@ page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', mo
 .s-count { color: #00f3ff; font-size: 28rpx; font-weight: bold; display: block; margin-bottom: 6rpx; text-align: right; }
 .s-status { color: #888; font-size: 20rpx; }
 .loading-more { text-align: center; color: #444; padding: 20rpx; font-size: 20rpx; }
+.empty-log { text-align: center; color: #444; padding: 50rpx; font-size: 24rpx; }
 </style>

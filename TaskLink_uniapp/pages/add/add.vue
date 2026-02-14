@@ -101,7 +101,6 @@ const API_BASE = `http://101.35.132.175:5000`;
 const planForm = ref({ goal: '', expectation: '', days: '' });
 const isGenerating = ref(false);
 
-// 加载状态逻辑
 const loadingStepText = ref('初始化请求...');
 const progressWidth = ref(0);
 let progressTimer = null;
@@ -144,7 +143,6 @@ const stopLoadingAnim = () => {
 const generatePlan = () => {
   if (!planForm.value.goal.trim()) return uni.showToast({ title: '请输入核心目标', icon: 'none' });
   
-  // 校验天数
   const d = parseInt(planForm.value.days);
   if (!d || d <= 0) return uni.showToast({ title: '请输入有效天数', icon: 'none' });
 
@@ -190,44 +188,31 @@ onUnmounted(() => {
 </script>
 
 <style>
-/* 全局背景 */
+
 page { background-color: #0a0a0a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
 .container { min-height: 100vh; padding: 40rpx; box-sizing: border-box; display: flex; flex-direction: column; }
 .cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #0f0f13 0%, #000000 100%); z-index: -1; }
-
-/* 1. 头部样式 */
 .header-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 60rpx; padding-top: 20rpx; }
 .main-title { font-size: 40rpx; font-weight: 900; letter-spacing: 2rpx; display: block; color: #fff; }
 .sub-title { font-size: 24rpx; color: #666; margin-top: 8rpx; display: block; letter-spacing: 4rpx; }
 .status-badge { display: flex; align-items: center; border: 1px solid #333; padding: 6rpx 16rpx; border-radius: 100rpx; background: rgba(255,255,255,0.05); }
 .status-dot { width: 12rpx; height: 12rpx; background: #00ff9d; border-radius: 50%; margin-right: 12rpx; box-shadow: 0 0 10rpx #00ff9d; }
 .status-badge text { font-size: 20rpx; color: #888; font-weight: bold; }
-
-/* 2. 表单样式 */
 .form-container { flex: 1; display: flex; flex-direction: column; gap: 50rpx; }
 .input-group { display: flex; flex-direction: column; gap: 20rpx; }
-
 .label-row { display: flex; justify-content: space-between; align-items: baseline; }
 .label-text { font-size: 24rpx; color: #00f3ff; font-weight: bold; opacity: 0.8; letter-spacing: 1rpx; }
 .label-tip { font-size: 22rpx; color: #444; }
-
-/* 输入框容器 */
 .input-wrapper { position: relative; background: #131316; border: 1px solid #333; border-radius: 8rpx; transition: all 0.3s ease; }
 .area-wrapper { min-height: 180rpx; }
 .input-wrapper:focus-within { border-color: #00f3ff; box-shadow: 0 0 15rpx rgba(0, 243, 255, 0.1); background: #16161a; }
-
 .cyber-input { height: 100rpx; padding: 0 30rpx; font-size: 32rpx; color: #fff; font-weight: 500; }
 .cyber-textarea { width: 100%; padding: 30rpx; font-size: 28rpx; color: #eee; line-height: 1.6; min-height: 180rpx; box-sizing: border-box; }
 .ph-style { color: #444; font-weight: normal; }
-
-/* 装饰角标 */
 .corner-mark { position: absolute; top: -1px; right: -1px; width: 15rpx; height: 15rpx; border-top: 2px solid #00f3ff; border-right: 2px solid #00f3ff; border-radius: 0 8rpx 0 0; }
-
-/* 3. 底部按钮 */
 .footer-section { padding: 40rpx 0; }
-/* 🔥 修改：渐变色按钮 */
 .execute-btn { 
-  background: linear-gradient(135deg, #00f3ff 0%, #0066ff 100%); /* 赛博青蓝渐变 */
+  background: linear-gradient(135deg, #00f3ff 0%, #0066ff 100%);
   color: #000; 
   height: 100rpx; border-radius: 4rpx; 
   display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; border: none;
@@ -235,12 +220,9 @@ page { background-color: #0a0a0a; color: #fff; font-family: -apple-system, Blink
 }
 .execute-btn.processing { background: #333; color: #888; box-shadow: none; }
 .btn-text { font-size: 32rpx; font-weight: 900; letter-spacing: 2rpx; z-index: 2; }
-/* 扫光效果 */
 .btn-glare { position: absolute; top: 0; left: -100%; width: 50%; height: 100%; background: rgba(255,255,255,0.2); transform: skewX(-20deg); animation: glare 3s infinite; }
 @keyframes glare { 0% { left: -100%; } 20% { left: 200%; } 100% { left: 200%; } }
 .execute-btn:active { transform: scale(0.98); opacity: 0.9; }
-
-/* 4. 加载浮层 */
 .loading-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 100; display: flex; align-items: center; justify-content: center; }
 .modal-content { width: 500rpx; display: flex; flex-direction: column; align-items: center; }
 .spinner-ring { width: 120rpx; height: 120rpx; border: 4rpx solid rgba(0, 243, 255, 0.1); border-top-color: #00f3ff; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 40rpx; }
@@ -249,5 +231,4 @@ page { background-color: #0a0a0a; color: #fff; font-family: -apple-system, Blink
 .loading-desc { font-size: 24rpx; color: #666; margin-bottom: 30rpx; height: 30rpx; }
 .progress-bar { width: 100%; height: 4rpx; background: #222; border-radius: 2rpx; overflow: hidden; }
 .progress-inner { height: 100%; background: #00f3ff; box-shadow: 0 0 10rpx #00f3ff; transition: width 0.2s linear; }
-
 </style>

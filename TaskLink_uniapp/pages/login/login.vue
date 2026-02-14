@@ -48,13 +48,10 @@
 </template>
 
 <script setup>
-// 🔥 引入生命周期钩子
 import { ref, onMounted, onUnmounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 
-// 配置你的后端地址
-
-const API_BASE = `http://101.35.132.175:5000`; // Flask 后端
+const API_BASE = `http://101.35.132.175:5000`;
 
 const username = ref('');
 const password = ref('');
@@ -62,7 +59,6 @@ const invitationCode = ref('');
 const isRegister = ref(false);
 const loading = ref(false);
 
-// --- 🔥 新增：终端打字机逻辑 ---
 const terminalText = ref('');
 const statusLines = [
   "INITIALIZING NEURAL LINK...",
@@ -76,37 +72,29 @@ let charIndex = 0;
 let typeTimer = null;
 
 const typeWriter = () => {
-  // 如果所有行都打完了，停止
   if (lineIndex >= statusLines.length) return;
 
   const currentLine = statusLines[lineIndex];
   
-  // 逐字显示当前行
   if (charIndex < currentLine.length) {
-    // 加个下划线 "_" 模拟光标
     terminalText.value = currentLine.substring(0, charIndex + 1) + "_";
     charIndex++;
-    // 随机打字速度，更有真实感
     typeTimer = setTimeout(typeWriter, 30 + Math.random() * 70);
   } else {
-    // 这一行打完了，准备下一行
     lineIndex++;
     charIndex = 0;
-    // 行与行之间停顿 0.8 秒
     typeTimer = setTimeout(typeWriter, 800);
   }
 };
 
-// 页面加载时启动动画
 onMounted(() => {
   typeWriter();
 });
 
-// 页面卸载时清除定时器，防止内存泄漏
 onUnmounted(() => {
   if (typeTimer) clearTimeout(typeTimer);
 });
-// ----------------------------
+
 
 const showContactInfo = () => {
   const qqNumber = '2335016055';

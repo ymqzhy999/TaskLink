@@ -108,7 +108,6 @@ const toggleDay = (index) => {
     return;
   }
   activeDay.value = index;
-  // 仅首次展开触发打字机
   if (!displayTexts.value[index]) {
     const fullContent = tasks.value[index].content || "暂无数据...";
     startTypewriter(index, fullContent);
@@ -135,13 +134,11 @@ const startTypewriter = (index, fullText) => {
   }, 5); 
 };
 
-// 🔥 修复：调用后端接口真实保存状态
 const toggleComplete = (task) => {
-  // 1. 乐观更新 (先改界面，感觉快)
   const originalStatus = task.is_completed;
   task.is_completed = !task.is_completed;
 
-  // 2. 后端同步
+  
   uni.request({
     url: `${API_BASE}/api/plan/task/${task.id}/toggle`,
     method: 'POST',
@@ -149,7 +146,6 @@ const toggleComplete = (task) => {
       if (res.data.code === 200) {
         uni.showToast({ title: task.is_completed ? '已归档' : '已重置', icon: 'none' });
       } else {
-        // 失败回滚
         task.is_completed = originalStatus;
         uni.showToast({ title: '保存失败', icon: 'none' });
       }
@@ -194,7 +190,7 @@ page { background: #050505; color: #fff; font-family: 'Courier New', monospace; 
   color: #eee; 
   font-size: 14px; 
   font-weight: bold; 
-  white-space: normal; /* 允许标题换行 */
+  white-space: normal;
   word-break: break-all;
   line-height: 1.4;
 }

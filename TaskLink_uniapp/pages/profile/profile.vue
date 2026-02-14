@@ -98,15 +98,15 @@ import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import messages from '@/utils/language.js';
 
-// 获取环境配置
-const SERVICE_HOST = '101.35.132.175'; // 确保这里是你的公网 IP
+
+const SERVICE_HOST = '101.35.132.175';
 const API_BASE = `http://${SERVICE_HOST}:5000`;
 
 const userInfo = ref({});
 const currentLang = ref('zh');
 const t = ref(messages.zh.profile);
 
-// 修改密码相关状态
+
 const showPwdModal = ref(false);
 const pwdForm = ref({ old: '', new: '' });
 
@@ -129,7 +129,6 @@ const goToAdmin = () => {
 };
 
 const startVocabularyTraining = () => {
-  // 跳转到新建的训练页面
   uni.navigateTo({
     url: '/pages/vocab/training'
   });
@@ -195,7 +194,6 @@ const handleLogout = () => {
   });
 };
 
-// --- 修改密码逻辑 ---
 const openPasswordModal = () => {
   pwdForm.value = { old: '', new: '' };
   showPwdModal.value = true;
@@ -248,7 +246,6 @@ const submitPasswordChange = () => {
 </script>
 
 <style>
-/* 保持原有样式 */
 page { background-color: #050505; color: #ccc; font-family: 'Courier New', monospace; }
 .container { padding: 20px; }
 .cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #111 0%, #000 100%); z-index: -1; }
@@ -285,7 +282,6 @@ page { background-color: #050505; color: #ccc; font-family: 'Courier New', monos
 
 .admin-entry .menu-icon { text-shadow: 0 0 5px #ff003c; }
 
-/* 模态框样式 */
 .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
 .cyber-modal { width: 80%; background: #0a0a0a; border: 1px solid #00f3ff; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2); padding: 0; display: flex; flex-direction: column; }
 .modal-header { background: rgba(0, 243, 255, 0.1); padding: 10px 15px; border-bottom: 1px solid #00f3ff; display: flex; justify-content: space-between; align-items: center; }

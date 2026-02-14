@@ -96,7 +96,7 @@ const loading = ref(false);
 
 const getToken = () => uni.getStorageSync('userInfo')?.token || '';
 
-// 播放音频 (保留)
+
 const playAudio = (word) => {
     const url = `https://dict.youdao.com/dictvoice?audio=${word}&type=2`;
     const audio = uni.createInnerAudioContext();

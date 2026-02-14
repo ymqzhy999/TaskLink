@@ -7,6 +7,7 @@ Werkzeug==3.1.5
 # Database Driver
 PyMySQL==1.1.2
 SQLAlchemy==2.0.46
+pyJWT
 
 # HTTP Client (For DeepSeek API)
 requests==2.32.5

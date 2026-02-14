@@ -15,7 +15,7 @@
 
 ## 📥 下载与更新 (Download)
 
-🔥 **点击下载最新版本：[TaskLink_v1.5.apk**](https://github.com/ymqzhy999/TaskLink/blob/main/dist/tasklink1.5.apk)
+🔥 点击下载最新版本：[TaskLink_v1.5.apk](https://github.com/ymqzhy999/TaskLink/blob/main/dist/tasklink1.5.apk)
 
 ### 🆕 版本日志 (Changelog)
 

@@ -49,14 +49,14 @@
 			"style": {
 				"navigationBarTitleText": "计划日志"
 			}
-		}
-		,{
-		    "path": "pages/help/help",
-		    "style": {
-		        "navigationBarTitleText": "操作手册",
-		        "navigationBarBackgroundColor": "#000000",
-		        "navigationBarTextStyle": "white"
-		    }
+		},
+		{
+			"path": "pages/help/help",
+			"style": {
+				"navigationBarTitleText": "操作手册",
+				"navigationBarBackgroundColor": "#000000",
+				"navigationBarTextStyle": "white"
+			}
 		},
 		{
 			"path": "pages/profile/profile",
@@ -79,8 +79,15 @@
 			"style": {
 				"navigationBarTitleText": ""
 			}
+		},
+		{
+			"path": "pages/vocab/session_detail",
+			"style": {
+				"navigationBarTitleText": "训练详情",
+				"navigationBarBackgroundColor": "#000000",
+				"navigationBarTextStyle": "white"
+			}
 		}
-
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "white",

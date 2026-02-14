@@ -136,8 +136,7 @@
 import { ref, nextTick, onUnmounted } from 'vue';
 import { onUnload, onShow, onHide } from '@dcloudio/uni-app';
 
-// ⚠️ 请确保你的 FLASK_URL 是正确的
-const FLASK_URL = `http://101.35.132.175:5000`;
+const FLASK_URL = `http://101.35.132.175:5000`; // 确保地址正确
 
 const myInfo = ref({});
 const messages = ref([]);
@@ -148,26 +147,21 @@ const isSelectionMode = ref(false);
 const selectedIds = ref([]);  
 const showEmojiPanel = ref(false); 
 
-// 🔥 新增：页面活跃状态锁
+// 页面活跃锁
 const isPageActive = ref(true);
 
-// --- 辅助函数：获取 Token ---
-const getToken = () => {
-  const user = uni.getStorageSync('userInfo');
-  return user ? user.token : '';
-};
+const getToken = () => uni.getStorageSync('userInfo')?.token || '';
 
 // --- 生命周期 ---
 
 onShow(() => {
-  isPageActive.value = true; // 页面显示，解锁
+  isPageActive.value = true;
   
   const app = getApp();
   if (app.globalData) app.globalData.isSquareOpen = true; 
   uni.removeTabBarBadge({ index: 1 });
   
   const user = uni.getStorageSync('userInfo');
-  // 🔥 校验 Token 是否存在，不存在直接踢
   if (!user || !user.token) {
     uni.reLaunch({ url: '/pages/login/login' });
     return;
@@ -176,17 +170,15 @@ onShow(() => {
   
   fetchHistory();
   
-  // 🔥 监听全局消息
-  uni.$off('global_new_message'); // 先移除防止重复
+  // 监听消息
+  uni.$off('global_new_message'); 
   uni.$on('global_new_message', (msg) => {
       if (!isPageActive.value) return;
-
       console.log('Square 收到:', msg);
       
-      // 前端去重（双重保险）
+      // 前端去重
       if (messages.value.length > 0) {
           const last = messages.value[messages.value.length - 1];
-          // 假设 ID 重复或者是同一时间戳
           if (last.id === msg.id || (last.content === msg.content && last.user_id === msg.user_id && Date.now() - new Date(last.created_at || 0).getTime() < 500)) {
               return;
           }
@@ -196,39 +188,51 @@ onShow(() => {
       scrollToBottom();
   });
   
-  // 确保 Socket 连接
-  if (app.initSocket) app.initSocket();
-
+  // 🔥🔥🔥 核心修复逻辑：OnShow 时强制检查连接 🔥🔥🔥
+  
+  // 1. 初始化 Socket 对象
+  if (!app.globalData.socket && app.initSocket) {
+      app.initSocket();
+  }
+  
   const socket = app.globalData.socket;
-if (socket) {
-        // 监听连接成功
+  
+  // 2. 如果 Socket 存在但断开了，强制重连
+  if (socket && !socket.connected) {
+      console.log('检测到 Socket 断开，正在强制重连...');
+      socket.connect(); 
+  }
+  // 🔥🔥🔥 结束 🔥🔥🔥
+
+  if (socket) {
+        socket.off('connect');
+        socket.off('connect_error');
+        socket.off('disconnect');
+        socket.off('update_online_count');
+
         socket.on('connect', () => {
             console.log('✅ Socket 已连接:', socket.id);
-            uni.showToast({ title: '服务已连接', icon: 'success' });
         });
         
-        // 监听连接错误
         socket.on('connect_error', (error) => {
             console.error('❌ Socket 连接错误:', error);
-            uni.showToast({ title: '连接服务器失败', icon: 'none' });
         });
         
-        // 监听断开
         socket.on('disconnect', (reason) => {
             console.log('⚠️ Socket 断开:', reason);
+        });
+
+        socket.on('update_online_count', (count) => { 
+            if (isPageActive.value) onlineCount.value = count; 
         });
     }
 });
 
 onHide(() => {
-  isPageActive.value = false; // 页面隐藏，上锁
-  
+  isPageActive.value = false;
   const app = getApp();
   if (app.globalData) app.globalData.isSquareOpen = false;
-  
-  // 移除监听器，防止后台更新 DOM 报错
   uni.$off('global_new_message');
-  uni.$off('update_online_count');
 });
 
 onUnmounted(() => {
@@ -236,18 +240,44 @@ onUnmounted(() => {
   uni.$off('global_new_message');
 });
 
-// --- 发送消息逻辑 ---
+// --- 发送消息逻辑 (带重连机制) ---
 
 const sendSocketMessage = (content, type = 'text') => {
   const app = getApp();
-  const socket = app.globalData.socket;
+  let socket = app.globalData.socket;
   
+  // 🔥 修复：发送失败自动重连逻辑
   if (!socket || !socket.connected) {
-      uni.showToast({ title: '连接断开', icon: 'none' });
-      if(app.initSocket) app.initSocket();
+      console.log('发送时发现断开，尝试重连...');
+      
+      // 1. 尝试重新初始化
+      if (!socket && app.initSocket) {
+          app.initSocket();
+          socket = app.globalData.socket;
+      }
+      // 2. 强制连接
+      if (socket) socket.connect();
+
+      uni.showToast({ title: '正在连接...', icon: 'loading' });
+      
+      // 3. 延迟 1 秒重试发送
+      setTimeout(() => {
+          if (socket && socket.connected) {
+              socket.emit("send_message", {
+                user_id: myInfo.value.id,
+                content: content,
+                type: type, 
+                username: myInfo.value.username, 
+                avatar: myInfo.value.avatar
+              });
+          } else {
+              uni.showToast({ title: '连接断开，请检查网络', icon: 'none' });
+          }
+      }, 1000);
       return;
   }
   
+  // 正常连接时直接发送
   socket.emit("send_message", {
     user_id: myInfo.value.id,
     content: content,
@@ -265,6 +295,7 @@ const sendMessage = () => {
   sendSocketMessage(content, 'text');
 };
 
+// ... (以下图片上传、表情处理逻辑保持不变) ...
 
 const chooseImage = () => {
   uni.chooseImage({
@@ -282,9 +313,7 @@ const uploadImage = (filePath) => {
     url: `${FLASK_URL}/api/chat/upload`,
     filePath: filePath,
     name: 'file',
-    header: {
-        'Authorization': getToken() 
-    },
+    header: { 'Authorization': getToken() },
     success: (res) => {
       uni.hideLoading();
       try {
@@ -352,11 +381,8 @@ const formatAvatar = (path) => {
 const fetchHistory = () => {
     uni.request({
         url: `${FLASK_URL}/api/square/history`, 
-        header: {
-            'Authorization': getToken()
-        },data: {
-            user_id: myInfo.value.id 
-        },
+        header: { 'Authorization': getToken() },
+        data: { user_id: myInfo.value.id },
         success: (res) => {
             if (res.statusCode === 401 || res.data.code === 401 || res.data.code === 403) {
                  uni.showToast({ title: '会话过期或账号禁用', icon: 'none' });
@@ -366,7 +392,6 @@ const fetchHistory = () => {
                  }, 1000);
                  return;
             }
-
             if (res.data.code === 200 && isPageActive.value) {
                 const key = `deleted_msgs_${myInfo.value.id}`;
                 const deletedIds = uni.getStorageSync(key) || [];
@@ -374,15 +399,12 @@ const fetchHistory = () => {
                 scrollToBottom();
             }
         },
-        fail: (err) => {
-            console.error('History fetch failed', err);
-        }
+        fail: (err) => console.error('History fetch failed', err)
     });
 };
 
 const scrollToBottom = () => {
   if (!isPageActive.value) return;
-  
   scrollTarget.value = '';
   nextTick(() => { 
       if (isPageActive.value) scrollTarget.value = 'bottom-anchor'; 

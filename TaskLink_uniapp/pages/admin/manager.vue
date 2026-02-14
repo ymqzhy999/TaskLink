@@ -34,7 +34,7 @@
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 
-const SERVICE_HOST = '101.35.132.175'; // 记得改成你的 IP
+const SERVICE_HOST = '101.35.132.175';
 const API_BASE = `http://${SERVICE_HOST}:5000`;
 
 const users = ref([]);
@@ -55,7 +55,7 @@ const fetchUsers = () => {
   uni.request({
     url: `${API_BASE}/api/admin/users`,
     method: 'GET',
-    data: { operator_id: myInfo.value.id }, // 传管理员ID去验证
+    data: { operator_id: myInfo.value.id },
     success: (res) => {
       uni.hideLoading();
       if (res.data.code === 200) {
@@ -91,7 +91,7 @@ const toggleStatus = (user) => {
           },
           success: (resp) => {
             if (resp.data.code === 200) {
-              user.status = newStatus; // 本地更新状态，不用刷新全页
+              user.status = newStatus;
               uni.showToast({ title: '操作成功' });
             } else {
               uni.showToast({ title: resp.data.msg, icon: 'none' });
@@ -108,11 +108,9 @@ const toggleStatus = (user) => {
 page { background-color: #050505; color: #fff; font-family: 'Courier New', monospace; }
 .container { padding: 20px; height: 100vh; display: flex; flex-direction: column; }
 .cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 50%, #111 0%, #000 90%); z-index: -1; }
-
 .header { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
 .title { font-size: 24px; font-weight: bold; color: #00f3ff; display: block; }
 .subtitle { font-size: 12px; color: #666; letter-spacing: 2px; }
-
 .user-list { flex: 1; height: 0; }
 .user-card { 
   display: flex; align-items: center; background: #111; 
@@ -120,7 +118,6 @@ page { background-color: #050505; color: #fff; font-family: 'Courier New', monos
   transition: all 0.3s;
 }
 .user-card.banned { border-color: #555; opacity: 0.6; filter: grayscale(0.8); }
-
 .avatar { width: 50px; height: 50px; border-radius: 4px; background: #222; margin-right: 15px; }
 .info { flex: 1; }
 .top-row { display: flex; align-items: center; margin-bottom: 5px; }
@@ -129,7 +126,6 @@ page { background-color: #050505; color: #fff; font-family: 'Courier New', monos
 .admin-tag { background: #00f3ff; color: #000; }
 .ban-tag { background: #ff003c; color: #fff; }
 .uid { font-size: 10px; color: #666; }
-
 .action-btn { padding: 5px 10px; border: 1px solid #333; cursor: pointer; }
 .btn-disable { color: #ff003c; }
 .btn-enable { color: #00ff9d; }

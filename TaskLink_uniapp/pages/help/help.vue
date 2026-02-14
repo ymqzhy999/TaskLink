@@ -88,13 +88,13 @@
 <script setup>
 import { ref } from 'vue';
 
-const openIndex = ref(0); // 默认展开第一个
+const openIndex = ref(0);
 
 const toggle = (index) => {
   if (openIndex.value === index) {
-    openIndex.value = -1; // 收起
+    openIndex.value = -1;
   } else {
-    openIndex.value = index; // 展开
+    openIndex.value = index;
   }
 };
 </script>
@@ -103,29 +103,22 @@ const toggle = (index) => {
 page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', monospace; height: 100vh; overflow: hidden; }
 .container { height: 100%; display: flex; flex-direction: column; }
 .cyber-bg { position: fixed; width: 100%; height: 100%; background: radial-gradient(circle, #111 0%, #000 100%); z-index: -1; }
-
 .header { padding: 60rpx 40rpx; border-bottom: 2px solid #00f3ff; background: rgba(0, 243, 255, 0.05); }
 .title { font-size: 40rpx; font-weight: bold; color: #fff; letter-spacing: 4rpx; display: block; }
 .subtitle { font-size: 24rpx; color: #00f3ff; opacity: 0.7; margin-top: 10rpx; display: block; }
-
 .content-area { flex: 1; padding: 30rpx; box-sizing: border-box; }
-
 .section-title { font-size: 24rpx; color: #666; margin: 40rpx 0 20rpx; font-weight: bold; padding-left: 10rpx; border-left: 4rpx solid #666; }
-
 .faq-item { background: #111; margin-bottom: 20rpx; border: 1px solid #333; border-radius: 8rpx; overflow: hidden; transition: all 0.3s; }
 .faq-item.open { border-color: #00f3ff; box-shadow: 0 0 15rpx rgba(0, 243, 255, 0.1); }
-
 .faq-question { padding: 30rpx; display: flex; align-items: center; justify-content: space-between; background: #161616; }
 .q-icon { background: #333; color: #fff; font-size: 20rpx; padding: 4rpx 10rpx; border-radius: 4rpx; margin-right: 20rpx; }
 .faq-item.open .q-icon { background: #00f3ff; color: #000; }
 .q-text { flex: 1; font-size: 28rpx; color: #eee; font-weight: bold; }
 .arrow { color: #666; font-size: 24rpx; transition: transform 0.3s; }
 .faq-item.open .arrow { transform: rotate(180deg); color: #00f3ff; }
-
 .faq-answer { height: 0; overflow: hidden; background: #0a0a0a; transition: height 0.3s; }
 .faq-item.open .faq-answer { height: auto; padding: 30rpx; border-top: 1px dashed #333; }
 .faq-answer text { font-size: 26rpx; color: #aaa; line-height: 1.6; display: block; }
-
 .rating-explain { display: flex; flex-direction: column; gap: 15rpx; margin-top: 10rpx; }
 .r-row { font-size: 24rpx; color: #ccc; }
 .r-tag { font-size: 20rpx; padding: 2rpx 8rpx; border-radius: 4rpx; color: #000; font-weight: bold; margin-right: 10rpx; }
@@ -134,8 +127,6 @@ page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', mo
 .r4 { background: #00f3ff; }
 .r5 { background: #00ff9d; }
 .r-tip { font-size: 20rpx; color: #666; margin-top: 10rpx; font-style: italic; }
-
 .highlight { color: #ffaa00; font-weight: bold; }
-
 .footer-note { text-align: center; color: #333; font-size: 20rpx; margin: 60rpx 0; line-height: 1.5; }
 </style>

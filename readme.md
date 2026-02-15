@@ -6,14 +6,14 @@
 TaskLink 是一款集成了科学记忆算法与 AI 辅助决策的英语学习工具。项目采用前后端分离架构，通过算法优化复习周期，并利用大语言模型辅助学习规划。(可以直接下载apk文件，后端部署在云服务器上，根据你对单词的掌握程度，动态计算最优复习间隔，帮你在即将遗忘前复习，实现高效、持久的单词记忆。邀请码：ALN6YS,O4H5TG,3W58AP,91UPJG )
 
 ## 📸 核心界面展示
-<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img.png" width="400" height="550" alt="界面截图">
-<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_1.png" width="400" height="550" alt="界面截图">
-<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_2.png" width="400" height="550" alt="界面截图">
-<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_3.png" width="400" height="550" alt="界面截图">
-<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_4.png" width="400" height="550" alt="界面截图">
-<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_5.png" width="400" height="550" alt="界面截图">
-<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_6.png" width="400" height="550" alt="界面截图">
-<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_7.png" width="400" height="550" alt="界面截图">
+<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img.png" width="400" height="570" alt="界面截图">
+<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_1.png" width="400" height="570" alt="界面截图">
+<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_2.png" width="400" height="570" alt="界面截图">
+<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_3.png" width="400" height="570" alt="界面截图">
+<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_4.png" width="400" height="570" alt="界面截图">
+<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_5.png" width="400" height="570" alt="界面截图">
+<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_6.png" width="400" height="570" alt="界面截图">
+<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_7.png" width="400" height="570" alt="界面截图">
 ## 🏗️ 系统架构 (Architecture)
 
 项目由三个核心模块组成，实现了业务逻辑、实时通信与展现层的解耦：

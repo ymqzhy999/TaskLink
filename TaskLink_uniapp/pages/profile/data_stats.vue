@@ -58,7 +58,7 @@
 
       <view class="rank-section slide-up">
         <view class="rank-header">
-          <text class="rh-title">学习贡献榜 (Top 5)</text>
+          <text class="rh-title">学习排行榜</text>
           <text class="rh-sub">点击用户切换视图</text>
         </view>
         

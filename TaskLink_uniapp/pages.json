@@ -33,9 +33,9 @@
 		{
 			"path": "pages/admin/manager",
 			"style": {
-				"navigationBarTitleText": "用户管理(Admin)",
-				"navigationBarBackgroundColor": "#050505",
-				"navigationBarTextStyle": "white"
+				"navigationBarTitleText": "用户管理",
+				"navigationBarBackgroundColor": "#FFFFFF",
+				"navigationBarTextStyle": "black"
 			}
 		},
 		{
@@ -54,16 +54,16 @@
 			"path": "pages/help/help",
 			"style": {
 				"navigationBarTitleText": "操作手册",
-				"navigationBarBackgroundColor": "#000000",
-				"navigationBarTextStyle": "white"
+				"navigationBarBackgroundColor": "#FFFFFF",
+				"navigationBarTextStyle": "black"
 			}
 		},
 		{
 			"path": "pages/profile/profile",
 			"style": {
 				"navigationBarTitleText": "用户档案",
-				"navigationBarBackgroundColor": "#000000",
-				"navigationBarTextStyle": "white"
+				"navigationBarBackgroundColor": "#FFFFFF",
+				"navigationBarTextStyle": "black"
 			}
 		},
 		{
@@ -71,65 +71,64 @@
 			"style": {
 				"navigationBarTitleText": "单词训练",
 				"navigationStyle": "custom",
-				"backgroundColor": "#000000"
+				"backgroundColor": "#F9F9F9"
 			}
 		},
 		{
 			"path": "pages/vocab/vocab_list",
 			"style": {
-				"navigationBarTitleText": ""
+				"navigationBarTitleText": "词库列表"
 			}
 		},
 		{
 			"path": "pages/vocab/session_detail",
 			"style": {
 				"navigationBarTitleText": "训练详情",
-				"navigationBarBackgroundColor": "#000000",
-				"navigationBarTextStyle": "white"
+				"navigationBarBackgroundColor": "#FFFFFF",
+				"navigationBarTextStyle": "black"
 			}
 		}
 	],
+	
+	// 🔥 全局样式修复：改为白底黑字 🔥
 	"globalStyle": {
-		"navigationBarTextStyle": "white",
+		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "TaskLink",
-		"navigationBarBackgroundColor": "#000000",
-		"backgroundColor": "#000000"
+		"navigationBarBackgroundColor": "#FFFFFF",
+		"backgroundColor": "#F9F9F9"
 	},
+	
 	"tabBar": {
-		"color": "#666666",
-		"selectedColor": "#00f3ff",
-		"borderStyle": "black",
-		"backgroundColor": "#111111",
+		"color": "#B0BEC5",
+		"selectedColor": "#4DB6AC",
+		"backgroundColor": "#FFFFFF",
+		"borderStyle": "white",
+		"height": "50px",
+		"fontSize": "10px",
 		"list": [
 			{
 				"pagePath": "pages/index/index",
-				"text": "中枢",
-				"iconPath": "static/tabs/home.png",
-				"selectedIconPath": "static/tabs/home-active.png"
+				"text": "计划",
+				"iconPath": "static/tabbar/home.png",
+				"selectedIconPath": "static/tabbar/home-active.png"
 			},
 			{
 				"pagePath": "pages/square/square",
 				"text": "广场",
-				"iconPath": "static/tabs/chat.png",
-				"selectedIconPath": "static/tabs/chat-active.png"
+				"iconPath": "static/tabbar/chat.png",
+				"selectedIconPath": "static/tabbar/chat-active.png"
 			},
 			{
 				"pagePath": "pages/add/add",
 				"text": "新建",
-				"iconPath": "static/tabs/add.png",
-				"selectedIconPath": "static/tabs/add-active.png"
-			},
-			{
-				"pagePath": "pages/history/history",
-				"text": "日志",
-				"iconPath": "static/tabs/history.png",
-				"selectedIconPath": "static/tabs/history-active.png"
+				"iconPath": "static/tabbar/add.png",
+				"selectedIconPath": "static/tabbar/add-active.png"
 			},
 			{
 				"pagePath": "pages/profile/profile",
-				"text": "档案",
-				"iconPath": "static/tabs/me.png",
-				"selectedIconPath": "static/tabs/me-active.png"
+				"text": "我的",
+				"iconPath": "static/tabbar/me.png",
+				"selectedIconPath": "static/tabbar/me-active.png"
 			}
 		]
 	}

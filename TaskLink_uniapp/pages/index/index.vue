@@ -1,35 +1,42 @@
 <template>
-  <view class="container dark-theme">
-    <view class="cyber-bg"></view>
-
-    <view class="dashboard-header fade-in">
-      <view class="header-title">
-        <text class="glitch-text" data-text="TACTICAL_MAP">计划中心</text>
-        
+  <view class="container light-theme">
+    <view class="header fade-in">
+      <view class="greeting-box">
+        <text class="title">计划中心 ✨</text>
+        <text class="subtitle">今天也是充满元气的一天！</text>
       </view>
-      <view class="system-status">
-        <view class="status-dot online"></view>
-        <text>SYS_ONLINE</text>
-      </view>
+      <view class="avatar-placeholder">🌿</view>
     </view>
 
     <view class="stats-row fade-in">
       <view class="stat-card">
-        <text class="stat-num">{{ activePlans.length }}</text>
-        <text class="stat-label">(进行中)</text>
+        <view class="stat-icon-wrapper mint-bg">
+          <text class="stat-icon">🌱</text>
+        </view>
+        <view class="stat-info">
+          <text class="stat-num">{{ activePlans.length }}</text>
+          <text class="stat-label">进行中计划</text>
+        </view>
       </view>
+      
       <view class="stat-card">
-        <text class="stat-num">{{ totalProgress }}%</text>
-        <text class="stat-label">(同步率)</text>
+        <view class="stat-icon-wrapper blue-bg">
+          <text class="stat-icon">☁️</text>
+        </view>
+        <view class="stat-info">
+          <text class="stat-num">{{ totalProgress }}%</text>
+          <text class="stat-label">总体完成度</text>
+        </view>
       </view>
     </view>
 
+    <view class="section-title fade-in">我的日程安排</view>
+
     <scroll-view scroll-y class="plan-list-scroll">
-      
       <view v-if="activePlans.length === 0" class="empty-state">
-        <text class="empty-icon">∅</text>
-        <text>NO ACTIVE TACTICS DETECTED</text>
-        <text class="empty-tip">请前往 [新建] 生成计划</text>
+        <text class="empty-emoji">💤</text>
+        <text class="empty-title">日程空空如也</text>
+        <text class="empty-tip">快去种下一棵新的学习计划树吧~</text>
       </view>
 
       <view 
@@ -40,30 +47,22 @@
         @click="goToDetail(plan.id)"
         @longpress="onLongPressPlan(plan)"
       >
-        <view class="card-line"></view>
-        <view class="card-content">
-          <view class="card-top">
-            <text class="plan-title">{{ plan.title }}</text>
-            <text class="plan-days">{{ plan.total_days }} DAYS</text>
+        <view class="card-top">
+          <text class="plan-title">{{ plan.title }}</text>
+          <view class="plan-tag">{{ plan.total_days }} 天</view>
+        </view>
+        
+        <text class="plan-goal">{{ plan.goal }}</text>
+        
+        <view class="progress-section">
+          <view class="progress-bar">
+            <view class="progress-fill" :style="{ width: plan.progress + '%' }"></view>
           </view>
-          
-          <text class="plan-goal">{{ plan.goal }}</text>
-          
-          <view class="progress-container">
-            <view class="progress-bar">
-              <view class="progress-fill" :style="{ width: plan.progress + '%' }"></view>
-            </view>
-            <text class="progress-val">{{ plan.progress }}%</text>
-          </view>
-          
-          <view class="card-footer">
-            <text class="status-text">● EXECUTING</text>
-            <text class="arrow">ACCESS >></text>
-          </view>
+          <text class="progress-val">{{ plan.progress }}%</text>
         </view>
       </view>
       
-      <view style="height: 40px;"></view>
+      <view style="height: 60px;"></view>
     </scroll-view>
 
   </view>
@@ -112,15 +111,16 @@ const goToDetail = (id) => {
   uni.navigateTo({ url: `/pages/plan/detail?id=${id}` });
 };
 
-
+// 交互文案也变得温柔了
 const onLongPressPlan = (plan) => {
   uni.vibrateShort();
   uni.showModal({
-    title: '⚠️ 销毁协议',
-    content: `确认要永久销毁战术计划：\n【${plan.title}】吗？`,
-    confirmText: '销毁',
-    confirmColor: '#ff003c',
-    cancelText: '取消',
+    title: '温馨提示',
+    content: `要删除【${plan.title}】这个计划吗？\n删除了就找不回来了哦~`,
+    confirmText: '删掉啦',
+    confirmColor: '#FF8A8A', // 柔和的西瓜红
+    cancelText: '再想想',
+    cancelColor: '#8CA19A',
     success: (res) => {
       if (res.confirm) {
         deletePlan(plan.id);
@@ -130,7 +130,7 @@ const onLongPressPlan = (plan) => {
 };
 
 const deletePlan = (id) => {
-  uni.showLoading({ title: 'DELETING...' });
+  uni.showLoading({ title: '清理中...' });
   
   uni.request({
     url: `${API_BASE}/api/plan/${id}`,
@@ -138,60 +138,95 @@ const deletePlan = (id) => {
     success: (res) => {
       uni.hideLoading();
       if (res.data.code === 200) {
-        uni.showToast({ title: '战术已销毁', icon: 'success' });
+        uni.showToast({ title: '计划已清理', icon: 'success' });
         fetchPlans();
       } else {
-        uni.showToast({ title: '删除失败', icon: 'none' });
+        uni.showToast({ title: '出现了一点小问题', icon: 'none' });
       }
     },
     fail: () => {
       uni.hideLoading();
-      uni.showToast({ title: '连接中断', icon: 'none' });
+      uni.showToast({ title: '网络好像断开啦', icon: 'none' });
     }
   });
 };
 </script>
 
 <style>
-page { background-color: #050505; color: #e0e0e0; font-family: 'Courier New', monospace; }
-.container { padding: 20px; min-height: 100vh; }
-.cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 10%, #0a192f 0%, #000000 85%); z-index: -1; }
-.dashboard-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; margin-top: 10px; }
-.glitch-text { font-size: 24px; font-weight: 900; color: #fff; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0, 243, 255, 0.5); }
-.sub-text { font-size: 10px; color: #666; display: block; margin-top: 5px; }
-.system-status { display: flex; align-items: center; font-size: 10px; color: #00f3ff; border: 1px solid rgba(0, 243, 255, 0.3); padding: 2px 6px; border-radius: 2px; background: rgba(0, 243, 255, 0.05); }
-.status-dot { width: 6px; height: 6px; background: #00f3ff; border-radius: 50%; margin-right: 6px; animation: blink 2s infinite; box-shadow: 0 0 8px #00f3ff; }
-.stats-row { display: flex; gap: 15px; margin-bottom: 30px; }
-.stat-card { flex: 1; background: rgba(15, 23, 42, 0.6); border: 1px solid #334155; padding: 15px; text-align: center; }
-.stat-num { font-size: 32px; font-weight: 900; color: #fff; display: block; }
-.stat-label { font-size: 10px; color: #94a3b8; letter-spacing: 1px; margin-top: 5px; }
-.section-label { font-size: 12px; color: #888; margin-bottom: 15px; border-bottom: 1px solid #222; padding-bottom: 5px; display: inline-block; }
-.empty-state { text-align: center; margin-top: 50px; color: #444; }
-.empty-icon { font-size: 40px; display: block; margin-bottom: 10px; }
-.empty-tip { font-size: 12px; color: #00f3ff; margin-top: 10px; }
-.plan-card { position: relative; background: #0b1120; margin-bottom: 20px; border: 1px solid #334155; overflow: hidden; transition: all 0.2s; }
-.plan-card:active { border-color: #00f3ff; transform: scale(0.99); background: #111827; }
-.card-line { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #00f3ff; box-shadow: 0 0 15px rgba(0, 243, 255, 0.2); }
-.card-content { padding: 20px 20px 20px 24px; }
-.card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.plan-title { font-size: 16px; font-weight: bold; color: #fff; letter-spacing: 1px; }
-.plan-days { font-size: 10px; color: #00f3ff; background: rgba(0, 243, 255, 0.1); border: 1px solid rgba(0, 243, 255, 0.3); padding: 2px 6px; font-weight: bold; font-family: monospace; }
-.plan-goal { font-size: 12px; color: #94a3b8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 32px; margin-bottom: 15px; line-height: 1.4; }
-.progress-container { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
-.progress-bar { flex: 1; height: 4px; background: #1e293b; position: relative; overflow: hidden; border-radius: 2px; }
+/* 调色板参考：
+  背景色：#F7F9F8 (极浅的奶绿白)
+  文字主色：#3A4B45 (深墨绿，代替纯黑，更柔和)
+  文字次色：#8CA19A (灰绿色)
+  薄荷绿主色：#78D8C1
+  浅蓝辅色：#A3D5F5
+*/
+
+page { 
+  background-color: #F7F9F8; 
+  color: #3A4B45; 
+  /* 尽量使用系统默认的无衬线黑体，或者圆体 */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+}
+
+.container { padding: 40rpx 30rpx; min-height: 100vh; box-sizing: border-box; }
+
+/* 头部样式 */
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 50rpx; margin-top: 20rpx; }
+.title { font-size: 44rpx; font-weight: bold; color: #3A4B45; display: block; margin-bottom: 10rpx; }
+.subtitle { font-size: 24rpx; color: #8CA19A; }
+.avatar-placeholder { width: 90rpx; height: 90rpx; background: #FFF; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40rpx; box-shadow: 0 8rpx 20rpx rgba(120, 216, 193, 0.2); }
+
+/* 统计卡片区 */
+.stats-row { display: flex; gap: 30rpx; margin-bottom: 50rpx; }
+.stat-card { flex: 1; background: #FFF; border-radius: 30rpx; padding: 30rpx; display: flex; align-items: center; gap: 20rpx; box-shadow: 0 10rpx 30rpx rgba(140, 161, 154, 0.08); }
+.stat-icon-wrapper { width: 70rpx; height: 70rpx; border-radius: 20rpx; display: flex; align-items: center; justify-content: center; }
+.mint-bg { background: rgba(120, 216, 193, 0.15); }
+.blue-bg { background: rgba(163, 213, 245, 0.15); }
+.stat-icon { font-size: 32rpx; }
+.stat-info { display: flex; flex-direction: column; }
+.stat-num { font-size: 36rpx; font-weight: 800; color: #3A4B45; }
+.stat-label { font-size: 20rpx; color: #8CA19A; margin-top: 4rpx; }
+
+.section-title { font-size: 32rpx; font-weight: bold; color: #3A4B45; margin-bottom: 30rpx; position: relative; padding-left: 20rpx; }
+.section-title::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 8rpx; height: 28rpx; background: #78D8C1; border-radius: 10rpx; }
+
+/* 计划卡片 */
+.plan-card { 
+  background: #FFF; 
+  border-radius: 30rpx; 
+  padding: 30rpx; 
+  margin-bottom: 30rpx; 
+  box-shadow: 0 10rpx 40rpx rgba(140, 161, 154, 0.06); 
+  transition: all 0.2s ease;
+}
+.plan-card:active { transform: scale(0.98); box-shadow: 0 5rpx 15rpx rgba(140, 161, 154, 0.04); }
+
+.card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16rpx; }
+.plan-title { font-size: 32rpx; font-weight: bold; color: #3A4B45; }
+.plan-tag { font-size: 20rpx; color: #78D8C1; background: rgba(120, 216, 193, 0.1); padding: 6rpx 16rpx; border-radius: 20rpx; font-weight: bold; }
+
+.plan-goal { font-size: 26rpx; color: #8CA19A; line-height: 1.5; margin-bottom: 30rpx; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* 进度条 */
+.progress-section { display: flex; align-items: center; gap: 20rpx; }
+.progress-bar { flex: 1; height: 16rpx; background: #F0F4F2; border-radius: 20rpx; overflow: hidden; }
 .progress-fill { 
   height: 100%; 
-  background: linear-gradient(90deg, #0ea5e9, #00f3ff);
-  box-shadow: 0 0 10px rgba(0, 243, 255, 0.3); 
-  transition: width 0.5s ease; 
+  background: linear-gradient(90deg, #A3D5F5, #78D8C1); /* 浅蓝渐变到薄荷绿 */
+  border-radius: 20rpx;
+  transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); /* Q弹的动画效果 */
 }
-.progress-val { font-size: 12px; color: #00f3ff; font-weight: bold; font-family: monospace; text-shadow: 0 0 5px rgba(0, 243, 255, 0.5); }
-.card-footer { display: flex; justify-content: space-between; font-size: 10px; border-top: 1px solid #1e293b; padding-top: 10px; }
-.status-text { color: #0ea5e9; font-weight: bold; letter-spacing: 1px; }
-.arrow { color: #475569; font-weight: bold; }
+.progress-val { font-size: 24rpx; color: #78D8C1; font-weight: bold; width: 60rpx; text-align: right; }
+
+/* 空状态 */
+.empty-state { text-align: center; margin-top: 100rpx; display: flex; flex-direction: column; align-items: center; }
+.empty-emoji { font-size: 80rpx; margin-bottom: 20rpx; opacity: 0.8; }
+.empty-title { font-size: 32rpx; font-weight: bold; color: #3A4B45; margin-bottom: 10rpx; }
+.empty-tip { font-size: 24rpx; color: #8CA19A; }
+
+/* 动画 */
 .fade-in { animation: fadeIn 0.8s ease-out; }
-.slide-up { animation: slideUp 0.6s ease-out backwards; }
-@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(30rpx); } to { opacity: 1; transform: translateY(0); } }
 </style>

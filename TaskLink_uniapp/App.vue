@@ -28,17 +28,18 @@
 			const userInfo = uni.getStorageSync('userInfo');
 			if (userInfo) {
 				this.globalData.userInfo = userInfo;
-				// 初始化连接
 				this.initSocket(); 
 				
-				// 自动跳转主页
-				/* 注意：如果你的首页是 tabbar 页面，用 switchTab；如果是普通页面用 reLaunch */
-				// uni.switchTab({
-				// 	url: '/pages/index/index',
-				// 	fail: () => uni.reLaunch({ url: '/pages/index/index' })
-				// });
+
+				uni.switchTab({
+					url: '/pages/square/square', // 这里建议填你的主页路径，比如广场页
+					fail: () => {
+						// 如果跳转失败（比如首页不是 TabBar），改用 reLaunch
+						uni.reLaunch({ url: '/pages/square/square' });
+					}
+				});
 			} else {
-				// 未登录时不强制跳转，交给 pages.json 的默认规则或 login 页处理
+				uni.reLaunch({ url: '/pages/login/login' });
 			}
 		},
 

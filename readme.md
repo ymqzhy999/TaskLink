@@ -7,10 +7,10 @@ TaskLink 是一款集成了科学记忆算法与 AI 辅助决策的英语学习�
 
 ## 📱 界面预览 (Screenshots)
 
-(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img.png)|
-(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_1.png)|
-(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_2.png)|
-(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_3.png)|
+https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img.png
+https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_1.png
+https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_2.png)|
+https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_3.png)|
 (https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_4.png)|
 (https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_5.png)|
 (https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_6.png)|

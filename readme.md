@@ -7,14 +7,15 @@ TaskLink 是一款集成了科学记忆算法与 AI 辅助决策的英语学习�
 
 ## 📱 界面预览 (Screenshots)
 
-| 核心记忆矩阵 | AI 战术规划 | 广场与统计 |
-| --- | --- | --- |
-|  |  |  |
-
-| 登录/注册终端 | 单词搜索矩阵 | 个人档案中心 | 系统标志 |
-| --- | --- | --- | --- |
-|  |  |  |  |
-
+(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img.png)|
+(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_1.png)|
+(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_2.png)|
+(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_3.png)|
+(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_4.png)|
+(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_5.png)|
+(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_6.png)|
+(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_7.png)|
+(https://github.com/ymqzhy999/TaskLink/tree/main/docs/images/img_8.png)|
 ---
 
 ## 🏗️ 系统架构 (Architecture)

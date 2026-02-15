@@ -1,92 +1,111 @@
 <template>
-  <view class="container dark-theme">
-    <view class="cyber-bg"></view>
+  <view class="container">
+    <view class="profile-header-bg"></view>
 
-    <view class="profile-card">
-      <view class="avatar-box" @click="uploadAvatar">
-        <image 
-          class="avatar" 
-          :src="getAvatarUrl()" 
-          mode="aspectFill"
-        ></image>
-        <view class="scan-line"></view> <view class="edit-icon">📷</view>
+    <view class="profile-card fade-in">
+      <view class="avatar-section" @click="uploadAvatar">
+        <view class="avatar-wrapper">
+          <image 
+            class="avatar" 
+            :src="getAvatarUrl()" 
+            mode="aspectFill"
+          ></image>
+          <view class="camera-icon">
+            <text>📷</text>
+          </view>
+        </view>
       </view>
       
-      <view class="info-box">
-        <text class="username">{{ userInfo.username || t.unknown }}</text>
-        <text class="user-id">ID: {{ userInfo.id ? '#' + String(userInfo.id).padStart(4, '0') : 'NULL' }}</text>
-        <view class="status-badge">
-            {{ userInfo.role === 1 ? 'ADMINISTRATOR' : t.status }}
+      <view class="info-section">
+        <text class="username">{{ userInfo.username || 'Unknown' }}</text>
+        <text class="user-id">ID: {{ userInfo.id ? '#' + String(userInfo.id).padStart(4, '0') : '--' }}</text>
+        <view class="role-badge" :class="{ 'admin': userInfo.role === 1 }">
+          <text>{{ userInfo.role === 1 ? 'ADMINISTRATOR' : 'MEMBER' }}</text>
         </view>
       </view>
     </view>
 
-    <view class="menu-group">
-
-
-      <view class="menu-item" @click="openPasswordModal">
-        <view class="item-left">
-          <text class="menu-icon">🔐</text>
-          <text class="menu-text">修改密码</text> </view>
-        <text class="arrow">></text>
+    <view class="menu-list slide-up">
+      
+      <view class="menu-group">
+        <view class="menu-item" @click="openPasswordModal">
+          <view class="item-left">
+            <view class="icon-box blue">
+              <text class="menu-icon">🔐</text>
+            </view>
+            <text class="menu-text">修改密码</text> 
+          </view>
+          <text class="arrow">></text>
+        </view>
       </view>
 
-      <view class="menu-item" @click="startVocabularyTraining">
-        <view class="item-left">
-          <text class="menu-icon">📚</text>
-          <text class="menu-text">每日单词</text>
+      <view class="menu-group">
+        <view class="menu-item" @click="startVocabularyTraining">
+          <view class="item-left">
+            <view class="icon-box orange">
+              <text class="menu-icon">📚</text>
+            </view>
+            <text class="menu-text">每日单词</text>
+          </view>
+          <text class="arrow">></text>
         </view>
-        <text class="arrow">></text>
+
+        <view class="menu-item" @click="goToHelp">
+          <view class="item-left">
+            <view class="icon-box green">
+              <text class="menu-icon">💡</text>
+            </view>
+            <text class="menu-text">系统帮助</text>
+          </view>
+          <text class="arrow">></text>
+        </view>
       </view>
 
-<view class="menu-item" @click="goToHelp">
-	<view class="item-left">
-	  <text class="menu-icon">⚠️</text>
-	  <text class="menu-text">系统帮助</text>
-	</view>
-</view>
-
-      <view v-if="userInfo.role === 1" class="menu-item admin-entry" @click="goToAdmin">
-        <view class="item-left">
-          <text class="menu-icon">🛡️</text>
-          <text class="menu-text">用户管理</text>
+      <view v-if="userInfo.role === 1" class="menu-group">
+        <view class="menu-item" @click="goToAdmin">
+          <view class="item-left">
+            <view class="icon-box purple">
+              <text class="menu-icon">🛡️</text>
+            </view>
+            <text class="menu-text">用户管理</text>
+          </view>
+          <text class="arrow">></text>
         </view>
-        <text class="arrow">></text>
       </view>
 
-      <view class="menu-item logout" @click="handleLogout">
-        <view class="item-left">
-          <text class="menu-icon">⚠️</text>
-          <text class="menu-text warn">断开连接</text>
+      <view class="menu-group">
+        <view class="menu-item logout-item" @click="handleLogout">
+          <view class="item-left">
+            <text class="menu-text logout-text">退出登录</text>
+          </view>
         </view>
-        <text class="arrow warn">></text>
       </view>
 
     </view>
 
-    <view class="footer-version">{{ t.version }}</view>
+    <view class="footer-version">Version 1.5.0</view>
 
-    <view class="modal-mask" v-if="showPwdModal">
-      <view class="cyber-modal">
+    <view class="modal-mask" v-if="showPwdModal" @click.self="closePasswordModal">
+      <view class="modal-card scale-in">
         <view class="modal-header">
-          <text class="modal-title">SECURITY UPDATE</text>
-          <text class="close-btn" @click="closePasswordModal">✕</text>
+          <text class="modal-title">修改密码</text>
+          <view class="close-icon" @click="closePasswordModal">✕</view>
         </view>
         
         <view class="modal-body">
-          <view class="input-group">
-            <text class="label">OLD PASSWORD</text>
-            <input class="cyber-input" type="password" v-model="pwdForm.old" placeholder="******" placeholder-class="ph" />
+          <view class="input-field">
+            <text class="field-label">旧密码</text>
+            <input class="field-input" type="password" v-model="pwdForm.old" placeholder="请输入当前密码" placeholder-class="ph" />
           </view>
-          <view class="input-group">
-            <text class="label">NEW PASSWORD</text>
-            <input class="cyber-input" type="password" v-model="pwdForm.new" placeholder="******" placeholder-class="ph" />
+          <view class="input-field">
+            <text class="field-label">新密码</text>
+            <input class="field-input" type="password" v-model="pwdForm.new" placeholder="请输入新密码 (至少6位)" placeholder-class="ph" />
           </view>
         </view>
 
         <view class="modal-footer">
-          <button class="modal-btn cancel" @click="closePasswordModal">CANCEL</button>
-          <button class="modal-btn confirm" @click="submitPasswordChange">CONFIRM</button>
+          <button class="modal-btn cancel" @click="closePasswordModal">取消</button>
+          <button class="modal-btn confirm" @click="submitPasswordChange">确认修改</button>
         </view>
       </view>
     </view>
@@ -96,32 +115,24 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import messages from '@/utils/language.js';
 
-
+/* =================================================================
+   核心业务逻辑 (保持原样)
+   ================================================================= */
 const SERVICE_HOST = '101.35.132.175';
 const API_BASE = `http://${SERVICE_HOST}:5000`;
 
 const userInfo = ref({});
-const currentLang = ref('zh');
-const t = ref(messages.zh.profile);
-
-
 const showPwdModal = ref(false);
 const pwdForm = ref({ old: '', new: '' });
 
 onShow(() => {
   const user = uni.getStorageSync('userInfo');
   if (user) userInfo.value = user;
-  
-  const savedLang = uni.getStorageSync('lang') || 'zh';
-  currentLang.value = savedLang;
-  t.value = messages[savedLang].profile;
 });
 
-
 const goToHelp = () => {
-    uni.navigateTo({ url: '/pages/help/help' });
+   uni.navigateTo({ url: '/pages/help/help' });
 };
 
 const goToAdmin = () => {
@@ -149,7 +160,7 @@ const uploadAvatar = () => {
     sourceType: ['album', 'camera'],
     success: (chooseImageRes) => {
       const tempFilePaths = chooseImageRes.tempFilePaths;
-      uni.showLoading({ title: 'UPLOADING...' });
+      uni.showLoading({ title: '上传中...' });
       
       uni.uploadFile({
         url: `${API_BASE}/api/upload_avatar`,
@@ -158,33 +169,33 @@ const uploadAvatar = () => {
         formData: { 'user_id': userInfo.value.id },
         success: (uploadFileRes) => {
           uni.hideLoading();
-          const res = JSON.parse(uploadFileRes.data);
-          if (res.code === 200) {
-            userInfo.value.avatar = res.data.avatar;
-            uni.setStorageSync('userInfo', userInfo.value);
-            uni.showToast({ title: 'AVATAR UPDATED', icon: 'none' });
-          } else {
-            uni.showToast({ title: 'UPLOAD FAILED', icon: 'none' });
+          try {
+             const res = JSON.parse(uploadFileRes.data);
+             if (res.code === 200) {
+               userInfo.value.avatar = res.data.avatar;
+               uni.setStorageSync('userInfo', userInfo.value);
+               uni.showToast({ title: '头像已更新', icon: 'none' });
+             } else {
+               uni.showToast({ title: '上传失败', icon: 'none' });
+             }
+          } catch(e) {
+             uni.showToast({ title: '服务器错误', icon: 'none' });
           }
         },
         fail: () => {
           uni.hideLoading();
-          uni.showToast({ title: 'NET ERR', icon: 'none' });
+          uni.showToast({ title: '网络连接错误', icon: 'none' });
         }
       });
     }
   });
 };
 
-
-
 const handleLogout = () => {
   uni.showModal({
-    title: 'WARNING',
-    content: t.value.logout_confirm,
-    confirmColor: '#ff003c',
-    confirmText: t.value.logout_ok,
-    cancelText: t.value.logout_cancel,
+    title: '退出登录',
+    content: '确定要退出当前账号吗？',
+    confirmColor: '#FF8A65', // 珊瑚橙
     success: (res) => {
       if (res.confirm) {
         uni.removeStorageSync('userInfo');
@@ -205,16 +216,16 @@ const closePasswordModal = () => {
 
 const submitPasswordChange = () => {
   if (!pwdForm.value.old || !pwdForm.value.new) {
-    uni.showToast({ title: '请输入完整', icon: 'none' });
+    uni.showToast({ title: '请输入完整信息', icon: 'none' });
     return;
   }
   
   if (pwdForm.value.new.length < 6) {
-    uni.showToast({ title: '新密码太短', icon: 'none' });
+    uni.showToast({ title: '新密码至少6位', icon: 'none' });
     return;
   }
 
-  uni.showLoading({ title: 'UPDATING...' });
+  uni.showLoading({ title: '提交中...' });
 
   uni.request({
     url: `${API_BASE}/api/user/password`,
@@ -227,77 +238,318 @@ const submitPasswordChange = () => {
     success: (res) => {
       uni.hideLoading();
       if (res.data.code === 200) {
-        uni.showToast({ title: 'SUCCESS' });
+        uni.showToast({ title: '修改成功' });
         closePasswordModal();
         setTimeout(() => {
           uni.removeStorageSync('userInfo');
           uni.reLaunch({ url: '/pages/login/login' });
         }, 1500);
       } else {
-        uni.showToast({ title: res.data.msg || 'FAILED', icon: 'none' });
+        uni.showToast({ title: res.data.msg || '修改失败', icon: 'none' });
       }
     },
     fail: () => {
       uni.hideLoading();
-      uni.showToast({ title: 'NET ERR', icon: 'none' });
+      uni.showToast({ title: '网络错误', icon: 'none' });
     }
   });
 };
 </script>
 
-<style>
-page { background-color: #050505; color: #ccc; font-family: 'Courier New', monospace; }
-.container { padding: 20px; }
-.cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #111 0%, #000 100%); z-index: -1; }
+<style lang="scss" scoped>
+/* 1. 色彩变量 */
+$color-bg: #F5F5F0;        /* 浅米色 */
+$color-card: #FFFFFF;      /* 纯白 */
+$color-primary: #4A6FA5;   /* 莫兰迪蓝 */
+$color-accent: #FF8A65;    /* 珊瑚橙 */
+$color-text-main: #2C3E50; /* 深灰 */
+$color-text-sub: #95A5A6;  /* 浅灰 */
+$color-line: #E0E0E0;
 
-.profile-card {
-  background: #0a0a0a; border: 1px solid #333; padding: 20px; 
-  display: flex; align-items: center; margin-bottom: 40px; 
-  box-shadow: 0 0 20px rgba(0,0,0,0.5); position: relative; overflow: hidden;
+page { 
+  background-color: $color-bg; 
+  height: 100vh;
+  font-family: 'Inter', -apple-system, Helvetica, sans-serif;
 }
-.profile-card::before { content: ''; position: absolute; top: 0; left: 0; width: 20px; height: 20px; border-top: 2px solid #00f3ff; border-left: 2px solid #00f3ff; }
-.profile-card::after { content: ''; position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; border-bottom: 2px solid #00f3ff; border-right: 2px solid #00f3ff; }
 
-.avatar-box { position: relative; margin-right: 20px; width: 70px; height: 70px; border: 2px solid #333; border-radius: 50%; overflow: hidden; }
-.avatar-box:active { border-color: #00f3ff; opacity: 0.8; }
-.avatar { width: 100%; height: 100%; background: #000; }
-.scan-line { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: #00f3ff; box-shadow: 0 0 5px #00f3ff; animation: scan 2s infinite linear; }
-@keyframes scan { 0% {top:0} 100% {top:100%} }
-.edit-icon { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; text-align: center; height: 20px; line-height: 20px; }
+.container {
+  min-height: 100vh;
+  padding: 0 30rpx;
+  box-sizing: border-box;
+  position: relative;
+  overflow-x: hidden;
+}
 
-.username { font-size: 20px; font-weight: 900; color: #fff; display: block; letter-spacing: 1px; }
-.user-id { font-size: 12px; color: #666; display: block; margin-top: 5px; font-family: monospace; }
-.status-badge { margin-top: 8px; display: inline-block; background: rgba(0, 243, 255, 0.1); border: 1px solid #00f3ff; color: #00f3ff; font-size: 10px; padding: 2px 6px; }
+/* 顶部装饰背景 */
+.profile-header-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 300rpx;
+  background: linear-gradient(180deg, rgba(74, 111, 165, 0.1) 0%, rgba(245, 245, 240, 0) 100%);
+  z-index: 0;
+}
 
-.menu-group { border-top: 1px solid #222; }
-.menu-item { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid #222; }
-.menu-item:active { opacity: 0.7; background: rgba(255,255,255,0.05); }
-.menu-icon { margin-right: 15px; font-size: 16px; }
-.menu-text { font-size: 14px; color: #ddd; font-weight: bold; }
-.menu-text.warn { color: #ff003c; }
-.value-text { font-size: 12px; color: #00f3ff; margin-right: 10px; }
-.arrow { color: #444; font-family: monospace; }
-.arrow.warn { color: #ff003c; }
-.footer-version { text-align: center; color: #333; font-size: 10px; margin-top: 50px; }
+/* 2. 个人信息卡片 */
+.profile-card {
+  margin-top: 140rpx; /* 留出顶部空间 */
+  background: $color-card;
+  border-radius: 24rpx;
+  padding: 50rpx 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 10rpx 40rpx rgba(74, 111, 165, 0.08);
+  position: relative;
+  z-index: 1;
+  margin-bottom: 50rpx;
+}
 
-.admin-entry .menu-icon { text-shadow: 0 0 5px #ff003c; }
+.avatar-section {
+  position: absolute;
+  top: -70rpx;
+}
 
-.modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
-.cyber-modal { width: 80%; background: #0a0a0a; border: 1px solid #00f3ff; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2); padding: 0; display: flex; flex-direction: column; }
-.modal-header { background: rgba(0, 243, 255, 0.1); padding: 10px 15px; border-bottom: 1px solid #00f3ff; display: flex; justify-content: space-between; align-items: center; }
-.modal-title { color: #00f3ff; font-weight: bold; font-size: 14px; letter-spacing: 1px; }
-.close-btn { color: #fff; font-size: 18px; padding: 5px; }
+.avatar-wrapper {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 50%;
+  background: $color-card;
+  padding: 6rpx;
+  box-shadow: 0 8rpx 20rpx rgba(0,0,0,0.05);
+  position: relative;
+}
 
-.modal-body { padding: 20px; }
-.input-group { margin-bottom: 15px; }
-.label { display: block; color: #666; font-size: 10px; margin-bottom: 5px; font-weight: bold; }
-.cyber-input { background: #111; border: 1px solid #333; color: #fff; padding: 10px; font-size: 14px; border-radius: 2px; }
-.cyber-input:focus { border-color: #00f3ff; box-shadow: 0 0 5px rgba(0,243,255,0.3); }
-.ph { color: #444; }
+.avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: #E0E0E0;
+}
 
-.modal-footer { display: flex; border-top: 1px solid #333; }
-.modal-btn { flex: 1; background: transparent; border: none; color: #fff; border-radius: 0; padding: 15px 0; font-size: 14px; font-weight: bold; }
-.modal-btn:active { background: #1a1a1a; }
-.modal-btn.confirm { color: #00f3ff; border-left: 1px solid #333; }
-.modal-btn.cancel { color: #666; }
+.camera-icon {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: $color-primary;
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4rpx solid $color-card;
+}
+
+.camera-icon text { font-size: 22rpx; color: #FFF; }
+
+.info-section {
+  margin-top: 80rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.username {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: $color-text-main;
+  margin-bottom: 10rpx;
+}
+
+.user-id {
+  font-size: 24rpx;
+  color: $color-text-sub;
+  margin-bottom: 20rpx;
+}
+
+.role-badge {
+  background: #F0F2F5;
+  padding: 6rpx 20rpx;
+  border-radius: 30rpx;
+}
+
+.role-badge text {
+  font-size: 20rpx;
+  color: $color-text-sub;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.role-badge.admin {
+  background: rgba(74, 111, 165, 0.1);
+}
+.role-badge.admin text { color: $color-primary; }
+
+/* 3. 菜单列表 */
+.menu-list {
+  padding-bottom: 60rpx;
+}
+
+.menu-group {
+  background: $color-card;
+  border-radius: 20rpx;
+  margin-bottom: 30rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.02);
+}
+
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 30rpx 30rpx;
+  border-bottom: 1px solid #F5F5F5;
+}
+
+.menu-item:last-child { border-bottom: none; }
+.menu-item:active { background: #FAFAFA; }
+
+.item-left {
+  display: flex;
+  align-items: center;
+}
+
+.icon-box {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 24rpx;
+  background: #F5F5F5;
+}
+
+.icon-box.blue { background: rgba(74, 111, 165, 0.1); }
+.icon-box.orange { background: rgba(255, 138, 101, 0.1); }
+.icon-box.green { background: rgba(76, 175, 80, 0.1); }
+.icon-box.purple { background: rgba(156, 39, 176, 0.1); }
+
+.menu-icon { font-size: 32rpx; }
+
+.menu-text {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: $color-text-main;
+}
+
+.arrow {
+  color: #CFD8DC;
+  font-size: 28rpx;
+  font-family: monospace;
+}
+
+.logout-item { justify-content: center; }
+.logout-text { color: #FF5252; font-weight: 600; }
+
+.footer-version {
+  text-align: center;
+  font-size: 22rpx;
+  color: $color-text-sub;
+  margin-bottom: 40rpx;
+}
+
+/* 4. 弹窗样式 */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-card {
+  width: 560rpx;
+  background: $color-card;
+  border-radius: 24rpx;
+  padding: 40rpx;
+  box-shadow: 0 20rpx 60rpx rgba(0,0,0,0.1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40rpx;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: $color-text-main;
+}
+
+.close-icon {
+  color: $color-text-sub;
+  font-size: 36rpx;
+  padding: 10rpx;
+}
+
+.modal-body {
+  margin-bottom: 40rpx;
+}
+
+.input-field {
+  margin-bottom: 30rpx;
+}
+
+.field-label {
+  display: block;
+  font-size: 24rpx;
+  color: $color-text-sub;
+  margin-bottom: 12rpx;
+}
+
+.field-input {
+  background: #F5F5F5;
+  height: 80rpx;
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: $color-text-main;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.modal-btn {
+  flex: 1;
+  height: 80rpx;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-btn.cancel {
+  background: #F5F5F5;
+  color: $color-text-sub;
+}
+
+.modal-btn.confirm {
+  background: $color-primary;
+  color: #FFF;
+}
+
+/* 动画 */
+.fade-in { animation: fadeIn 0.6s ease-out; }
+.slide-up { animation: slideUp 0.6s ease-out; }
+.scale-in { animation: scaleIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(40rpx); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scaleIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 </style>

@@ -1,70 +1,93 @@
 <template>
-  <view class="container dark-theme">
-    <view class="cyber-bg"></view>
-    
+  <view class="container">
     <view class="fixed-header">
-        <view class="search-bar">
+      <view class="search-section">
+        <view class="search-input-wrapper">
+          <text class="search-icon">🔍</text>
           <input 
-            class="cyber-input" 
+            class="custom-input" 
             v-model="searchKeyword" 
-            placeholder="SEARCH DATABASE..." 
+            placeholder="搜索单词或中文释义..." 
+            placeholder-class="ph-style"
             @confirm="doSearch(true)"
           />
-          <view class="search-btn" @click="doSearch(true)">🔍</view>
+          <view class="clear-btn" v-if="searchKeyword" @click="searchKeyword='';doSearch(true)">✕</view>
         </view>
+      </view>
 
-        <view class="level-filter-bar">
-            <picker 
-                mode="selector" 
-                :range="levelOptions" 
-                range-key="label" 
-                :value="levelIndex" 
-                @change="handleLevelChange"
-            >
-                <view class="level-select-btn">
-                    <text class="l-label">LEVEL FILTER:</text>
-                    <text class="l-value">{{ levelOptions[levelIndex].label }}</text>
-                    <text class="l-arrow">▼</text>
-                </view>
-            </picker>
+      <view class="filter-toolbar">
+        <picker 
+          mode="selector" 
+          :range="levelOptions" 
+          range-key="label" 
+          :value="levelIndex" 
+          @change="handleLevelChange"
+        >
+          <view class="custom-dropdown" hover-class="btn-hover">
+            <view class="dropdown-info">
+              <text class="dropdown-label">LEVEL</text>
+              <text class="dropdown-value">{{ levelOptions[levelIndex].label.split(' ')[0] }}</text>
+            </view>
+            <text class="dropdown-arrow">▼</text>
+          </view>
+        </picker>
+
+        <view class="mode-capsule">
+          <view class="mode-item" :class="{active: !showDifficult}" @click="toggleDifficult(false)" hover-class="tab-hover">全部</view>
+          <view class="mode-item" :class="{active: showDifficult}" @click="toggleDifficult(true)" hover-class="tab-hover">困难</view>
         </view>
+      </view>
 
-        <scroll-view class="letter-index" scroll-x>
-          <view v-for="l in letters" :key="l" class="letter-item" :class="{active: activeLetter === l}" @click="filterByLetter(l)">{{ l }}</view>
-        </scroll-view>
-
-        <view class="filter-tabs">
-          <view class="tab" :class="{active: !showDifficult}" @click="toggleDifficult(false)">ALL_DATA</view>
-          <view class="tab danger" :class="{active: showDifficult}" @click="toggleDifficult(true)">HARD_MODE</view>
-        </view>
+      <scroll-view class="letter-scroll" scroll-x show-scrollbar="false">
+        <view 
+          v-for="l in letters" 
+          :key="l" 
+          class="letter-item" 
+          :class="{active: activeLetter === l}" 
+          @click="filterByLetter(l)"
+        >{{ l }}</view>
+      </scroll-view>
     </view>
 
     <scroll-view 
-        class="list-area" 
-        scroll-y="true" 
-        @scrolltolower="loadMore"
-        lower-threshold="50"
+      class="list-area" 
+      scroll-y="true" 
+      @scrolltolower="loadMore"
+      lower-threshold="100"
     >
-      <view 
-        v-for="(item, index) in displayList" 
-        :key="index" 
-        class="word-item"
-        @click="playAudio(item.word)"
-      >
-        <view class="w-row">
-          <text class="w-word">{{ item.word }}</text>
-          <text class="w-level-tag">{{ item.level }}</text> 
-          <text class="w-phonetic" v-if="item.phonetic">[{{ item.phonetic }}]</text>
-          <text class="audio-hint">🔊</text>
+      <view v-if="displayList.length > 0" class="list-wrapper">
+        <view 
+          v-for="(item, index) in displayList" 
+          :key="index" 
+          class="word-card"
+          hover-class="item-hover"
+          @click="playAudio(item.word)"
+        >
+          <view class="card-top">
+            <text class="w-word">{{ item.word }}</text>
+            <view class="w-tags">
+              <text class="tag level-tag">{{ item.level }}</text>
+              <text class="tag phonetic-tag" v-if="item.phonetic">[{{ item.phonetic }}]</text>
+            </view>
+            <text class="audio-icon">🔊</text>
+          </view>
+          <text class="w-trans">{{ item.translation }}</text>
         </view>
-        <text class="w-trans">{{ item.translation }}</text>
+      </view>
+
+      <view class="status-footer">
+        <block v-if="loading">
+          <view class="loading-spinner"></view>
+          <text>正在检索数据库...</text>
+        </block>
+        <text v-else-if="!hasMore && displayList.length > 0">已经到底了</text>
+        <view v-else-if="displayList.length === 0" class="empty-view">
+          <text class="empty-icon">📂</text>
+          <text>没有找到相关单词</text>
+        </view>
       </view>
       
-      <view class="loading-more">
-        <text v-if="loading">LOADING MORE...</text>
-        <text v-else-if="!hasMore">--- END OF FILE ---</text>
-        <text v-else-if="displayList.length === 0">NO DATA FOUND</text>
-      </view>
+      <view style="height: 40rpx;"></view>
     </scroll-view>
   </view>
 </template>
@@ -96,7 +119,6 @@ const loading = ref(false);
 
 const getToken = () => uni.getStorageSync('userInfo')?.token || '';
 
-
 const playAudio = (word) => {
     const url = `https://dict.youdao.com/dictvoice?audio=${word}&type=2`;
     const audio = uni.createInnerAudioContext();
@@ -112,15 +134,12 @@ const handleLevelChange = (e) => {
 
 const doSearch = (isRefresh = false) => {
   if (loading.value) return;
-  
   if (isRefresh) {
     page.value = 1;
     displayList.value = [];
     hasMore.value = true;
   }
-  
   if (!hasMore.value && !isRefresh) return;
-  
   loading.value = true;
   const user = uni.getStorageSync('userInfo');
   const selectedLevel = levelOptions[levelIndex.value].value;
@@ -142,20 +161,15 @@ const doSearch = (isRefresh = false) => {
       loading.value = false;
       if (res.data.code === 200) {
         const newItems = res.data.data;
-        if (isRefresh) {
-            displayList.value = newItems;
-        } else {
-            displayList.value = [...displayList.value, ...newItems];
-        }
+        if (isRefresh) displayList.value = newItems;
+        else displayList.value = [...displayList.value, ...newItems];
         hasMore.value = res.data.has_more;
-        if (hasMore.value) {
-            page.value++;
-        }
+        if (hasMore.value) page.value++;
       }
     },
     fail: () => {
         loading.value = false;
-        uni.showToast({ title: '网络错误', icon: 'none' });
+        uni.showToast({ title: '网络连接异常', icon: 'none' });
     }
   });
 };
@@ -167,33 +181,195 @@ const toggleDifficult = (val) => { showDifficult.value = val; doSearch(true); };
 onMounted(() => doSearch(true));
 </script>
 
-<style scoped>
-page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', monospace; height: 100vh; overflow: hidden; }
-.container { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-.cyber-bg { position: fixed; width: 100%; height: 100%; background: radial-gradient(circle, #111 0%, #000 100%); z-index: -1; }
-.fixed-header { background: #050505; z-index: 10; border-bottom: 1px solid #222; }
+<style lang="scss" scoped>
+$color-bg: #F5F5F0;
+$color-card: #FFFFFF;
+$color-primary: #4A6FA5;
+$color-accent: #FF8A65;
+$color-text-main: #2C3E50;
+$color-text-sub: #95A5A6;
+$color-line: #E0E0E0;
 
-.search-bar { display: flex; padding: 30rpx; gap: 20rpx; }
-.cyber-input { flex: 1; border: 1px solid #333; color: #fff; padding: 15rpx 20rpx; background: #0a0a0a; border-radius: 4rpx; }
-.search-btn { padding: 15rpx 30rpx; background: #222; border: 1px solid #444; border-radius: 4rpx; }
-.level-filter-bar { padding: 0 30rpx 20rpx; }
-.level-select-btn { display: flex; justify-content: space-between; align-items: center; background: rgba(0, 243, 255, 0.1); border: 1px solid #00f3ff; padding: 15rpx 20rpx; border-radius: 4rpx; }
-.l-label { font-size: 22rpx; color: #00f3ff; font-weight: bold; }
-.l-value { font-size: 24rpx; color: #fff; }
-.letter-index { white-space: nowrap; padding: 20rpx 0; border-top: 1px dashed #222; height: 80rpx; }
-.letter-item { display: inline-block; padding: 10rpx 25rpx; color: #666; font-weight: bold; font-size: 28rpx; }
-.letter-item.active { color: #00ff9d; border-bottom: 2px solid #00ff9d; }
-.filter-tabs { display: flex; border-top: 1px solid #222; }
-.tab { flex: 1; text-align: center; padding: 25rpx; color: #666; font-size: 24rpx; background: #080808; }
-.tab.active { color: #fff; background: #1a1a1a; border-bottom: 2px solid #00f3ff; }
-.list-area { flex: 1; padding: 0 30rpx; box-sizing: border-box; height: 0; overflow-y: scroll; }
-.word-item { padding: 30rpx 0; border-bottom: 1px dashed #222; }
-.word-item:active { background: #111; }
-.w-row { display: flex; align-items: baseline; gap: 15rpx; margin-bottom: 10rpx; flex-wrap: wrap; }
-.w-word { font-size: 36rpx; color: #fff; font-weight: bold; }
-.w-level-tag { font-size: 18rpx; color: #000; background: #00f3ff; padding: 2rpx 8rpx; border-radius: 4rpx; font-weight: bold; vertical-align: middle; }
-.w-phonetic { color: #00f3ff; font-size: 24rpx; font-family: sans-serif; }
-.w-trans { display: block; color: #888; font-size: 26rpx; line-height: 1.4; }
-.audio-hint { font-size: 24rpx; margin-left: auto; opacity: 0.5; }
-.loading-more { text-align: center; padding: 40rpx; font-size: 22rpx; color: #444; }
+page { 
+  background-color: $color-bg; 
+  height: 100vh;
+  font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+  overflow: hidden;
+}
+
+.container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.fixed-header {
+  background-color: $color-bg;
+  padding-top: var(--status-bar-height);
+  z-index: 100;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.02);
+}
+
+/* 搜索栏 */
+.search-section { padding: 30rpx 40rpx 10rpx; }
+.search-input-wrapper {
+  background: #FFF;
+  height: 80rpx;
+  border-radius: 12rpx; /* 改为稍微方正的圆角更高级 */
+  display: flex;
+  align-items: center;
+  padding: 0 30rpx;
+  border: 1px solid rgba(74, 111, 165, 0.1);
+  box-shadow: 0 4rpx 16rpx rgba(74, 111, 165, 0.04);
+}
+.search-icon { font-size: 28rpx; color: $color-text-sub; margin-right: 16rpx; }
+.custom-input { flex: 1; font-size: 28rpx; color: $color-text-main; }
+.clear-btn { padding: 10rpx; color: #CFD8DC; font-size: 24rpx; }
+
+/* 筛选工具栏重构 */
+.filter-toolbar {
+  padding: 20rpx 40rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.custom-dropdown {
+  background: #FFF;
+  flex: 1;
+  height: 80rpx;
+  padding: 0 24rpx;
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(74, 111, 165, 0.15);
+  box-shadow: 0 4rpx 12rpx rgba(74, 111, 165, 0.05);
+}
+
+.dropdown-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.dropdown-label {
+  font-size: 16rpx;
+  color: $color-text-sub;
+  font-weight: 800;
+  letter-spacing: 1px;
+  line-height: 1;
+  margin-bottom: 4rpx;
+}
+
+.dropdown-value {
+  font-size: 24rpx;
+  color: $color-primary;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dropdown-arrow { font-size: 18rpx; color: #CFD8DC; }
+
+.mode-capsule {
+  display: flex;
+  background: rgba(0,0,0,0.04);
+  padding: 6rpx;
+  border-radius: 12rpx; /* 统一圆角 */
+  height: 80rpx;
+  box-sizing: border-box;
+}
+
+.mode-item {
+  padding: 0 30rpx;
+  font-size: 24rpx;
+  color: $color-text-sub;
+  border-radius: 8rpx;
+  display: flex;
+  align-items: center;
+  transition: all 0.3s;
+}
+
+.mode-item.active {
+  background: #FFF;
+  color: $color-primary;
+  font-weight: 700;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.08);
+}
+
+.btn-hover, .tab-hover { opacity: 0.8; transform: scale(0.98); }
+
+/* 字母索引 */
+.letter-scroll {
+  white-space: nowrap;
+  padding: 10rpx 0;
+  height: 80rpx;
+  border-top: 1px solid rgba(0,0,0,0.02);
+}
+.letter-item {
+  display: inline-block;
+  padding: 10rpx 30rpx;
+  font-size: 26rpx;
+  color: $color-text-sub;
+  font-weight: 600;
+}
+.letter-item.active {
+  color: $color-primary;
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 4rpx;
+    left: 30rpx;
+    right: 30rpx;
+    height: 4rpx;
+    background: $color-primary;
+    border-radius: 4rpx;
+  }
+}
+
+/* 列表 */
+.list-area { flex: 1; height: 0; }
+.list-wrapper { padding: 20rpx 40rpx; }
+.word-card {
+  background: #FFF;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0,0,0,0.02);
+  border: 1px solid transparent;
+}
+.item-hover { border-color: rgba(74, 111, 165, 0.2); background-color: #FAFAFA; }
+
+.card-top { display: flex; align-items: center; margin-bottom: 12rpx; }
+.w-word { font-size: 34rpx; font-weight: 700; color: $color-text-main; margin-right: 16rpx; }
+.w-tags { flex: 1; display: flex; align-items: center; gap: 12rpx; }
+.tag { font-size: 18rpx; padding: 2rpx 10rpx; border-radius: 6rpx; font-weight: 600; }
+.level-tag { background: rgba(74, 111, 165, 0.1); color: $color-primary; }
+.phonetic-tag { color: $color-text-sub; font-family: 'Times New Roman', serif; }
+.audio-icon { font-size: 28rpx; opacity: 0.3; }
+.w-trans { font-size: 26rpx; color: #546E7A; line-height: 1.4; display: block; }
+
+/* 状态页脚 */
+.status-footer {
+  padding: 60rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 22rpx;
+  color: $color-text-sub;
+}
+.loading-spinner {
+  width: 32rpx; height: 32rpx;
+  border: 3rpx solid rgba(74, 111, 165, 0.2);
+  border-top-color: $color-primary;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16rpx;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-view { display: flex; flex-direction: column; align-items: center; margin-top: 100rpx; }
+.empty-icon { font-size: 80rpx; margin-bottom: 20rpx; opacity: 0.5; }
+.ph-style { color: #CFD8DC; font-weight: 300; }
 </style>

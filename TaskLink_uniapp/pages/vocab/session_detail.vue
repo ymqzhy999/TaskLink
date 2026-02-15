@@ -1,23 +1,41 @@
 <template>
-  <view class="container dark-theme">
-    <view class="cyber-bg"></view>
-    
-    <view class="header">
-      <view class="back-btn" @click="goBack">⇇ BACK</view>
-      <text class="title">LOG DETAILS</text>
+  <view class="container">
+    <view class="nav-header">
+      <view class="back-btn" @click="goBack">
+        <text class="back-icon">←</text>
+        <text>返回</text>
+      </view>
+      <text class="page-title">训练详情</text>
+      <view style="width: 80rpx;"></view>
     </view>
 
     <scroll-view scroll-y class="list-area">
-      <view class="word-item" v-for="(item, index) in list" :key="index">
-        <view class="w-main">
-          <text class="w-text">{{ item.word }}</text>
-          <view class="w-audio" @click="playAudio(item.word)">🔊</view>
-        </view>
-        <text class="w-trans">{{ item.trans }}</text>
-        <view class="w-badge" :class="'q-' + item.quality">
-          {{ getQualityLabel(item.quality) }}
+      <view class="list-wrapper">
+        <view 
+          class="word-card" 
+          v-for="(item, index) in list" 
+          :key="index"
+          :class="'border-q' + item.quality"
+        >
+          <view class="card-main">
+            <view class="word-row">
+              <text class="w-text">{{ item.word }}</text>
+              <view class="audio-btn" @click="playAudio(item.word)">
+                <text>🔊</text>
+              </view>
+            </view>
+            <text class="w-trans">{{ item.trans }}</text>
+          </view>
+          
+          <view class="card-footer">
+            <view class="quality-badge" :class="'q-' + item.quality">
+              {{ getQualityLabel(item.quality) }}
+            </view>
+          </view>
         </view>
       </view>
+      
+      <view style="height: 40rpx;"></view>
     </scroll-view>
   </view>
 </template>
@@ -25,6 +43,10 @@
 <script setup>
 import { ref } from 'vue';                
 import { onLoad } from '@dcloudio/uni-app';   
+
+/* =================================================================
+   核心业务逻辑 (保持原样)
+   ================================================================= */
 const API_BASE = `http://101.35.132.175:5000`;
 const list = ref([]);
 
@@ -35,7 +57,7 @@ onLoad((options) => {
 });
 
 const fetchDetail = (sessionId) => {
-  uni.showLoading({ title: 'LOADING...' });
+  uni.showLoading({ title: '加载中...' });
   uni.request({
     url: `${API_BASE}/api/training/detail?session_id=${sessionId}`,
     success: (res) => {
@@ -62,20 +84,143 @@ const getQualityLabel = (q) => {
 const goBack = () => uni.navigateBack();
 </script>
 
-<style scoped>
-page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', monospace; }
-.container { height: 100vh; display: flex; flex-direction: column; }
-.cyber-bg { position: fixed; width: 100%; height: 100%; background: #111; z-index: -1; }
-.header { padding: 40rpx 30rpx; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; margin-top: 40rpx;}
-.back-btn { font-size: 24rpx; color: #666; }	
-.title { font-size: 32rpx; font-weight: bold; letter-spacing: 2rpx; }
-.list-area { flex: 1; padding: 20rpx; box-sizing: border-box; }
-.word-item { background: #1a1a1a; padding: 25rpx; margin-bottom: 20rpx; border-left: 4rpx solid #333; border-radius: 4rpx; }
-.w-main { display: flex; align-items: center; margin-bottom: 10rpx; }
-.w-text { font-size: 36rpx; color: #fff; font-weight: bold; margin-right: 20rpx; }
-.w-audio { font-size: 30rpx; padding: 10rpx; }
-.w-trans { font-size: 24rpx; color: #888; display: block; margin-bottom: 15rpx; }
-.w-badge { display: inline-block; font-size: 20rpx; padding: 4rpx 12rpx; background: #000; border: 1px solid #333; border-radius: 4rpx; }
-.q-0 { color: #ff003c; border-color: #ff003c; }
-.q-5 { color: #00ff9d; border-color: #00ff9d; }
+<style lang="scss" scoped>
+/* 1. 色彩变量 */
+$color-bg: #F5F5F0;        /* 浅米色 */
+$color-card: #FFFFFF;      /* 纯白 */
+$color-primary: #4A6FA5;   /* 莫兰迪蓝 */
+$color-text-main: #2C3E50; /* 深灰 */
+$color-text-sub: #95A5A6;  /* 浅灰 */
+
+/* 评分配色 */
+$q0: #EF9A9A; /* 柔和红 */
+$q3: #FFE082; /* 柔和黄 */
+$q4: #90CAF9; /* 莫兰迪蓝 */
+$q5: #A5D6A7; /* 莫兰迪绿 */
+
+page { 
+  background-color: $color-bg; 
+  height: 100vh;
+  font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+}
+
+.container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 2. 导航栏 */
+.nav-header {
+  height: 88rpx;
+  padding-top: var(--status-bar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 30rpx;
+  padding-right: 30rpx;
+  background-color: $color-bg;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  color: $color-primary;
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.back-icon {
+  font-size: 36rpx;
+  margin-right: 4rpx;
+  margin-top: -4rpx;
+}
+
+.page-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: $color-text-main;
+}
+
+/* 3. 列表区域 */
+.list-area {
+  flex: 1;
+  height: 0;
+}
+
+.list-wrapper {
+  padding: 30rpx;
+}
+
+.word-card {
+  background: $color-card;
+  border-radius: 20rpx;
+  padding: 30rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(74, 111, 165, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-left: 8rpx solid transparent;
+  transition: transform 0.2s;
+}
+
+.word-card:active { transform: scale(0.98); }
+
+/* 侧边评分装饰条 */
+.border-q0 { border-left-color: $q0; }
+.border-q3 { border-left-color: $q3; }
+.border-q4 { border-left-color: $q4; }
+.border-q5 { border-left-color: $q5; }
+
+.card-main {
+  flex: 1;
+}
+
+.word-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.w-text {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: $color-text-main;
+  margin-right: 20rpx;
+}
+
+.audio-btn {
+  padding: 10rpx;
+  font-size: 28rpx;
+  opacity: 0.3;
+}
+
+.w-trans {
+  font-size: 26rpx;
+  color: $color-text-sub;
+  display: block;
+}
+
+/* 4. 评分标签 */
+.card-footer {
+  margin-left: 20rpx;
+}
+
+.quality-badge {
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 6rpx 16rpx;
+  border-radius: 10rpx;
+  color: #FFF;
+}
+
+.q-0 { background-color: $q0; }
+.q-3 { background-color: $q3; color: #795548; }
+.q-4 { background-color: $q4; }
+.q-5 { background-color: $q5; }
+
+/* 统一字体呼吸感 */
+.w-text { letter-spacing: 0.5px; }
+.w-trans { line-height: 1.4; }
 </style>

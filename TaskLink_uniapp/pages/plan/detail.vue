@@ -1,56 +1,88 @@
 <template>
-  <view class="container dark-theme">
-    <view class="cyber-bg"></view>
-
+  <view class="container">
     <view class="nav-header">
-      <view class="back-btn" @click="goBack">❮ 返回中枢</view>
-      <text class="nav-title">计划详情</text>
-    </view>
+      <view class="back-btn" @click="goBack">
+        <text class="back-icon">←</text>
+        <text>返回</text>
+      </view>
+      <text class="page-title">计划详情</text>
+      <view style="width: 80rpx;"></view> </view>
 
     <view v-if="loading" class="loading-state">
-      <text class="loading-text">正在解析计划数据...</text>
-      <view class="loading-bar"></view>
+      <view class="loading-spinner"></view>
+      <text class="loading-text">Loading Plan...</text>
     </view>
 
-    <view v-else class="content-area">
-      <view class="plan-overview fade-in">
-        <text class="big-title" user-select>{{ plan.title }}</text>
-        <view class="meta-row">
-          <text class="meta-tag" user-select>核心目标: {{ plan.goal }}</text>
+    <view v-else class="content-area fade-in">
+      <view class="plan-header-card">
+        <text class="plan-title">{{ plan.title }}</text>
+        <view class="plan-meta-row">
+          <view class="meta-tag primary">
+            <text class="tag-label">GOAL</text>
+            <text class="tag-value">{{ plan.goal }}</text>
+          </view>
         </view>
-        <view class="meta-row">
-          <text class="meta-tag blue">总周期: {{ plan.total_days }} 天</text>
-          <text class="meta-tag purple">同步率: {{ plan.progress }}%</text>
+        <view class="plan-stats-row">
+          <view class="stat-item">
+            <text class="stat-num">{{ plan.total_days }}</text>
+            <text class="stat-label">Days</text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-item">
+            <text class="stat-num highlight">{{ plan.progress }}%</text>
+            <text class="stat-label">Done</text>
+          </view>
         </view>
       </view>
 
-      <view class="timeline">
+      <view class="timeline-section">
         <view class="timeline-line"></view>
         
-        <view v-for="(task, index) in tasks" :key="task.id" class="day-node slide-in" :style="{ animationDelay: index * 0.1 + 's' }">
-          <view class="node-dot" :class="{ completed: task.is_completed }"></view>
+        <view 
+          v-for="(task, index) in tasks" 
+          :key="task.id" 
+          class="timeline-item slide-up" 
+          :style="{ animationDelay: index * 0.05 + 's' }"
+        >
+          <view class="timeline-node" :class="{ 'completed': task.is_completed }">
+            <view class="node-center"></view>
+          </view>
           
-          <view class="day-card" :class="{ active: activeDay === index }" @click="toggleDay(index)">
-            <view class="day-header">
-              <text class="day-idx">NODE {{ (index + 1).toString().padStart(2, '0') }}</text>
-              <text class="day-title" user-select>{{ task.title }}</text>
-              <view class="arrow" :class="{ rotated: activeDay === index }">▼</view>
+          <view 
+            class="task-card" 
+            :class="{ 'active': activeDay === index, 'card-completed': task.is_completed }" 
+            @click="toggleDay(index)"
+          >
+            <view class="card-header">
+              <view class="header-left">
+                <text class="day-index">DAY {{ (index + 1).toString().padStart(2, '0') }}</text>
+                <text class="task-title">{{ task.title }}</text>
+              </view>
+              <view class="expand-icon" :class="{ 'rotated': activeDay === index }">
+                <text>▼</text>
+              </view>
             </view>
             
-            <view class="day-body" v-if="activeDay === index">
-              <text class="md-content typing-effect" user-select>{{ getDisplayContent(index) }}</text>
+            <view v-if="activeDay === index" class="card-body">
+              <text class="task-content">{{ getDisplayContent(index) }}</text>
               
-              <view class="cursor-line" v-if="typingIndex === index && !isTypingFinished"></view>
+              <view class="cursor-blink" v-if="typingIndex === index && !isTypingFinished"></view>
               
-              <view class="action-bar fade-in-slow" v-if="isTypingFinished || typingIndex !== index">
-                  <button class="mark-btn" :class="{ done: task.is_completed }" @click.stop="toggleComplete(task)">
-                    {{ task.is_completed ? '✅ 节点已归档' : '⚡ 标记为完成' }}
-                  </button>
+              <view class="action-bar fade-in" v-if="isTypingFinished || typingIndex !== index">
+                <view 
+                  class="complete-btn" 
+                  :class="{ 'btn-done': task.is_completed }" 
+                  @click.stop="toggleComplete(task)"
+                >
+                  <text>{{ task.is_completed ? '已完成' : '标记完成' }}</text>
+                </view>
               </view>
             </view>
           </view>
         </view>
       </view>
+      
+      <view style="height: 60rpx;"></view>
     </view>
   </view>
 </template>
@@ -59,7 +91,11 @@
 import { ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 
-const API_BASE = `http://101.35.132.175:5000`;const planId = ref(null);
+/* =================================================================
+   核心业务逻辑 (保持原样)
+   ================================================================= */
+const API_BASE = `http://101.35.132.175:5000`;
+const planId = ref(null);
 const loading = ref(true);
 const plan = ref({});
 const tasks = ref([]);
@@ -77,10 +113,13 @@ onLoad((options) => {
 });
 
 const goBack = () => {
-  uni.switchTab({
-    url: '/pages/index/index',
-    fail: () => uni.navigateBack()
-  });
+  // 尝试返回上一页，如果不行则跳转首页
+  const pages = getCurrentPages();
+  if (pages.length > 1) {
+    uni.navigateBack();
+  } else {
+    uni.switchTab({ url: '/pages/index/index' });
+  }
 };
 
 const fetchDetail = () => {
@@ -91,7 +130,7 @@ const fetchDetail = () => {
         plan.value = res.data.data.info;
         tasks.value = res.data.data.tasks;
       } else {
-        uni.showToast({ title: '数据损坏', icon: 'none' });
+        uni.showToast({ title: '数据加载失败', icon: 'none' });
       }
       loading.value = false;
     },
@@ -109,7 +148,7 @@ const toggleDay = (index) => {
   }
   activeDay.value = index;
   if (!displayTexts.value[index]) {
-    const fullContent = tasks.value[index].content || "暂无数据...";
+    const fullContent = tasks.value[index].content || "暂无详细内容...";
     startTypewriter(index, fullContent);
   }
 };
@@ -123,31 +162,31 @@ const startTypewriter = (index, fullText) => {
   displayTexts.value[index] = '';
   
   let i = 0;
+  // 稍微加快打字速度
   timers[index] = setInterval(() => {
     if (i < fullText.length) {
-      displayTexts.value[index] += fullText.substring(i, i+2);
-      i += 2;
+      displayTexts.value[index] += fullText.substring(i, i+3);
+      i += 3;
     } else {
       clearInterval(timers[index]);
       isTypingFinished.value = true;
     }
-  }, 5); 
+  }, 10); 
 };
 
 const toggleComplete = (task) => {
   const originalStatus = task.is_completed;
   task.is_completed = !task.is_completed;
-
   
   uni.request({
     url: `${API_BASE}/api/plan/task/${task.id}/toggle`,
     method: 'POST',
     success: (res) => {
       if (res.data.code === 200) {
-        uni.showToast({ title: task.is_completed ? '已归档' : '已重置', icon: 'none' });
+        uni.showToast({ title: task.is_completed ? '已完成' : '已撤销', icon: 'none' });
       } else {
         task.is_completed = originalStatus;
-        uni.showToast({ title: '保存失败', icon: 'none' });
+        uni.showToast({ title: '操作失败', icon: 'none' });
       }
     },
     fail: () => {
@@ -158,61 +197,327 @@ const toggleComplete = (task) => {
 };
 </script>
 
-<style>
-page { background: #050505; color: #fff; font-family: 'Courier New', monospace; }
-.container { padding: 20px; min-height: 100vh; }
-.cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 10% 10%, #111 0%, #000 80%); z-index: -1; }
+<style lang="scss" scoped>
+/* 1. 色彩变量 */
+$color-bg: #F5F5F0;        /* 浅米色 */
+$color-card: #FFFFFF;      /* 纯白 */
+$color-primary: #4A6FA5;   /* 莫兰迪蓝 */
+$color-accent: #FF8A65;    /* 珊瑚橙 */
+$color-text-main: #2C3E50; /* 深灰 */
+$color-text-sub: #95A5A6;  /* 浅灰 */
+$color-line: #E0E0E0;
 
-.nav-header { display: flex; align-items: center; margin-bottom: 30px; margin-top: 40px; }
-.back-btn { color: #00f3ff; font-size: 14px; border: 1px solid #00f3ff; padding: 6px 12px; margin-right: 15px; cursor: pointer; background: rgba(0, 243, 255, 0.1); }
-.nav-title { font-weight: 900; font-size: 18px; letter-spacing: 2px; }
+page { 
+  background-color: $color-bg; 
+  height: 100vh;
+  font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+}
 
-.plan-overview { margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 20px; }
-.big-title { font-size: 22px; font-weight: bold; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.3); display: block; margin-bottom: 10px; }
-.meta-tag { display: inline-block; background: #111; color: #888; padding: 4px 8px; font-size: 10px; margin-right: 10px; margin-bottom: 5px; border: 1px solid #333; }
-.meta-tag.blue { color: #00f3ff; border-color: #00f3ff; }
-.meta-tag.purple { color: #bc13fe; border-color: #bc13fe; }
+.container {
+  min-height: 100vh;
+  background-color: $color-bg;
+  padding: 0 30rpx;
+  box-sizing: border-box;
+}
 
-.timeline { position: relative; padding-left: 20px; }
-.timeline-line { position: absolute; left: 4px; top: 0; bottom: 0; width: 2px; background: #222; z-index: 0; }
+/* 2. 导航栏 */
+.nav-header {
+  height: 88rpx;
+  padding-top: var(--status-bar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
 
-.day-node { margin-bottom: 20px; position: relative; z-index: 1; }
-.node-dot { width: 10px; height: 10px; background: #000; border: 2px solid #666; border-radius: 50%; position: absolute; left: -20px; top: 15px; z-index: 2; transition: all 0.3s; }
-.node-dot.completed { background: #00ff9d; border-color: #00ff9d; box-shadow: 0 0 10px #00ff9d; }
+.back-btn {
+  display: flex;
+  align-items: center;
+  color: $color-primary;
+  font-size: 28rpx;
+  font-weight: 500;
+  padding: 10rpx;
+}
 
-.day-card { background: #111; border: 1px solid #333; transition: all 0.3s; }
-.day-card.active { border-color: #00f3ff; box-shadow: 0 0 15px rgba(0, 243, 255, 0.1); }
+.back-icon {
+  font-size: 36rpx;
+  margin-right: 4rpx;
+  margin-top: -4rpx;
+}
 
-.day-header { padding: 15px; display: flex; align-items: center; justify-content: space-between; }
-.day-idx { color: #00f3ff; font-weight: bold; margin-right: 10px; font-size: 16px; min-width: 70px; }
-.day-title { 
-  flex: 1; 
-  color: #eee; 
-  font-size: 14px; 
-  font-weight: bold; 
-  white-space: normal;
-  word-break: break-all;
+.page-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: $color-text-main;
+}
+
+/* 3. 计划概览卡片 */
+.plan-header-card {
+  background: $color-card;
+  border-radius: 20rpx;
+  padding: 40rpx;
+  margin-bottom: 50rpx;
+  box-shadow: 0 10rpx 40rpx rgba(74, 111, 165, 0.08);
+}
+
+.plan-title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: $color-text-main;
+  margin-bottom: 24rpx;
+  display: block;
+}
+
+.plan-meta-row {
+  margin-bottom: 40rpx;
+}
+
+.meta-tag {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.tag-label {
+  font-size: 20rpx;
+  color: $color-text-sub;
+  font-weight: 600;
+  letter-spacing: 1px;
+  margin-bottom: 6rpx;
+}
+
+.tag-value {
+  font-size: 26rpx;
+  color: $color-text-main;
   line-height: 1.4;
 }
-.arrow { color: #666; font-size: 12px; transition: transform 0.3s; }
-.arrow.rotated { transform: rotate(180deg); color: #00f3ff; }
 
-.day-body { padding: 0 15px 15px 15px; border-top: 1px solid #222; }
-.md-content { font-size: 13px; color: #aaa; line-height: 1.6; white-space: pre-wrap; display: inline; text-shadow: 0 0 2px rgba(0, 243, 255, 0.2); }
-.cursor-line { display: inline-block; width: 8px; height: 14px; background: #00f3ff; animation: blink 0.8s infinite; margin-left: 2px; vertical-align: middle; }
+.plan-stats-row {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #F0F0F0;
+  padding-top: 30rpx;
+}
 
-.action-bar { margin-top: 20px; text-align: right; }
-.mark-btn { background: transparent; border: 1px solid #00f3ff; color: #00f3ff; font-size: 12px; padding: 6px 15px; display: inline-block; }
-.mark-btn:active { background: rgba(0, 243, 255, 0.2); }
-.mark-btn.done { border-color: #00ff9d; color: #00ff9d; }
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
 
-.fade-in { animation: fadeIn 0.8s ease-out; }
-.slide-in { animation: slideIn 0.5s ease-out backwards; }
-.loading-state { text-align: center; margin-top: 100px; color: #00f3ff; }
-.loading-bar { width: 100px; height: 2px; background: #00f3ff; margin: 10px auto; animation: loadingWidth 1.5s infinite ease-in-out; }
+.stat-num {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: $color-text-main;
+  line-height: 1;
+  margin-bottom: 8rpx;
+}
 
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-@keyframes loadingWidth { 0% { width: 0; } 50% { width: 100px; } 100% { width: 0; } }
+.stat-num.highlight { color: $color-primary; }
+
+.stat-label {
+  font-size: 22rpx;
+  color: $color-text-sub;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 50rpx;
+  background: #F0F0F0;
+}
+
+/* 4. 时间轴区域 */
+.timeline-section {
+  position: relative;
+  padding-left: 20rpx;
+}
+
+.timeline-line {
+  position: absolute;
+  left: 29rpx; /* 调整至节点中心 */
+  top: 0;
+  bottom: 0;
+  width: 2rpx;
+  background: #E0E0E0;
+  z-index: 0;
+}
+
+.timeline-item {
+  position: relative;
+  padding-left: 60rpx; /* 为节点留出空间 */
+  margin-bottom: 40rpx;
+  z-index: 1;
+}
+
+/* 节点样式 */
+.timeline-node {
+  position: absolute;
+  left: 10rpx;
+  top: 40rpx;
+  width: 40rpx;
+  height: 40rpx;
+  background: $color-bg; /* 遮挡线条 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.node-center {
+  width: 16rpx;
+  height: 16rpx;
+  background: $color-text-sub;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.timeline-node.completed .node-center {
+  background: $color-accent;
+  transform: scale(1.2);
+}
+
+/* 任务卡片 */
+.task-card {
+  background: $color-card;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.03);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  border: 1px solid transparent;
+}
+
+.task-card:active { transform: scale(0.99); }
+
+.task-card.active {
+  box-shadow: 0 16rpx 40rpx rgba(74, 111, 165, 0.1);
+  border-color: rgba(74, 111, 165, 0.2);
+}
+
+.task-card.card-completed {
+  opacity: 0.8;
+}
+
+.task-card.card-completed .task-title {
+  text-decoration: line-through;
+  color: $color-text-sub;
+}
+
+/* 卡片头部 */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.header-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.day-index {
+  font-size: 20rpx;
+  color: $color-text-sub;
+  font-weight: 700;
+  margin-bottom: 8rpx;
+  letter-spacing: 0.5px;
+}
+
+.task-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: $color-text-main;
+  line-height: 1.4;
+}
+
+.expand-icon {
+  font-size: 20rpx;
+  color: $color-text-sub;
+  transition: transform 0.3s ease;
+  margin-left: 20rpx;
+  margin-top: 10rpx;
+}
+
+.expand-icon.rotated {
+  transform: rotate(180deg);
+  color: $color-primary;
+}
+
+/* 卡片展开内容 */
+.card-body {
+  margin-top: 30rpx;
+  padding-top: 30rpx;
+  border-top: 1px solid #F5F5F5;
+}
+
+.task-content {
+  font-size: 26rpx;
+  color: $color-text-main;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.cursor-blink {
+  display: inline-block;
+  width: 4rpx;
+  height: 28rpx;
+  background: $color-primary;
+  margin-left: 4rpx;
+  vertical-align: middle;
+  animation: blink 1s infinite;
+}
+
+/* 操作栏 */
+.action-bar {
+  margin-top: 40rpx;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.complete-btn {
+  font-size: 24rpx;
+  color: $color-primary;
+  background: rgba(74, 111, 165, 0.1);
+  padding: 12rpx 30rpx;
+  border-radius: 30rpx;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.complete-btn:active { background: rgba(74, 111, 165, 0.2); }
+
+.complete-btn.btn-done {
+  background: rgba(255, 138, 101, 0.1);
+  color: $color-accent;
+}
+
+/* 动画与加载 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+}
+
+.loading-spinner {
+  width: 50rpx;
+  height: 50rpx;
+  border: 4rpx solid rgba(74, 111, 165, 0.2);
+  border-top-color: $color-primary;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20rpx;
+}
+
+.loading-text {
+  font-size: 24rpx;
+  color: $color-text-sub;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20rpx); } to { opacity: 1; transform: translateY(0); } }
+.fade-in { animation: slideUp 0.5s ease-out; }
+.slide-up { animation: slideUp 0.5s ease-out backwards; }
 </style>

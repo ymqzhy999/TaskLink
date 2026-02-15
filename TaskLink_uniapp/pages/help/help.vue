@@ -1,85 +1,118 @@
 <template>
-  <view class="container dark-theme">
-    <view class="cyber-bg"></view>
-
-    <view class="header">
-      <text class="title">OPERATIONAL GUIDE</text>
-      <text class="subtitle">TaskLink System v1.5</text>
+  <view class="container">
+    <view class="header-section">
+      <view class="header-content">
+        <text class="page-title">User Guide</text>
+        <text class="page-subtitle">TaskLink System v1.5 使用手册</text>
+      </view>
+      <view class="logo-box">
+        <text class="logo-text">?</text>
+      </view>
     </view>
 
-    <scroll-view scroll-y class="content-area">
+    <scroll-view scroll-y class="content-scroll">
       
-      <view class="section-title">CORE MODULE: NEURAL TRAINING</view>
-      
-      <view class="faq-item" :class="{ open: openIndex === 0 }" @click="toggle(0)">
-        <view class="faq-question">
-          <text class="q-icon">Q1</text>
-          <text class="q-text">如何开始每日单词训练？</text>
-          <text class="arrow">▼</text>
-        </view>
-        <view class="faq-answer">
-          <text>点击首页的 [NEURAL TRAINING] 卡片即可接入神经连接。系统会根据 SM-2 记忆算法，自动为您推送 **15个** 待复习或新学习的单词。</text>
-        </view>
+      <view class="section-header">
+        <view class="section-dot"></view>
+        <text class="section-title">CORE MODULE: TRAINING</text>
       </view>
-
-      <view class="faq-item" :class="{ open: openIndex === 1 }" @click="toggle(1)">
-        <view class="faq-question">
-          <text class="q-icon">Q2</text>
-          <text class="q-text">0/3/4/5 四个评分代表什么？</text>
-          <text class="arrow">▼</text>
+      
+      <view class="faq-list">
+        <view class="faq-card" :class="{ 'expanded': openIndex === 0 }" @click="toggle(0)">
+          <view class="card-header">
+            <view class="q-badge">Q1</view>
+            <text class="q-title">如何开始每日单词训练？</text>
+            <view class="arrow-icon">▼</view>
+          </view>
+          <view class="card-body" v-if="openIndex === 0">
+            <text class="answer-text">
+              点击首页的 <text class="highlight">每日单词</text> 卡片即可进入训练模式。系统会基于 SM-2 记忆算法，自动为您生成 **15个** 待复习或新学习的单词组合。
+            </text>
+          </view>
         </view>
-        <view class="faq-answer">
-          <view class="rating-explain">
-            <text class="r-row"><text class="r-tag r0">0 忘记</text> 完全没印象，需要立即重新学习。</text>
-            <text class="r-row"><text class="r-tag r3">3 模糊</text> 记得一点，但不确定或拼写错误。</text>
-            <text class="r-row"><text class="r-tag r4">4 认识</text> 看到能认出，但需要思考一下。</text>
-            <text class="r-row"><text class="r-tag r5">5 精通</text> 看到瞬间反应出意思，秒杀。</text>
-            <text class="r-tip">* 评分直接影响算法对下次复习时间的安排，请诚实选择。</text>
+
+        <view class="faq-card" :class="{ 'expanded': openIndex === 1 }" @click="toggle(1)">
+          <view class="card-header">
+            <view class="q-badge">Q2</view>
+            <text class="q-title">0/3/4/5 评分标准是什么？</text>
+            <view class="arrow-icon">▼</view>
+          </view>
+          <view class="card-body" v-if="openIndex === 1">
+            <view class="rating-guide">
+              <view class="rate-row">
+                <view class="rate-tag rate-0">0 忘记</view>
+                <text class="rate-desc">完全没印象，需要立即重学。</text>
+              </view>
+              <view class="rate-row">
+                <view class="rate-tag rate-3">3 模糊</view>
+                <text class="rate-desc">记得一点，但不确定拼写。</text>
+              </view>
+              <view class="rate-row">
+                <view class="rate-tag rate-4">4 认识</view>
+                <text class="rate-desc">能认出，但需要思考一下。</text>
+              </view>
+              <view class="rate-row">
+                <view class="rate-tag rate-5">5 精通</view>
+                <text class="rate-desc">秒杀，完全掌握。</text>
+              </view>
+              <text class="tip-text">* 评分将直接影响下次复习时间的算法安排，请诚实选择。</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="faq-card" :class="{ 'expanded': openIndex === 2 }" @click="toggle(2)">
+          <view class="card-header">
+            <view class="q-badge">Q3</view>
+            <text class="q-title">没背完可以中途退出吗？</text>
+            <view class="arrow-icon">▼</view>
+          </view>
+          <view class="card-body" v-if="openIndex === 2">
+            <text class="answer-text">
+              可以。点击顶部的 <text class="highlight">保存进度</text> 按钮即可。\n\n系统会自动将当前进度存入历史记录。下次进入时，您可以选择继续上次未完成的训练。
+            </text>
           </view>
         </view>
       </view>
 
-      <view class="faq-item" :class="{ open: openIndex === 2 }" @click="toggle(2)">
-        <view class="faq-question">
-          <text class="q-icon">Q3</text>
-          <text class="q-text">没背完可以中途退出吗？(保存功能)</text>
-          <text class="arrow">▼</text>
+      <view class="section-header">
+        <view class="section-dot purple"></view>
+        <text class="section-title">TOOLS & DATA</text>
+      </view>
+
+      <view class="faq-list">
+        <view class="faq-card" :class="{ 'expanded': openIndex === 3 }" @click="toggle(3)">
+          <view class="card-header">
+            <view class="q-badge">Q4</view>
+            <text class="q-title">如何使用词库 (Vocabulary)？</text>
+            <view class="arrow-icon">▼</view>
+          </view>
+          <view class="card-body" v-if="openIndex === 3">
+            <text class="answer-text">
+              • **搜索**：支持中英文模糊搜索。\n• **发音**：点击单词即可播放真人发音。\n• **筛选**：支持按等级 (Level) 和首字母筛选。
+            </text>
+          </view>
         </view>
-        <view class="faq-answer">
-          <text>当然。如果 15 个单词没背完需要离开，请点击顶部导航栏中间的 <text class="highlight">💾 SAVE</text> 按钮。\n\n系统会将您当前已完成的进度保存到 **历史球 (History Log)** 中。下次回来时，您可以恢复进度继续训练。</text>
+        
+        <view class="faq-card" :class="{ 'expanded': openIndex === 4 }" @click="toggle(4)">
+          <view class="card-header">
+            <view class="q-badge">Q5</view>
+            <text class="q-title">历史记录有什么用？</text>
+            <view class="arrow-icon">▼</view>
+          </view>
+          <view class="card-body" v-if="openIndex === 4">
+            <text class="answer-text">
+              历史记录是您的学习日志：\n1. **查看**：回顾过去的打卡情况。\n2. **恢复**：对于未完成的记录，点击可恢复进度。\n3. **删除**：长按记录可永久删除。
+            </text>
+          </view>
         </view>
       </view>
 
-      <view class="faq-item" :class="{ open: openIndex === 3 }" @click="toggle(3)">
-        <view class="faq-question">
-          <text class="q-icon">Q4</text>
-          <text class="q-text">右下角的“历史球”是做什么的？</text>
-          <text class="arrow">▼</text>
-        </view>
-        <view class="faq-answer">
-          <text>历史球 (📜) 是您的训练日志中心：\n\n1. **查看记录**：点击展开，查看过去所有的打卡记录。\n2. **恢复进度**：点击某条 "SAVED" 状态的记录，可以进入详情页查看那次背了哪些词。\n3. **删除记录**：长按某条记录，可以将其从数据库中永久抹除。</text>
-        </view>
+      <view class="footer-info">
+        <text>System Status: Online</text>
+        <text class="footer-sub">Designed by TaskLink Team</text>
       </view>
-
-      <view class="section-title">DATABASE & TOOLS</view>
-
-      <view class="faq-item" :class="{ open: openIndex === 4 }" @click="toggle(4)">
-        <view class="faq-question">
-          <text class="q-icon">Q5</text>
-          <text class="q-text">如何使用词库 (Vocabulary)？</text>
-          <text class="arrow">▼</text>
-        </view>
-        <view class="faq-answer">
-          <text>词库包含所有等级的单词数据。\n\n• **搜索**：顶部输入框支持中/英文模糊搜索。\n• **发音**：点击任意单词行，即可播放真人发音。\n• **筛选**：支持按等级 (Level)、首字母 (A-Z) 和 困难模式 (Hard Mode) 筛选。</text>
-        </view>
-      </view>
-
       
-
-      <view class="footer-note">
-        SYSTEM STATUS: ONLINE
-        <br>Designed by Administrator
-      </view>
+      <view style="height: 40rpx;"></view>
 
     </scroll-view>
   </view>
@@ -99,34 +132,238 @@ const toggle = (index) => {
 };
 </script>
 
-<style scoped>
-page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', monospace; height: 100vh; overflow: hidden; }
-.container { height: 100%; display: flex; flex-direction: column; }
-.cyber-bg { position: fixed; width: 100%; height: 100%; background: radial-gradient(circle, #111 0%, #000 100%); z-index: -1; }
-.header { padding: 60rpx 40rpx; border-bottom: 2px solid #00f3ff; background: rgba(0, 243, 255, 0.05); }
-.title { font-size: 40rpx; font-weight: bold; color: #fff; letter-spacing: 4rpx; display: block; }
-.subtitle { font-size: 24rpx; color: #00f3ff; opacity: 0.7; margin-top: 10rpx; display: block; }
-.content-area { flex: 1; padding: 30rpx; box-sizing: border-box; }
-.section-title { font-size: 24rpx; color: #666; margin: 40rpx 0 20rpx; font-weight: bold; padding-left: 10rpx; border-left: 4rpx solid #666; }
-.faq-item { background: #111; margin-bottom: 20rpx; border: 1px solid #333; border-radius: 8rpx; overflow: hidden; transition: all 0.3s; }
-.faq-item.open { border-color: #00f3ff; box-shadow: 0 0 15rpx rgba(0, 243, 255, 0.1); }
-.faq-question { padding: 30rpx; display: flex; align-items: center; justify-content: space-between; background: #161616; }
-.q-icon { background: #333; color: #fff; font-size: 20rpx; padding: 4rpx 10rpx; border-radius: 4rpx; margin-right: 20rpx; }
-.faq-item.open .q-icon { background: #00f3ff; color: #000; }
-.q-text { flex: 1; font-size: 28rpx; color: #eee; font-weight: bold; }
-.arrow { color: #666; font-size: 24rpx; transition: transform 0.3s; }
-.faq-item.open .arrow { transform: rotate(180deg); color: #00f3ff; }
-.faq-answer { height: 0; overflow: hidden; background: #0a0a0a; transition: height 0.3s; }
-.faq-item.open .faq-answer { height: auto; padding: 30rpx; border-top: 1px dashed #333; }
-.faq-answer text { font-size: 26rpx; color: #aaa; line-height: 1.6; display: block; }
-.rating-explain { display: flex; flex-direction: column; gap: 15rpx; margin-top: 10rpx; }
-.r-row { font-size: 24rpx; color: #ccc; }
-.r-tag { font-size: 20rpx; padding: 2rpx 8rpx; border-radius: 4rpx; color: #000; font-weight: bold; margin-right: 10rpx; }
-.r0 { background: #ff003c; }
-.r3 { background: #ffaa00; }
-.r4 { background: #00f3ff; }
-.r5 { background: #00ff9d; }
-.r-tip { font-size: 20rpx; color: #666; margin-top: 10rpx; font-style: italic; }
-.highlight { color: #ffaa00; font-weight: bold; }
-.footer-note { text-align: center; color: #333; font-size: 20rpx; margin: 60rpx 0; line-height: 1.5; }
+<style lang="scss" scoped>
+/* 1. 色彩变量 */
+$color-bg: #F5F5F0;        /* 浅米色 */
+$color-card: #FFFFFF;      /* 纯白 */
+$color-primary: #4A6FA5;   /* 莫兰迪蓝 */
+$color-text-main: #2C3E50; /* 深灰 */
+$color-text-sub: #95A5A6;  /* 浅灰 */
+$color-line: #E0E0E0;
+
+page { 
+  background-color: $color-bg; 
+  height: 100vh;
+  font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+}
+
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 2. 头部 */
+.header-section {
+  padding: 100rpx 40rpx 60rpx;
+  background: $color-bg;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.page-title {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: $color-text-main;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.page-subtitle {
+  font-size: 24rpx;
+  color: $color-text-sub;
+  letter-spacing: 1px;
+}
+
+.logo-box {
+  width: 80rpx;
+  height: 80rpx;
+  background: $color-card;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 20rpx rgba(0,0,0,0.05);
+}
+
+.logo-text {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: $color-primary;
+}
+
+/* 3. 内容区 */
+.content-scroll {
+  flex: 1;
+  height: 0;
+  padding: 0 40rpx;
+  box-sizing: border-box;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  margin: 40rpx 0 24rpx;
+}
+
+.section-dot {
+  width: 8rpx;
+  height: 24rpx;
+  background: $color-primary;
+  border-radius: 4rpx;
+  margin-right: 16rpx;
+}
+.section-dot.purple { background: #9FA8DA; }
+
+.section-title {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: $color-text-sub;
+  letter-spacing: 1px;
+}
+
+/* FAQ 列表 */
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.faq-card {
+  background: $color-card;
+  border-radius: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 10rpx rgba(0,0,0,0.02);
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.faq-card.expanded {
+  box-shadow: 0 10rpx 30rpx rgba(74, 111, 165, 0.08);
+  border-color: rgba(74, 111, 165, 0.1);
+}
+
+.card-header {
+  padding: 30rpx;
+  display: flex;
+  align-items: center;
+}
+
+.q-badge {
+  background: #F0F2F5;
+  color: $color-text-sub;
+  font-size: 20rpx;
+  font-weight: 700;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  margin-right: 20rpx;
+}
+
+.faq-card.expanded .q-badge {
+  background: rgba(74, 111, 165, 0.1);
+  color: $color-primary;
+}
+
+.q-title {
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: $color-text-main;
+}
+
+.arrow-icon {
+  font-size: 20rpx;
+  color: #CFD8DC;
+  transition: transform 0.3s;
+}
+
+.faq-card.expanded .arrow-icon {
+  transform: rotate(180deg);
+  color: $color-primary;
+}
+
+.card-body {
+  padding: 0 30rpx 40rpx 30rpx;
+  /* 增加淡入动画 */
+  animation: fadeIn 0.4s ease-out;
+}
+
+.answer-text {
+  font-size: 26rpx;
+  color: #546E7A;
+  line-height: 1.8; /* 优化中文行高 */
+}
+
+.highlight {
+  color: $color-primary;
+  font-weight: 600;
+  margin: 0 4rpx;
+}
+
+/* 评分指南说明 */
+.rating-guide {
+  background: #FAFAFA;
+  padding: 24rpx;
+  border-radius: 12rpx;
+}
+
+.rate-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.rate-tag {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: #FFF;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+  width: 80rpx;
+  text-align: center;
+  margin-right: 20rpx;
+}
+
+.rate-0 { background: #EF5350; } 
+.rate-3 { background: #FFCA28; } 
+.rate-4 { background: #42A5F5; } 
+.rate-5 { background: #66BB6A; } 
+
+.rate-desc {
+  font-size: 24rpx;
+  color: $color-text-main;
+}
+
+.tip-text {
+  font-size: 20rpx;
+  color: $color-text-sub;
+  margin-top: 10rpx;
+  display: block;
+}
+
+/* 底部脚注补全 */
+.footer-info {
+  padding: 80rpx 0 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.footer-info text {
+  font-size: 22rpx;
+  color: #B0BEC5;
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+.footer-sub {
+  margin-top: 8rpx;
+  opacity: 0.7;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10rpx); }
+  to { opacity: 1; transform: translateY(0); }
+}
 </style>

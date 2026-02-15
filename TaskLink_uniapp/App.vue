@@ -1,8 +1,6 @@
 <script>
 	import io from '@hyoga/uni-socket.io';
 
-	// 建议提取到 common/config.js
-	// 注意：真机调试必须用电脑局域网 IP，不能用 localhost
 	const SOCKET_URL = `http://101.35.132.175:3000`;
 
 	export default {
@@ -10,10 +8,10 @@
 			socket: null,
 			userInfo: null,
 			isBackground: false,
-			isSquareOpen: false // 配合 square 页面使用的状态标记
+			isSquareOpen: false
 		},
 		
-		// 连接锁，防止并发重复连接
+		
 		_isConnecting: false,
 		
 		onLaunch: function() {
@@ -32,10 +30,9 @@
 				
 
 				uni.switchTab({
-					url: '/pages/square/square', // 这里建议填你的主页路径，比如广场页
+					url: '/pages/index/index',
 					fail: () => {
-						// 如果跳转失败（比如首页不是 TabBar），改用 reLaunch
-						uni.reLaunch({ url: '/pages/square/square' });
+						uni.reLaunch({ url: '/pages/index/index' });
 					}
 				});
 			} else {
@@ -47,7 +44,6 @@
 			this.globalData.isBackground = false;
 			
 			// 检查 Socket 状态，如果断开且不处于连接中，尝试补救
-			// 注意：这里不做强制重连，防止死循环，强制重连交给 square.vue 的 onShow
 			const socket = this.globalData.socket;
 			if (socket && !socket.connected && !this._isConnecting) {
 				console.log('App onShow 检测到断线，尝试恢复...');
@@ -60,7 +56,6 @@
 		},
 
 		methods: {
-			// 🔥 改名为 initSocket 以匹配 square.vue 的调用
 			initSocket() {
 				// 1. 基础检查
 				if (this._isConnecting) return;
@@ -89,14 +84,14 @@
 					const socket = io(SOCKET_URL, {
 						query: { 
 							userId: userInfo.id,
-							token: userInfo.token // 建议带上 token 供后端校验
+							token: userInfo.token 
 						},
-						transports: ['websocket'], // 🔥 核心：强制 WebSocket，解决 Android 兼容性
+						transports: ['websocket'], // 🔥 核心：强制 WebSocket
 						timeout: 20000,
 						reconnection: true,
 						reconnectionAttempts: 10,
 						reconnectionDelay: 3000,
-						forceNew: true // 强制创建新实例
+						forceNew: true
 					});
 
 					this.globalData.socket = socket;
@@ -105,17 +100,12 @@
 					socket.on('connect', () => {
 						console.log('✅ [Socket] 连接成功 ID:', socket.id);
 						this._isConnecting = false;
-						// 连接后重新加入房间或同步状态
 						socket.emit('join', { user_id: userInfo.id });
 					});
 
 					socket.on('disconnect', (reason) => {
 						console.log('🔴 [Socket] 断开:', reason);
 						this._isConnecting = false;
-						// 如果是服务器强制断开，可能需要踢出登录
-						if (reason === 'io server disconnect') {
-							// socket.connect(); // 视情况是否需要手动重连
-						}
 					});
 					
 					socket.on('connect_error', (error) => {
@@ -123,9 +113,8 @@
 						this._isConnecting = false;
 					});
 
-					// 监听新消息 (全局总线转发)
+					// 监听新消息
 					socket.on('new_message', (msg) => {
-						// 通过 uni.$emit 广播给 square.vue
 						uni.$emit('global_new_message', msg);
 						this.handleNotification(msg);
 					});
@@ -149,7 +138,6 @@
 
 				uni.vibrateLong({ fail: () => {} });
 				
-				// 设置 TabBar 红点
 				try {
 					uni.setTabBarBadge({ index: 1, text: '1', fail: () => {} });
 				} catch(e) {}
@@ -160,9 +148,23 @@
 
 <style lang="scss">
 	@import '@/uni.scss';
-	page { 
-		background-color: #050505; /* 保持赛博黑背景 */
-		font-family: 'Courier New', monospace; 
-		color: #e0e0e0; 
+	
+	page {
+		background-color: #F5F5F0 !important; /* 浅米色 */
+		color: #2C3E50; /* 深灰文字 */
+		font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+		height: 100%;
+	}
+
+	uni-page-body {
+		background-color: #F5F5F0 !important;
+		height: 100%;
+		min-height: 100vh;
+	}
+	
+	::-webkit-scrollbar {
+		display: none;
+		width: 0;
+		height: 0;
 	}
 </style>

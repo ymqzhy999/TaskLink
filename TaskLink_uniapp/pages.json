@@ -3,15 +3,17 @@
 		{
 			"path": "pages/login/login",
 			"style": {
-				"navigationBarTitleText": "身份接入",
-				"navigationBarStyle": "custom"
+				"navigationBarTitleText": "TaskLink",
+				"navigationStyle": "custom" 
 			}
 		},
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "计划主页",
-				"enablePullDownRefresh": true
+				"navigationBarTitleText": "计划中心",
+				"enablePullDownRefresh": true,
+				"navigationBarBackgroundColor": "#F5F5F0",
+				"backgroundColor": "#F5F5F0"
 			}
 		},
 		{
@@ -25,7 +27,7 @@
 		{
 			"path": "pages/square/square",
 			"style": {
-				"navigationBarTitleText": "网络广场",
+				"navigationBarTitleText": "社区",
 				"enablePullDownRefresh": false,
 				"navigationStyle": "custom"
 			}
@@ -34,36 +36,40 @@
 			"path": "pages/admin/manager",
 			"style": {
 				"navigationBarTitleText": "用户管理",
-				"navigationBarBackgroundColor": "#FFFFFF",
-				"navigationBarTextStyle": "black"
+				"navigationBarBackgroundColor": "#F5F5F0",
+				"backgroundColor": "#F5F5F0"
 			}
 		},
 		{
 			"path": "pages/add/add",
 			"style": {
-				"navigationBarTitleText": "创建计划"
+				"navigationBarTitleText": "创建计划",
+				"navigationBarBackgroundColor": "#F5F5F0",
+				"backgroundColor": "#F5F5F0"
 			}
 		},
 		{
 			"path": "pages/history/history",
 			"style": {
-				"navigationBarTitleText": "计划日志"
+				"navigationBarTitleText": "计划日志",
+				"navigationBarBackgroundColor": "#F5F5F0",
+				"backgroundColor": "#F5F5F0"
 			}
 		},
 		{
 			"path": "pages/help/help",
 			"style": {
 				"navigationBarTitleText": "操作手册",
-				"navigationBarBackgroundColor": "#FFFFFF",
-				"navigationBarTextStyle": "black"
+				"navigationBarBackgroundColor": "#F5F5F0",
+				"backgroundColor": "#F5F5F0"
 			}
 		},
 		{
 			"path": "pages/profile/profile",
 			"style": {
 				"navigationBarTitleText": "用户档案",
-				"navigationBarBackgroundColor": "#FFFFFF",
-				"navigationBarTextStyle": "black"
+				"navigationBarBackgroundColor": "#F5F5F0",
+				"backgroundColor": "#F5F5F0"
 			}
 		},
 		{
@@ -71,36 +77,37 @@
 			"style": {
 				"navigationBarTitleText": "单词训练",
 				"navigationStyle": "custom",
-				"backgroundColor": "#F9F9F9"
+				"backgroundColor": "#F5F5F0"
 			}
 		},
 		{
 			"path": "pages/vocab/vocab_list",
 			"style": {
-				"navigationBarTitleText": "词库列表"
+				"navigationBarTitleText": "词库列表",
+				"navigationBarBackgroundColor": "#F5F5F0",
+				"backgroundColor": "#F5F5F0"
 			}
 		},
 		{
 			"path": "pages/vocab/session_detail",
 			"style": {
 				"navigationBarTitleText": "训练详情",
-				"navigationBarBackgroundColor": "#FFFFFF",
-				"navigationBarTextStyle": "black"
+				"navigationBarBackgroundColor": "#F5F5F0",
+				"backgroundColor": "#F5F5F0"
 			}
 		}
 	],
 	
-	// 🔥 全局样式修复：改为白底黑字 🔥
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "TaskLink",
-		"navigationBarBackgroundColor": "#FFFFFF",
-		"backgroundColor": "#F9F9F9"
+		"navigationBarBackgroundColor": "#F5F5F0",
+		"backgroundColor": "#F5F5F0"
 	},
 	
 	"tabBar": {
-		"color": "#B0BEC5",
-		"selectedColor": "#4DB6AC",
+		"color": "#95A5A6",
+		"selectedColor": "#4A6FA5",
 		"backgroundColor": "#FFFFFF",
 		"borderStyle": "white",
 		"height": "50px",
@@ -117,6 +124,12 @@
 				"text": "广场",
 				"iconPath": "static/tabbar/chat.png",
 				"selectedIconPath": "static/tabbar/chat-active.png"
+			},
+			{
+				"pagePath": "pages/history/history",
+				"text": "历史计划",
+				"iconPath": "static/tabbar/history.png",
+				"selectedIconPath": "static/tabbar/history-active.png"
 			},
 			{
 				"pagePath": "pages/add/add",

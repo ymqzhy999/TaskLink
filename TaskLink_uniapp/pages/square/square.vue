@@ -1,18 +1,23 @@
 <template>
-  <view class="container dark-theme">
-    <view class="cyber-bg"></view>
-
-    <view class="nav-bar-wrapper">
-      <view class="status-bar"></view>
+  <view class="container">
+    <view class="nav-header">
       <view class="nav-content">
-        <view v-if="!isSelectionMode" class="online-status">
-          <view class="status-dot"></view>
-          <text class="status-text">在线: {{ onlineCount }}</text>
-        </view>
-        <view v-else class="selection-header">
-          <text class="selection-title">已选择 {{ selectedIds.length }} 项</text>
-          <text class="cancel-btn" @click="exitSelectionMode">取消</text>
-        </view>
+        <block v-if="!isSelectionMode">
+          <view class="header-left">
+            <text class="page-title">Community</text>
+            <view class="online-badge">
+              <view class="dot"></view>
+              <text>{{ onlineCount }} Online</text>
+            </view>
+          </view>
+        </block>
+        
+        <block v-else>
+          <view class="selection-header">
+            <text class="selection-count">已选择 {{ selectedIds.length }} 条消息</text>
+            <view class="cancel-btn" @click="exitSelectionMode">取消</view>
+          </view>
+        </block>
       </view>
     </view>
 
@@ -24,7 +29,9 @@
       :enable-back-to-top="true"
       @click="closeEmojiPanel"
     >
-      <view class="system-msg">--- 已连接到公共频道 ---</view>
+      <view class="system-msg">
+        <text class="system-text">—— 欢迎来到 TaskLink 公共频道 ——</text>
+      </view>
 
       <view 
         v-for="(msg, index) in messages" 
@@ -38,7 +45,7 @@
       >
         <view v-if="isSelectionMode" class="checkbox-wrapper" @click.stop="onSelectMessage(msg)">
           <view class="checkbox" :class="{ 'checked': selectedIds.includes(msg.id) }">
-            <text v-if="selectedIds.includes(msg.id)">✓</text>
+            <text v-if="selectedIds.includes(msg.id)" class="check-icon">✓</text>
           </view>
         </view>
 
@@ -57,20 +64,20 @@
             class="bubble" 
             @longpress.stop="onLongPressMessage(msg)"
             @click.stop="onSelectMessage(msg)"
-            :style="msg.type === 'image' ? 'background: transparent; border: none; padding: 0;' : ''"
+            :class="{ 'image-bubble': msg.type === 'image' }"
           >
             <image 
               v-if="msg.type === 'image'"
               :src="formatAvatar(msg.content)" 
               mode="widthFix" 
-              style="max-width: 200px; border-radius: 8px; display: block;"
+              class="msg-image"
               @click.stop="previewImage(msg.content)"
             ></image>
 
             <rich-text 
               v-else
               :nodes="parseEmoji(msg.content)" 
-              style="font-size: 15px; line-height: 24px; color: #e0e0e0;"
+              class="msg-text"
             ></rich-text>
           </view>
         </view>
@@ -89,25 +96,27 @@
 
     <view v-if="!isSelectionMode" class="input-area-wrapper">
       <view class="input-bar">
-        <view class="emoji-btn" @click.stop="toggleEmojiPanel">
-          <text style="font-size: 24px;">☺</text>
+        <view class="icon-btn" @click.stop="toggleEmojiPanel">
+          <text class="iconfont">☺</text>
         </view>
 
-        <view class="emoji-btn" @click="chooseImage" style="margin-left: 10px;">
-          <text style="font-size: 24px;">📷</text>
+        <view class="icon-btn" @click="chooseImage">
+          <text class="iconfont">📷</text>
         </view>
 
         <input 
-          class="cyber-input" 
+          class="minimal-input" 
           v-model="inputText" 
-          placeholder="输入消息..." 
+          placeholder="说点什么..." 
           placeholder-class="ph-style"
           confirm-type="send"
           @confirm="sendMessage"
           @focus="closeEmojiPanel"
-          style="margin-left: 10px;"
         />
-        <view class="send-btn" @click="sendMessage">➤</view>
+        
+        <view class="send-btn" @click="sendMessage">
+          <text>发送</text>
+        </view>
       </view>
 
       <view class="emoji-panel" v-if="showEmojiPanel">
@@ -126,7 +135,7 @@
 
     <view v-else class="delete-bar">
       <view class="delete-btn" @click="confirmDelete">
-        <text>删除 ({{ selectedIds.length }})</text>
+        <text>删除选中 ({{ selectedIds.length }})</text>
       </view>
     </view>
   </view>
@@ -136,7 +145,8 @@
 import { ref, nextTick, onUnmounted } from 'vue';
 import { onUnload, onShow, onHide } from '@dcloudio/uni-app';
 
-const FLASK_URL = `http://101.35.132.175:5000`; // 确保地址正确
+
+const FLASK_URL = `http://101.35.132.175:5000`; 
 
 const myInfo = ref({});
 const messages = ref([]);
@@ -151,8 +161,6 @@ const showEmojiPanel = ref(false);
 const isPageActive = ref(true);
 
 const getToken = () => uni.getStorageSync('userInfo')?.token || '';
-
-// --- 生命周期 ---
 
 onShow(() => {
   isPageActive.value = true;
@@ -188,21 +196,17 @@ onShow(() => {
       scrollToBottom();
   });
   
-  // 🔥🔥🔥 核心修复逻辑：OnShow 时强制检查连接 🔥🔥🔥
-  
-  // 1. 初始化 Socket 对象
+  // Socket 连接检查
   if (!app.globalData.socket && app.initSocket) {
       app.initSocket();
   }
   
   const socket = app.globalData.socket;
   
-  // 2. 如果 Socket 存在但断开了，强制重连
   if (socket && !socket.connected) {
       console.log('检测到 Socket 断开，正在强制重连...');
       socket.connect(); 
   }
-  // 🔥🔥🔥 结束 🔥🔥🔥
 
   if (socket) {
         socket.off('connect');
@@ -240,27 +244,21 @@ onUnmounted(() => {
   uni.$off('global_new_message');
 });
 
-// --- 发送消息逻辑 (带重连机制) ---
-
 const sendSocketMessage = (content, type = 'text') => {
   const app = getApp();
   let socket = app.globalData.socket;
   
-  // 🔥 修复：发送失败自动重连逻辑
   if (!socket || !socket.connected) {
       console.log('发送时发现断开，尝试重连...');
       
-      // 1. 尝试重新初始化
       if (!socket && app.initSocket) {
           app.initSocket();
           socket = app.globalData.socket;
       }
-      // 2. 强制连接
       if (socket) socket.connect();
 
       uni.showToast({ title: '正在连接...', icon: 'loading' });
       
-      // 3. 延迟 1 秒重试发送
       setTimeout(() => {
           if (socket && socket.connected) {
               socket.emit("send_message", {
@@ -277,7 +275,6 @@ const sendSocketMessage = (content, type = 'text') => {
       return;
   }
   
-  // 正常连接时直接发送
   socket.emit("send_message", {
     user_id: myInfo.value.id,
     content: content,
@@ -294,8 +291,6 @@ const sendMessage = () => {
   showEmojiPanel.value = false;
   sendSocketMessage(content, 'text');
 };
-
-// ... (以下图片上传、表情处理逻辑保持不变) ...
 
 const chooseImage = () => {
   uni.chooseImage({
@@ -351,7 +346,7 @@ const parseEmoji = (c) => {
   if (!c) return '';
   return c.replace(/\[face:(\d+)\]/g, (m, id) => {
     const f = id.toString().padStart(2, '0');
-    return `<img style="width:24px; height:24px; vertical-align:middle;" src="${FLASK_URL}/static/emoji/${f}.gif" />`;
+    return `<img style="width:24px; height:24px; vertical-align:middle; display:inline-block;" src="${FLASK_URL}/static/emoji/${f}.gif" />`;
   });
 };
 
@@ -412,51 +407,321 @@ const scrollToBottom = () => {
 };
 </script>
 
-<style>
-/* 保持原有样式 */
-page { background-color: #050505; height: 100vh; overflow: hidden; font-family: 'Courier New', monospace; }
-.container { height: 100vh; display: flex; flex-direction: column; }
-.cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 50%, #111 0%, #000 90%); z-index: -1; }
-.nav-bar-wrapper { background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); border-bottom: 1px solid #333; width: 100%; flex-shrink: 0; z-index: 999; }
-.status-bar { height: var(--status-bar-height); width: 100%; }
-.nav-content { height: 44px; display: flex; align-items: center; padding: 0 15px; justify-content: space-between; }
-.online-status { display: flex; align-items: center; }
-.status-dot { width: 8px; height: 8px; background: #00ff9d; border-radius: 50%; box-shadow: 0 0 5px #00ff9d; margin-right: 8px; animation: blink 2s infinite; }
-.status-text { color: #00ff9d; font-size: 14px; font-weight: bold; }
-.selection-header { display: flex; width: 100%; justify-content: space-between; align-items: center; }
-.selection-title { color: #fff; font-size: 16px; font-weight: bold; }
-.cancel-btn { color: #888; font-size: 14px; padding: 5px 10px; }
-.chat-area { flex: 1; height: 0; width: 100%; padding: 15px; box-sizing: border-box; }
-.msg-row { display: flex; margin-bottom: 20px; align-items: flex-start; transition: all 0.3s; }
+<style lang="scss" scoped>
+/* 1. 色彩与字体变量 */
+$color-bg: #F5F5F0;        /* 浅米色背景 */
+$color-primary: #4A6FA5;   /* 莫兰迪蓝 */
+$color-accent: #FF8A65;    /* 珊瑚橙 */
+$color-text-main: #2C3E50; /* 深灰 */
+$color-text-sub: #95A5A6;  /* 浅灰 */
+$color-white: #FFFFFF;
+$color-bubble-other: #FFFFFF;
+$color-bubble-self: #4A6FA5;
+
+page { 
+  background-color: $color-bg; 
+  height: 100vh; 
+  overflow: hidden; 
+  font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+}
+
+.container { 
+  height: 100vh; 
+  display: flex; 
+  flex-direction: column; 
+  background-color: $color-bg;
+}
+
+/* 2. 顶部导航栏 */
+.nav-header {
+  background: rgba(245, 245, 240, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+  padding-top: var(--status-bar-height);
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.nav-content {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 30rpx;
+}
+
+.page-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: $color-text-main;
+  letter-spacing: -0.5px;
+}
+
+.online-badge {
+  display: flex;
+  align-items: center;
+  background: rgba(74, 111, 165, 0.1);
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  margin-left: 16rpx;
+}
+
+.online-badge text {
+  font-size: 20rpx;
+  color: $color-primary;
+  font-weight: 600;
+}
+
+.dot {
+  width: 10rpx;
+  height: 10rpx;
+  background: $color-primary;
+  border-radius: 50%;
+  margin-right: 8rpx;
+  animation: breathe 2s infinite ease-in-out;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.selection-header {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+.selection-count { font-size: 30rpx; font-weight: 600; color: $color-text-main; }
+.cancel-btn { font-size: 28rpx; color: $color-primary; padding: 10rpx 20rpx; }
+
+/* 3. 聊天区域 */
+.chat-area { 
+  flex: 1; 
+  height: 0; 
+  width: 100%; 
+  background: $color-bg;
+  padding: 30rpx; 
+  box-sizing: border-box; 
+}
+
+.system-msg { 
+  text-align: center; 
+  margin: 30rpx 0; 
+}
+
+.system-text {
+  font-size: 20rpx;
+  color: $color-text-sub;
+  background: rgba(0,0,0,0.03);
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  letter-spacing: 1px;
+}
+
+/* 消息行 */
+.msg-row { 
+  display: flex; 
+  margin-bottom: 40rpx; 
+  align-items: flex-start; 
+}
+
 .msg-row.self { flex-direction: row-reverse; }
-.msg-row.selecting { opacity: 0.5; } 
-.checkbox-wrapper { display: flex; align-items: center; padding: 0 10px; }
-.checkbox-wrapper + .avatar, .checkbox-wrapper + .content-box { opacity: 1; }
-.checkbox { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #555; display: flex; align-items: center; justify-content: center; margin-right: 10px; }
-.checkbox.checked { background: #00f3ff; border-color: #00f3ff; }
-.checkbox text { font-size: 12px; color: #000; font-weight: bold; }
-.avatar { width: 40px; height: 40px; border-radius: 4px; border: 1px solid #333; background: #111; }
-.content-box { max-width: 70%; margin: 0 10px; display: flex; flex-direction: column; }
+.msg-row.selecting { opacity: 0.6; }
+
+/* 头像 */
+.avatar { 
+  width: 80rpx; 
+  height: 80rpx; 
+  border-radius: 20rpx; /* 微圆角，比圆形更现代 */
+  background: #E0E0E0;
+  flex-shrink: 0;
+  box-shadow: 0 4rpx 8rpx rgba(0,0,0,0.05);
+}
+
+.avatar.right { margin-left: 20rpx; }
+
+/* 多选框 */
+.checkbox-wrapper { display: flex; align-items: center; padding-right: 20rpx; }
+.self .checkbox-wrapper { padding-right: 0; padding-left: 20rpx; }
+
+.checkbox { 
+  width: 40rpx; 
+  height: 40rpx; 
+  border-radius: 50%; 
+  border: 2rpx solid #CFD8DC; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  background: $color-white;
+}
+
+.checkbox.checked { 
+  background: $color-accent; 
+  border-color: $color-accent; 
+}
+
+.check-icon { font-size: 24rpx; color: #FFF; }
+
+/* 气泡内容容器 */
+.content-box { 
+  max-width: 70%; 
+  margin: 0 20rpx; 
+  display: flex; 
+  flex-direction: column; 
+}
+
 .self .content-box { align-items: flex-end; }
-.sender-name { font-size: 10px; color: #666; margin-bottom: 4px; }
-.bubble { background: #1a1a1a; border: 1px solid #333; padding: 10px 15px; border-radius: 4px; position: relative; }
-.self .bubble { background: rgba(0, 243, 255, 0.15); border-color: #00f3ff; color: #fff; }
-.system-msg { text-align: center; color: #333; font-size: 10px; margin: 20px 0; letter-spacing: 2px; }
-.input-area-wrapper { flex-shrink: 0; background: #080808; border-top: 1px solid #333; display: flex; flex-direction: column; padding-bottom: calc(constant(safe-area-inset-bottom)); padding-bottom: calc(env(safe-area-inset-bottom)); }
-.input-bar { display: flex; align-items: center; padding: 10px 15px; height: 60px; box-sizing: border-box; }
-.emoji-btn { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; margin-right: 10px; color: #888; border: 1px solid #333; border-radius: 4px; background: #111; line-height: 1; padding-bottom: 4px; }
-.emoji-btn:active { background: #222; color: #00f3ff; border-color: #00f3ff; }
-.emoji-btn text { font-size: 22px; }
-.cyber-input { flex: 1; background: #111; border: 1px solid #333; height: 36px; padding: 0 10px; color: #fff; font-size: 14px; transition: all 0.3s; }
-.cyber-input:focus { border-color: #00f3ff; box-shadow: 0 0 10px rgba(0, 243, 255, 0.2); }
-.ph-style { color: #444; }
-.send-btn { width: 40px; height: 36px; background: #00f3ff; color: #000; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-left: 10px; clip-path: polygon(15% 0, 100% 0, 100% 100%, 0% 100%); }
-.emoji-panel { height: 200px; background: #111; border-top: 1px solid #333; transition: all 0.3s; }
-.emoji-grid { display: flex; flex-wrap: wrap; padding: 10px; }
-.emoji-item { width: 12.5%; height: 40px; display: flex; align-items: center; justify-content: center; } 
-.emoji-icon { width: 28px; height: 28px; }
-.delete-bar { flex-shrink: 0; height: 60px; background: #1a0505; border-top: 1px solid #ff003c; display: flex; align-items: center; justify-content: center; padding-bottom: calc(10px + constant(safe-area-inset-bottom)); padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
-.delete-btn { color: #ff003c; font-weight: bold; font-size: 16px; padding: 10px 30px; border: 1px solid #ff003c; border-radius: 20px; background: rgba(255, 0, 60, 0.1); }
-.delete-btn:active { background: #ff003c; color: #fff; }
-@keyframes blink { 0%,100% {opacity:1} 50% {opacity:0.5} }
+
+.sender-name { 
+  font-size: 20rpx; 
+  color: $color-text-sub; 
+  margin-bottom: 8rpx; 
+  margin-left: 4rpx;
+}
+.self .sender-name { margin-right: 4rpx; }
+
+/* --- 核心修改：气泡样式修正 --- */
+.bubble { 
+  padding: 18rpx 24rpx; 
+  border-radius: 16rpx; /* 统一圆角，不再有奇怪的尖角 */
+  position: relative; 
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04); /* 阴影更淡更自然 */
+  background: $color-bubble-other;
+  min-height: 40rpx;
+  display: flex;
+  align-items: center;
+}
+
+.self .bubble { 
+  background: $color-bubble-self; 
+  color: $color-white; 
+  box-shadow: 0 4rpx 12rpx rgba(74, 111, 165, 0.2);
+}
+
+/* 消除图片气泡的背景和内边距 */
+.image-bubble {
+  padding: 0;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+
+/* --- 核心修改：图片尺寸限制 --- */
+.msg-image {
+  max-width: 200rpx;  /* 限制最大宽度，原来的300rpx太大 */
+  max-height: 240rpx; /* 限制最大高度，防止长图刷屏 */
+  border-radius: 12rpx;
+  display: block;
+  /* 保持比例填充 */
+  object-fit: cover; 
+}
+
+/* 文本内容 */
+.msg-text {
+  font-size: 28rpx;
+  line-height: 1.5;
+  color: $color-text-main;
+  word-break: break-all;
+}
+
+.self .msg-text {
+  color: $color-white;
+}
+
+/* 4. 底部输入区 */
+.input-area-wrapper { 
+  flex-shrink: 0; 
+  background: $color-white;
+  box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.02);
+  padding-bottom: calc(constant(safe-area-inset-bottom)); 
+  padding-bottom: calc(env(safe-area-inset-bottom)); 
+  z-index: 100;
+}
+
+.input-bar { 
+  display: flex; 
+  align-items: center; 
+  padding: 16rpx 24rpx; 
+  min-height: 100rpx; 
+  box-sizing: border-box; 
+}
+
+.icon-btn { 
+  width: 60rpx; 
+  height: 60rpx; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  margin-right: 10rpx; 
+}
+
+.iconfont { font-size: 40rpx; color: #78909C; }
+
+.minimal-input { 
+  flex: 1; 
+  background: #F0F2F5; 
+  height: 72rpx; 
+  padding: 0 24rpx; 
+  border-radius: 12rpx; /* 输入框也方一点 */
+  font-size: 28rpx; 
+  color: $color-text-main; 
+  margin-right: 20rpx;
+}
+
+.ph-style { color: #B0BEC5; }
+
+.send-btn { 
+  background: $color-primary; 
+  color: #FFF; 
+  padding: 12rpx 30rpx; 
+  border-radius: 12rpx; 
+  font-size: 26rpx; 
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+
+.send-btn:active { opacity: 0.8; }
+
+/* 5. 表情面板 */
+.emoji-panel { 
+  height: 400rpx; 
+  background: #F9FAFB; 
+  border-top: 1px solid #EEE; 
+}
+
+.emoji-grid { display: flex; flex-wrap: wrap; padding: 20rpx; }
+
+.emoji-item { 
+  width: 12.5%; 
+  height: 80rpx; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+}
+
+.emoji-icon { width: 48rpx; height: 48rpx; }
+
+/* 6. 删除工具栏 */
+.delete-bar { 
+  flex-shrink: 0; 
+  height: 110rpx; 
+  background: $color-white;
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  padding-bottom: calc(constant(safe-area-inset-bottom)); 
+  padding-bottom: calc(env(safe-area-inset-bottom)); 
+}
+
+.delete-btn { 
+  color: #FF5252;
+  font-weight: 600; 
+  font-size: 28rpx; 
+  padding: 16rpx 60rpx; 
+  border: 1px solid #FFCDD2; 
+  border-radius: 40rpx; 
+  background: #FFEBEE;
+}
 </style>

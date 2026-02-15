@@ -1,139 +1,158 @@
 <template>
-  <view class="container dark-theme">
-    <view class="cyber-bg"></view>
-
+  <view class="container">
     <view class="nav-header">
-      <view class="back-btn" @click="goBack">
-        <text class="icon">❮</text> BACK
+      <view class="nav-left" @click="goBack">
+        <text class="back-icon">←</text>
+        <text class="back-text">Back</text>
       </view>
       
-      <picker mode="selector" :range="levelOptions" range-key="label" :value="currentLevelIndex" @change="handleLevelChange">
-        <view class="level-selector">
-          <text class="level-val">{{ levelOptions[currentLevelIndex].value }}</text>
-          <text class="level-arrow">▼</text>
+<view class="level-selector-wrapper">
+  <picker mode="selector" :range="levelOptions" range-key="label" :value="currentLevelIndex" @change="handleLevelChange">
+    <view class="custom-selector">
+      <text class="selector-label">LEVEL</text>
+      <text class="selector-value">{{ levelOptions[currentLevelIndex].label }}</text>
+      <text class="selector-arrow">▾</text>
+    </view>
+  </picker>
+</view>
+
+      <view class="nav-right" @click="goToDict">
+        <view class="icon-btn search-btn">
+          <text>🔍</text>
         </view>
-      </picker>
-
-      <view class="dict-btn" @click="goToDict">
-         <text class="icon">🔍</text>
       </view>
     </view>
 
-    <view class="progress-track">
-      <view class="progress-bar" :style="{ width: ((currentIndex + 1) / vocabList.length) * 100 + '%' }"></view>
+    <view class="progress-section">
+      <view class="progress-track">
+        <view class="progress-fill" :style="{ width: ((currentIndex + 1) / vocabList.length) * 100 + '%' }"></view>
+      </view>
+      <text class="progress-num">{{ currentIndex + 1 }} / {{ vocabList.length }}</text>
     </view>
 
-    <view class="tool-bar">
-      <view class="tool-left">
-         <view class="tool-btn prev" :class="{ disabled: currentIndex === 0 }" @click="prevWord">
-            <text>◀ PREV</text>
-         </view>
-      </view>
-
-      <text class="progress-text">
-        <text class="curr">{{ currentIndex + 1 }}</text> / {{ vocabList.length }}
-      </text>
-
-      <view class="tool-right">
-         <view class="tool-btn save" :class="{ disabled: isFinished || sessionWords.length === 0 }" @click="saveProgress">
-           <text>💾 SAVE</text>
-         </view>
-      </view>
-    </view>
-
-    <view class="main-content" v-if="currentWord && !isFinished">
-      <view class="word-card" :class="{ 'card-active': showAnswer }">
-        <text class="word-main">{{ currentWord.word }}</text>
-        
-        <view class="phonetic-row" @click.stop="playAudio">
-           <text class="word-phonetic" v-if="currentWord.phonetic">[{{ currentWord.phonetic }}]</text>
-           <text class="audio-icon">🔊</text>
+    <view class="card-container" v-if="currentWord && !isFinished">
+      <view class="word-card" :class="{ 'flipped': showAnswer }">
+        <view class="card-front">
+          <text class="word-text">{{ currentWord.word }}</text>
+          <view class="phonetic-box" @click.stop="playAudio">
+            <text class="phonetic-text" v-if="currentWord.phonetic">/{{ currentWord.phonetic }}/</text>
+            <view class="audio-icon">🔊</view>
+          </view>
+          
+          <view class="tap-hint" v-if="!showAnswer" @click="revealAnswer">
+            <text>点击查看释义</text>
+          </view>
         </view>
-        
-        <view class="details-area" v-if="showAnswer">
+
+        <view class="card-back" v-if="showAnswer">
           <view class="divider"></view>
           <text class="meaning-text">{{ currentWord.translation }}</text>
           
-          <view class="sentence-container">
-            <view class="sentence-header">
-              <text class="ai-label">SENTENCE</text>
-              <text class="status-text" v-if="loadingSentence">COMPUTING...</text>
+          <view class="ai-section">
+            <view class="ai-header">
+              <text class="ai-tag">SENTENCE</text>
+              <text class="ai-status" v-if="loadingSentence">Loading...</text>
             </view>
-            <view class="sentence-content">
-              <view v-if="loadingSentence" class="loading-box">DATA RETRIEVAL IN PROGRESS...</view>
-              <block v-else-if="aiSentence">
-                <text class="en-s">"{{ aiSentence.en }}"</text>
-                <text class="cn-s">{{ aiSentence.cn }}</text>
+            
+            <view class="ai-content">
+              <block v-if="aiSentence">
+                <text class="en-sentence">"{{ aiSentence.en }}"</text>
+                <text class="cn-sentence">{{ aiSentence.cn }}</text>
               </block>
-              <view v-else class="gen-trigger" @click="getAiSentence">
-                 [ 点击生成 AI 例句 & 近义词 ]
+              <view v-else class="ai-placeholder" @click="getAiSentence">
+                <text>✨ 点击生成 AI 例句 & 近义词</text>
               </view>
             </view>
           </view>
-          
-          <view class="synonyms-box" v-if="aiSentence && aiSentence.synonyms && aiSentence.synonyms.length > 0">
-             <text class="syn-label">SYNONYMS</text>
-             <view class="syn-list">
-               <view class="syn-tag" v-for="(syn, idx) in aiSentence.synonyms" :key="idx">{{ syn }}</view>
-             </view>
-           </view>
-        </view>
 
-        <view class="unlock-overlay" v-else @click="revealAnswer">
-           <text class="unlock-text">点击查看释义</text>
-        </view>
-      </view>
-
-      <view class="action-footer" v-if="showAnswer">
-        <view class="rating-grid">
-          <view class="rating-btn b-0" @click="submitResult(0)"><text class="r-val">0</text><text class="r-txt">忘记</text></view>
-          <view class="rating-btn b-3" @click="submitResult(3)"><text class="r-val">3</text><text class="r-txt">模糊</text></view>
-          <view class="rating-btn b-4" @click="submitResult(4)"><text class="r-val">4</text><text class="r-txt">认识</text></view>
-          <view class="rating-btn b-5" @click="submitResult(5)"><text class="r-val">5</text><text class="r-txt">精通</text></view>
+          <view class="synonyms-section" v-if="aiSentence && aiSentence.synonyms && aiSentence.synonyms.length > 0">
+            <text class="syn-title">SAMEWORDS</text>
+            <view class="syn-chips">
+              <text class="syn-chip" v-for="(syn, idx) in aiSentence.synonyms" :key="idx">{{ syn }}</text>
+            </view>
+          </view>
         </view>
       </view>
     </view>
 
-    <view class="finished-state" v-if="isFinished">
-      <view class="finish-hex">✔</view>
-      <text class="f-title">MISSION COMPLETE</text>
-      <button class="cyber-button-rect" @click="handleReload">再来一组</button>
+    <view class="footer-control" v-if="!isFinished">
+      <view class="rating-bar" v-if="showAnswer">
+        <view class="rate-btn r-0" @click="submitResult(0)">
+          <text class="rate-num">0</text>
+          <text class="rate-label">忘记</text>
+        </view>
+        <view class="rate-btn r-3" @click="submitResult(3)">
+          <text class="rate-num">3</text>
+          <text class="rate-label">模糊</text>
+        </view>
+        <view class="rate-btn r-4" @click="submitResult(4)">
+          <text class="rate-num">4</text>
+          <text class="rate-label">认识</text>
+        </view>
+        <view class="rate-btn r-5" @click="submitResult(5)">
+          <text class="rate-num">5</text>
+          <text class="rate-label">精通</text>
+        </view>
+      </view>
+
+      <view class="nav-btns" v-else>
+        <view class="nav-btn prev" :class="{ disabled: currentIndex === 0 }" @click="prevWord">
+          <text>Previous</text>
+        </view>
+        <view class="nav-btn save" :class="{ disabled: sessionWords.length === 0 }" @click="saveProgress">
+          <text>Save Progress</text>
+        </view>
+      </view>
     </view>
 
-    <view class="history-fab" @click="openHistoryDrawer"><text>📜</text></view>
+    <view class="finished-view" v-if="isFinished">
+      <view class="finish-icon">🎉</view>
+      <text class="finish-title">Session Complete</text>
+      <text class="finish-sub">本次训练已完成，请保持节奏。</text>
+      <button class="restart-btn" @click="handleReload">再来一组</button>
+    </view>
+
+    <view class="history-fab" @click="openHistoryDrawer">
+      <text>📜</text>
+    </view>
+
     <view class="drawer-mask" v-if="showHistory" @click="closeHistoryDrawer"></view>
-    
-    <view class="history-drawer" :class="{ open: showHistory }">
+    <view class="history-drawer" :class="{ 'drawer-open': showHistory }">
       <view class="drawer-header">
-        <text class="dh-title">HISTORY LOGS</text>
-        <text class="dh-close" @click="closeHistoryDrawer">✕</text>
+        <text class="drawer-title">History Logs</text>
+        <view class="close-icon" @click="closeHistoryDrawer">✕</view>
       </view>
       
-      <scroll-view scroll-y class="drawer-list" @scrolltolower="loadMoreHistory" lower-threshold="100">
-        <view v-if="historySessions.length === 0" class="empty-log">暂无打卡记录</view>
+      <scroll-view scroll-y class="drawer-body" @scrolltolower="loadMoreHistory">
+        <view v-if="historySessions.length === 0" class="empty-state">
+          <text>暂无训练记录</text>
+        </view>
         
         <view 
-          class="session-item" 
+          class="history-item" 
           v-for="(item, index) in historySessions" 
           :key="index"
           @click="goToSessionDetail(item.id)"
           @longpress="deleteSession(item.id, index)"
         >
-          <view class="s-left">
-            <text class="s-date">{{ item.created_at }}</text>
-            <text class="s-level">{{ item.level }}</text>
+          <view class="item-main">
+            <text class="item-date">{{ item.created_at }}</text>
+            <view class="item-tags">
+              <text class="tag-level">{{ item.level }}</text>
+              <text class="tag-status" :class="item.status === 1 ? 'done' : 'saved'">
+                {{ item.status === 1 ? 'Done' : 'Saved' }}
+              </text>
+            </view>
           </view>
-          <view class="s-right">
-             <text class="s-count">{{ item.total_words }} Words</text>
-             <text class="s-status">{{ item.status === 1 ? 'DONE' : 'SAVED' }}</text>
+          <view class="item-count">
+            <text class="count-num">{{ item.total_words }}</text>
+            <text class="count-label">Words</text>
           </view>
         </view>
         
-        <view class="loading-more" v-if="historySessions.length > 0" @click="loadMoreHistory">
-           {{ hasMoreHistory ? '⬇ 点击加载更多 (LOAD MORE)' : '--- END ---' }}
+        <view class="load-more-text" v-if="historySessions.length > 0">
+          {{ hasMoreHistory ? '加载更多...' : '- End -' }}
         </view>
-        
-        <view style="height: calc(80rpx + env(safe-area-inset-bottom));"></view>
       </scroll-view>
     </view>
 
@@ -143,7 +162,10 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 
-const API_BASE = `http://101.35.132.175:5000`; // 请确保地址正确
+/* =================================================================
+   核心业务逻辑 (保持原样)
+   ================================================================= */
+const API_BASE = `http://101.35.132.175:5000`; 
 const vocabList = ref([]);
 const currentIndex = ref(0);
 const currentWord = ref(null);
@@ -155,7 +177,7 @@ const showHistory = ref(false);
 const historySessions = ref([]);
 const historyPage = ref(1);
 const hasMoreHistory = ref(true);
-const isLoadingHistory = ref(false); // 加载锁
+const isLoadingHistory = ref(false);
 
 const aiSentence = ref(null);
 const loadingSentence = ref(false);
@@ -182,7 +204,7 @@ const playAudio = () => {
 const saveProgress = () => {
     if (sessionWords.value.length === 0) return;
     
-    uni.showLoading({ title: 'SAVING...' });
+    uni.showLoading({ title: 'Saving...' });
     const user = uni.getStorageSync('userInfo');
     const level = levelOptions[currentLevelIndex.value].value;
 
@@ -199,15 +221,15 @@ const saveProgress = () => {
         success: (res) => {
             uni.hideLoading();
             if (res.data.code === 200) {
-                uni.showToast({ title: '已保存到历史', icon: 'success' });
+                uni.showToast({ title: 'Saved', icon: 'success' });
                 sessionWords.value = [];
             } else {
-                uni.showToast({ title: '保存失败', icon: 'none' });
+                uni.showToast({ title: 'Error', icon: 'none' });
             }
         },
         fail: () => {
             uni.hideLoading();
-            uni.showToast({ title: '网络错误', icon: 'none' });
+            uni.showToast({ title: 'Network Error', icon: 'none' });
         }
     });
 };
@@ -254,7 +276,6 @@ const getAiSentence = () => {
     });
 };
 
-// --- 历史记录分页逻辑 (修复版) ---
 const loadMoreHistory = () => {
     if (!hasMoreHistory.value || isLoadingHistory.value) return;
     
@@ -288,11 +309,11 @@ const loadMoreHistory = () => {
 
 const openHistoryDrawer = () => {
     showHistory.value = true;
-    historyPage.value = 1;       
+    historyPage.value = 1;        
     historySessions.value = [];  
     hasMoreHistory.value = true; 
     
-    uni.showLoading({ title: '加载记录...' });
+    uni.showLoading({ title: 'Loading...' });
     loadMoreHistory(); 
     setTimeout(() => uni.hideLoading(), 500);
 };
@@ -305,8 +326,9 @@ const goToSessionDetail = (sessionId) => {
 
 const deleteSession = (sessionId, index) => {
     uni.showModal({
-        title: 'DELETE?',
-        content: '确认删除这条打卡记录吗？',
+        title: 'Delete',
+        content: 'Delete this record?',
+        confirmColor: '#EF5350',
         success: (res) => {
             if (res.confirm) {
                 const user = uni.getStorageSync('userInfo');
@@ -316,7 +338,7 @@ const deleteSession = (sessionId, index) => {
                     data: { session_id: sessionId, user_id: user.id },
                     success: () => {
                         historySessions.value.splice(index, 1);
-                        uni.showToast({ title: '已删除' });
+                        uni.showToast({ title: 'Deleted' });
                     }
                 });
             }
@@ -330,7 +352,7 @@ const handleLevelChange = (e) => {
 };
 
 const fetchDueVocab = (forceNew = false) => {
-    uni.showLoading({ title: 'SYNC...' });
+    uni.showLoading({ title: 'Syncing...' });
     const user = uni.getStorageSync('userInfo');
     const level = levelOptions[currentLevelIndex.value].value;
     
@@ -378,122 +400,561 @@ const goBack = () => uni.navigateBack();
 onMounted(() => fetchDueVocab());
 </script>
 
-<style scoped>
-/* 基础设置 */
-page { background-color: #050505; color: #00f3ff; font-family: 'Courier New', monospace; height: 100vh; overflow: hidden; }
-.container { height: 100%; display: flex; flex-direction: column; position: relative; }
-.cyber-bg { position: fixed; width: 100%; height: 100%; background: radial-gradient(circle, #111 0%, #000 100%); z-index: -1; }
+<style lang="scss" scoped>
+/* 1. 色彩变量 */
+$color-bg: #F5F5F0;        /* 浅米色 */
+$color-card: #FFFFFF;      /* 纯白 */
+$color-primary: #4A6FA5;   /* 莫兰迪蓝 */
+$color-accent: #FF8A65;    /* 珊瑚橙 */
+$color-text-main: #2C3E50; /* 深灰 */
+$color-text-sub: #95A5A6;  /* 浅灰 */
+$color-line: #E0E0E0;
 
-/* 1. 顶部导航栏 */
-.nav-header { 
-  display: flex; justify-content: space-between; align-items: center; 
-  padding: 100rpx 30rpx 20rpx; 
-  background: rgba(5, 5, 5, 0.9);
-  z-index: 10;
+page { 
+  background-color: $color-bg; 
+  height: 100vh;
+  font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+  overflow: hidden;
 }
-.back-btn { color: #666; font-size: 24rpx; display: flex; align-items: center; }
-.back-btn .icon { font-size: 30rpx; margin-right: 6rpx; }
 
-.level-selector { 
-  display: flex; align-items: center; justify-content: center;
-  border: 1px solid #00f3ff; border-radius: 4rpx; 
-  padding: 6rpx 20rpx; background: rgba(0, 243, 255, 0.1);
+.container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
-.level-val { font-size: 24rpx; font-weight: bold; color: #fff; margin-right: 10rpx; }
-.level-arrow { font-size: 20rpx; color: #00f3ff; }
 
-.dict-btn { width: 60rpx; height: 60rpx; display: flex; align-items: center; justify-content: center; border: 1px solid #333; border-radius: 50%; background: #111; }
-.dict-btn .icon { font-size: 28rpx; }
-
-/* 2. 进度条 */
-.progress-track { height: 4rpx; background: #222; width: 100%; margin-top: 0; }
-.progress-bar { height: 100%; background: #00f3ff; transition: width 0.3s; box-shadow: 0 0 10rpx #00f3ff; }
-
-/* 3. 工具控制栏 */
-.tool-bar { 
-  display: flex; justify-content: space-between; align-items: center; 
-  padding: 20rpx 40rpx; border-bottom: 1px solid #1a1a1a; 
-  background: #080808;
+/* 2. 顶部导航 */
+.nav-header {
+  height: 88rpx;
+  padding-top: var(--status-bar-height);
+  padding-left: 30rpx;
+  padding-right: 30rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: $color-bg;
 }
-.tool-btn { 
-  font-size: 22rpx; font-weight: bold; padding: 10rpx 20rpx; border-radius: 4rpx; 
-  display: flex; align-items: center; border: 1px solid #444; color: #888;
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  color: $color-primary;
 }
-.tool-btn.prev:active { background: #222; color: #fff; }
-.tool-btn.save { border-color: #ffaa00; color: #ffaa00; }
-.tool-btn.save:active { background: rgba(255, 170, 0, 0.1); }
-.tool-btn.disabled { opacity: 0.3; pointer-events: none; border-color: #333; color: #444; }
+.back-icon { font-size: 36rpx; margin-right: 4rpx; margin-top: -4rpx; }
+.back-text { font-size: 28rpx; font-weight: 500; }
 
-.progress-text { font-size: 24rpx; color: #444; font-family: sans-serif; }
-.progress-text .curr { color: #00f3ff; font-size: 32rpx; font-weight: bold; }
+/* 替换原有的 .level-picker 相关样式 */
 
-/* 主内容区 */
-.main-content { flex: 1; padding: 30rpx 40rpx; display: flex; flex-direction: column; justify-content: center; }
-.word-card { background: #0a0a0a; border: 1px solid #333; padding: 60rpx 40rpx; position: relative; border-radius: 8rpx; min-height: 500rpx; display: flex; flex-direction: column; align-items: center; }
-.card-active { border-color: #00f3ff; box-shadow: 0 0 20rpx rgba(0, 243, 255, 0.1); }
-.word-main { font-size: 64rpx; font-weight: bold; color: #fff; text-align: center; display: block; margin-bottom: 10rpx; letter-spacing: 2rpx; }
+.level-selector-wrapper {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
 
-.phonetic-row { display: flex; align-items: center; gap: 15rpx; margin-top: 10rpx; opacity: 0.8; }
-.word-phonetic { font-size: 28rpx; color: #00f3ff; font-family: sans-serif; }
-.audio-icon { font-size: 32rpx; }
+.custom-selector {
+  background-color: #FFFFFF;
+  border: 1px solid rgba(74, 111, 165, 0.2); /* 莫兰迪蓝淡边框 */
+  padding: 10rpx 24rpx;
+  border-radius: 12rpx;
+  display: flex;
+  flex-direction: column; /* 纵向排列，上方小标签，下方是大值 */
+  align-items: center;
+  min-width: 180rpx;
+  position: relative;
+  box-shadow: 0 4rpx 12rpx rgba(74, 111, 165, 0.05);
+  transition: all 0.3s ease;
 
-.unlock-overlay { margin-top: auto; margin-bottom: auto; padding: 40rpx; border: 1px dashed #333; border-radius: 8rpx; width: 80%; text-align: center; }
-.unlock-text { font-size: 22rpx; color: #666; }
+  &:active {
+    transform: scale(0.97);
+    background-color: #F0F4F8;
+  }
+}
 
-.details-area { width: 100%; margin-top: 40rpx; padding-top: 40rpx; border-top: 1px solid #222; }
-.meaning-text { font-size: 34rpx; color: #00ff9d; text-align: center; display: block; margin-bottom: 30rpx; font-weight: bold; line-height: 1.6; }
+.selector-label {
+  font-size: 18rpx;
+  color: #95A5A6; /* 辅助灰色 */
+  font-weight: 700;
+  letter-spacing: 2rpx;
+  margin-bottom: 4rpx;
+}
 
-.sentence-container { background: #0e0e0e; border: 1px solid #222; padding: 20rpx; margin-bottom: 20rpx; border-radius: 6rpx; }
-.sentence-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10rpx; }
-.ai-label { font-size: 20rpx; color: #666; font-weight: bold; }
-.status-text { font-size: 18rpx; color: #00f3ff; }
-.en-s { font-size: 26rpx; color: #ccc; display: block; margin-bottom: 8rpx; font-style: italic; line-height: 1.4; }
-.cn-s { font-size: 22rpx; color: #666; display: block; }
-.gen-trigger { font-size: 22rpx; color: #444; text-align: center; padding: 15rpx; border: 1px dashed #333; }
-.synonyms-box { margin-top: 20rpx; padding-top: 15rpx; border-top: 1px dashed #222; }
-.syn-label { font-size: 20rpx; color: #666; font-weight: bold; margin-bottom: 10rpx; display: block; }
-.syn-list { display: flex; flex-wrap: wrap; gap: 10rpx; }
-.syn-tag { font-size: 22rpx; color: #00ff9d; background: rgba(0, 255, 157, 0.1); border: 1px solid #00ff9d; padding: 4rpx 12rpx; border-radius: 4rpx; }
+.selector-value {
+  font-size: 26rpx;
+  color: #4A6FA5; /* 莫兰迪蓝主色 */
+  font-weight: 600;
+}
 
-/* 底部评分 */
-.action-footer { margin-top: 40rpx; }
-.rating-grid { display: flex; justify-content: space-between; gap: 15rpx; }
-.rating-btn { flex: 1; height: 100rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #111; border: 1px solid #333; border-radius: 6rpx; }
-.b-0 { border-bottom: 3px solid #ff003c; } 
-.b-3 { border-bottom: 3px solid #ffaa00; } 
-.b-4 { border-bottom: 3px solid #00f3ff; } 
-.b-5 { border-bottom: 3px solid #00ff9d; } 
-.r-val { font-size: 32rpx; font-weight: bold; color: #fff; margin-bottom: 4rpx; }
-.r-txt { font-size: 20rpx; color: #888; }
+.selector-arrow {
+  position: absolute;
+  right: 12rpx;
+  bottom: 8rpx;
+  font-size: 18rpx;
+  color: #CFD8DC;
+}
+.level-text { font-size: 24rpx; font-weight: 600; color: $color-text-main; margin-right: 8rpx; }
+.picker-arrow { font-size: 18rpx; color: $color-text-sub; }
 
-/* 历史记录浮窗 */
-.finished-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.finish-hex { font-size: 80rpx; color: #00ff9d; margin-bottom: 40rpx; }
-.f-title { font-size: 36rpx; color: #00ff9d; margin-bottom: 60rpx; letter-spacing: 2rpx; }
-.cyber-button-rect { background: #00f3ff; color: #000; border: none; padding: 20rpx 80rpx; font-size: 28rpx; font-weight: bold; border-radius: 4rpx; }
+.icon-btn {
+  width: 60rpx;
+  height: 60rpx;
+  background: $color-card;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+}
 
-.history-fab { position: fixed; right: 40rpx; bottom: 100rpx; width: 80rpx; height: 80rpx; background: rgba(0,0,0,0.8); border: 1px solid #00f3ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36rpx; box-shadow: 0 0 15rpx rgba(0, 243, 255, 0.3); z-index: 100; }
-.drawer-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 101; }
-.history-drawer { position: fixed; bottom: 0; left: 0; width: 100%; height: 60vh; background: #0f0f0f; border-top: 2px solid #00f3ff; z-index: 102; transform: translateY(100%); transition: transform 0.3s; display: flex; flex-direction: column; }
-.history-drawer.open { transform: translateY(0); }
-.drawer-header { padding: 20rpx 30rpx; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; background: #111; }
-.dh-title { color: #00f3ff; font-weight: bold; font-size: 28rpx; }
-.dh-close { color: #666; font-size: 32rpx; padding: 10rpx; }
+/* 3. 进度条 */
+.progress-section {
+  padding: 20rpx 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.progress-track {
+  flex: 1;
+  height: 6rpx;
+  background: #E0E0E0;
+  border-radius: 3rpx;
+  margin-right: 20rpx;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: $color-primary;
+  border-radius: 3rpx;
+  transition: width 0.3s ease;
+}
+.progress-num { font-size: 22rpx; color: $color-text-sub; font-weight: 500; }
 
-.drawer-list { 
-  flex: 1; 
-  padding: 20rpx; 
-  box-sizing: border-box; 
-  height: 0; 
+
+
+.word-text {
+  font-size: 64rpx;
+  font-weight: 700;
+  color: $color-text-main;
+  text-align: center;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.phonetic-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 40rpx;
+}
+.phonetic-text { font-size: 28rpx; color: $color-text-sub; margin-right: 12rpx; font-family: 'Times New Roman', serif; }
+.audio-icon { font-size: 32rpx; opacity: 0.6; }
+
+.tap-hint {
+  margin-top: auto;
+  margin-bottom: auto;
+  text-align: center;
+  padding: 30rpx;
+  border: 2rpx dashed #E0E0E0;
+  border-radius: 12rpx;
+}
+.tap-hint text { font-size: 24rpx; color: $color-text-sub; }
+
+/* 背面内容 */
+.card-back {
+  animation: fadeIn 0.4s ease;
+}
+.divider { height: 1px; background: #F0F0F0; margin: 20rpx 0 40rpx; }
+.meaning-text { 
+  font-size: 32rpx; 
+  color: $color-primary; 
+  font-weight: 600; 
+  text-align: center; 
+  display: block; 
+  margin-bottom: 40rpx;
+  line-height: 1.5;
+}
+
+.ai-section {
+  background: #FAFAFA;
+  padding: 24rpx;
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+}
+.ai-header { display: flex; justify-content: space-between; margin-bottom: 10rpx; }
+.ai-tag { font-size: 20rpx; color: $color-text-sub; font-weight: 700; }
+.ai-status { font-size: 20rpx; color: $color-primary; }
+
+.en-sentence { font-size: 26rpx; color: $color-text-main; font-style: italic; display: block; margin-bottom: 8rpx; line-height: 1.4; }
+.cn-sentence { font-size: 24rpx; color: $color-text-sub; }
+.ai-placeholder { text-align: center; color: $color-primary; font-size: 24rpx; padding: 10rpx; }
+
+.synonyms-section { margin-top: 20rpx; }
+.syn-title { font-size: 20rpx; color: $color-text-sub; font-weight: 700; margin-bottom: 8rpx; display: block; }
+.syn-chips { display: flex; flex-wrap: wrap; gap: 10rpx; }
+.syn-chip { 
+  font-size: 22rpx; 
+  color: $color-text-main; 
+  background: #F0F0F0; 
+  padding: 4rpx 16rpx; 
+  border-radius: 8rpx; 
+}/* --- 找到并修改以下样式 --- */
+
+/* --- 核心优化：紧凑且具有呼吸感的卡片样式 --- */
+
+.card-container {
+  padding: 30rpx 40rpx;
+  display: flex;
+  flex-direction: column;
+  /* 移除原本的 min-height 750rpx，改为自适应居中 */
+  justify-content: center;
+  align-items: center;
+  flex: 1; /* 让容器占据中间区域 */
+}
+
+.word-card {
   width: 100%;
+  background: $color-card;
+  border-radius: 32rpx;
+  box-shadow: 0 12rpx 48rpx rgba(74, 111, 165, 0.08);
+  /* 调整内边距：上下紧凑，左右适中 */
+  padding: 50rpx 50rpx 40rpx; 
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: all 0.3s ease;
+  
+  /* 设置一个更合理的自适应高度范围 */
+  height: auto;
+  min-height: 480rpx; /* 保证卡片最基础的体量感 */
+  max-height: 65vh; 
+  overflow-y: auto; /* 内容过多时内部滚动 */
 }
 
-.session-item { display: flex; justify-content: space-between; align-items: center; padding: 25rpx; margin-bottom: 15rpx; background: #161616; border-left: 3rpx solid #444; }
-.session-item:active { background: #222; }
-.s-date { color: #fff; font-size: 24rpx; font-weight: bold; display: block; margin-bottom: 6rpx; }
-.s-level { color: #666; font-size: 20rpx; background: #000; padding: 2rpx 8rpx; border-radius: 4rpx; }
-.s-count { color: #00f3ff; font-size: 28rpx; font-weight: bold; display: block; margin-bottom: 6rpx; text-align: right; }
-.s-status { color: #888; font-size: 20rpx; }
-.loading-more { text-align: center; color: #444; padding: 20rpx; font-size: 20rpx; }
-.empty-log { text-align: center; color: #444; padding: 50rpx; font-size: 24rpx; }
+/* 单词主体：缩小底部间距 */
+.word-text {
+  font-size: 68rpx; 
+  font-weight: 700;
+  color: $color-text-main;
+  text-align: center;
+  display: block;
+  letter-spacing: 1rpx;
+  margin-bottom: 12rpx;
+}
+
+/* 音标：大幅缩小底部间距，让释义靠上来 */
+.phonetic-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 30rpx; 
+}
+
+.phonetic-text {
+  font-size: 30rpx;
+  color: $color-text-sub;
+  font-family: 'Inter', sans-serif;
+}
+
+/* 分割线：紧凑化 */
+.divider { 
+  height: 1px; 
+  background: #F5F5F5; 
+  margin: 10rpx 0 24rpx; 
+}
+
+/* 释义：通过行高撑起质感，而不是靠物理间距 */
+.meaning-text { 
+  font-size: 34rpx; 
+  color: $color-primary; 
+  font-weight: 600; 
+  text-align: center; 
+  display: block; 
+  margin-bottom: 24rpx; /* 缩小与例句的距离 */
+  line-height: 1.6;
+}
+
+/* AI 例句：同样紧凑处理 */
+.ai-section {
+  background: #F8F9FA;
+  padding: 24rpx 30rpx;
+  border-radius: 16rpx;
+  margin-top: 10rpx;
+}
+
+/* --- 底部评分区：向上贴近卡片 --- */
+.footer-control {
+  padding: 10rpx 40rpx 60rpx; /* 减小顶部 padding，让按钮组更靠近卡片 */
+  z-index: 5;
+}
+
+.rating-bar { 
+  display: flex; 
+  justify-content: space-between; 
+  gap: 16rpx; 
+  /* 移除可能存在的过大 margin */
+}
+
+.rate-btn { 
+  flex: 1; 
+  height: 96rpx; 
+  border-radius: 16rpx; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: center;
+  background: $color-card;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+}
+
+/* 历史球：位置调优，防止视觉重合感过强 */
+.history-fab {
+  position: fixed;
+  right: 40rpx;
+  bottom: 210rpx; /* 稍微下调，避开卡片主视觉 */
+  width: 90rpx;
+  height: 90rpx;
+  background: rgba(255, 255, 255, 0.9); 
+  backdrop-filter: blur(10px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6rpx 24rpx rgba(0,0,0,0.08);
+  font-size: 40rpx;
+  z-index: 100;
+  border: 1px solid rgba(74, 111, 165, 0.1);
+}
+
+.word-card {
+  background: $color-card;
+  border-radius: 32rpx;
+  box-shadow: 0 12rpx 48rpx rgba(74, 111, 165, 0.1);
+  /* 增加内边距，让文字离边框远一点 */
+  padding: 80rpx 60rpx; 
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: all 0.3s ease;
+  
+  /* 允许卡片高度随内容增长，但最高不超过屏幕的 60% */
+  height: auto;
+  max-height: 60vh; 
+}
+
+/* 单词主体：加大字号并增加字间距 */
+.word-text {
+  font-size: 72rpx; 
+  font-weight: 700;
+  color: $color-text-main;
+  text-align: center;
+  display: block;
+  letter-spacing: 2rpx;
+  margin-bottom: 24rpx;
+}
+
+/* 音标：增加上下间距 */
+.phonetic-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 60rpx; 
+}
+
+.phonetic-text {
+  font-size: 32rpx;
+  color: $color-text-sub;
+  font-family: 'Inter', sans-serif;
+}
+
+/* 释义：关键在于行高 */
+.meaning-text { 
+  font-size: 36rpx; 
+  color: $color-primary; 
+  font-weight: 600; 
+  text-align: center; 
+  display: block; 
+  margin-bottom: 40rpx;
+  /* 增加行高，防止中文挤在一起 */
+  line-height: 1.8; 
+  letter-spacing: 1px;
+}
+
+/* 例句区域：优化阅读间距 */
+.ai-section {
+  background: #F8F9FA;
+  padding: 32rpx;
+  border-radius: 16rpx;
+  margin-top: 20rpx;
+}
+
+.en-sentence { 
+  font-size: 28rpx; 
+  color: $color-text-main; 
+  display: block; 
+  margin-bottom: 16rpx; 
+  /* 英文行高 */
+  line-height: 1.6; 
+}
+
+.cn-sentence { 
+  font-size: 26rpx; 
+  color: $color-text-sub; 
+  line-height: 1.6;
+}
+
+
+/* 5. 底部控制栏 */
+.footer-control {
+  padding: 30rpx 40rpx 60rpx;
+}
+
+.rating-bar { display: flex; justify-content: space-between; gap: 20rpx; }
+.rate-btn { 
+  flex: 1; 
+  height: 100rpx; 
+  border-radius: 16rpx; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: center;
+  background: $color-card;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+}
+.rate-num { font-size: 32rpx; font-weight: 700; margin-bottom: 4rpx; }
+.rate-label { font-size: 20rpx; color: #FFF; padding: 2rpx 8rpx; border-radius: 6rpx; }
+
+.r-0 .rate-num { color: #EF5350; }
+.r-0 .rate-label { background: #EF5350; }
+
+.r-3 .rate-num { color: #FFCA28; }
+.r-3 .rate-label { background: #FFCA28; }
+
+.r-4 .rate-num { color: #42A5F5; }
+.r-4 .rate-label { background: #42A5F5; }
+
+.r-5 .rate-num { color: #66BB6A; }
+.r-5 .rate-label { background: #66BB6A; }
+
+.nav-btns { display: flex; justify-content: space-between; gap: 30rpx; }
+.nav-btn {
+  flex: 1;
+  height: 90rpx;
+  border-radius: 45rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 600;
+}
+.nav-btn.prev { background: #E0E0E0; color: $color-text-sub; }
+.nav-btn.save { background: $color-accent; color: #FFF; box-shadow: 0 6rpx 20rpx rgba(255, 138, 101, 0.3); }
+.nav-btn.disabled { opacity: 0.5; pointer-events: none; }
+
+/* 6. 完成状态 */
+.finished-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.finish-icon { font-size: 80rpx; margin-bottom: 20rpx; }
+.finish-title { font-size: 36rpx; font-weight: 700; color: $color-text-main; margin-bottom: 10rpx; }
+.finish-sub { font-size: 24rpx; color: $color-text-sub; margin-bottom: 50rpx; }
+.restart-btn { 
+  background: $color-primary; 
+  color: #FFF; 
+  padding: 20rpx 80rpx; 
+  border-radius: 40rpx; 
+  font-size: 28rpx; 
+  box-shadow: 0 6rpx 20rpx rgba(74, 111, 165, 0.3);
+}
+
+/* 7. 历史记录 */
+.history-fab {
+  position: fixed;
+  right: 40rpx;
+  bottom: 180rpx;
+  width: 90rpx;
+  height: 90rpx;
+  background: $color-card;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.1);
+  font-size: 40rpx;
+  z-index: 100;
+}
+
+.drawer-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.3);
+  z-index: 200;
+}
+
+.history-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 60vh;
+  background: #F9F9F9;
+  border-radius: 30rpx 30rpx 0 0;
+  z-index: 201;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+.drawer-open { transform: translateY(0); }
+
+.drawer-header {
+  padding: 30rpx 40rpx;
+  background: #FFF;
+  border-radius: 30rpx 30rpx 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.drawer-title { font-size: 32rpx; font-weight: 700; color: $color-text-main; }
+.close-icon { font-size: 32rpx; color: $color-text-sub; padding: 10rpx; }
+
+.drawer-body { flex: 1; padding: 20rpx 40rpx; box-sizing: border-box; }
+
+.history-item {
+  background: #FFF;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 20rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.02);
+}
+
+.item-main { display: flex; flex-direction: column; }
+.item-date { font-size: 26rpx; font-weight: 600; color: $color-text-main; margin-bottom: 8rpx; }
+.item-tags { display: flex; gap: 10rpx; }
+.tag-level { font-size: 20rpx; background: #F0F0F0; color: $color-text-sub; padding: 2rpx 8rpx; border-radius: 4rpx; }
+.tag-status { font-size: 20rpx; padding: 2rpx 8rpx; border-radius: 4rpx; }
+.tag-status.done { background: rgba(76, 175, 80, 0.1); color: #4CAF50; }
+.tag-status.saved { background: rgba(255, 152, 0, 0.1); color: #FF9800; }
+
+.item-count { text-align: right; }
+.count-num { font-size: 36rpx; font-weight: 700; color: $color-primary; display: block; }
+.count-label { font-size: 20rpx; color: $color-text-sub; }
+
+.empty-state, .load-more-text {
+  text-align: center;
+  color: $color-text-sub;
+  font-size: 24rpx;
+  padding: 40rpx;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>

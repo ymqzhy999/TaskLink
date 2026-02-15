@@ -1,37 +1,56 @@
 <template>
-  <view class="container dark-theme">
-    <view class="cyber-bg"></view>
-    <view class="header-box fade-in">
-      <text class="title">已完成的计划历史记录</text>
+  <view class="container">
+    <view class="header-section fade-in">
+      <view class="header-content">
+        <text class="page-title">Archives</text>
+        <text class="page-subtitle">已完成的计划历史记录</text>
+      </view>
     </view>
 
     <scroll-view scroll-y class="history-list">
-      <view v-if="archivedPlans.length === 0" class="empty-box">
-        <text class="glitch-text">NO ARCHIVES</text>
-        <text class="empty-sub">暂无已归档的战术</text>
-        <text class="empty-tip">当所有节点标记为完成后，计划将自动归档至此</text>
+      <view v-if="archivedPlans.length === 0" class="empty-state">
+        <view class="empty-icon">⚪</view>
+        <text class="empty-title">暂无存档记录</text>
+        <text class="empty-tip">当计划的所有节点完成后，将会自动归档至此处，记录你的每一次成长。</text>
       </view>
 
-      <view class="timeline-item slide-in" v-for="(plan, index) in archivedPlans" :key="index" @click="goToDetail(plan.id)">
-        <view class="left-section">
-          <view class="neon-dot completed"></view>
-          <view class="neon-line" v-if="index < archivedPlans.length - 1"></view>
-        </view>
+      <view class="timeline-container">
+        <view class="timeline-line" v-if="archivedPlans.length > 0"></view>
         
-        <view class="right-content cyber-card">
-          <view class="row-top">
-            <text class="task-time">{{ formatDate(plan.created_at) }}</text>
-            <text class="status-badge">ARCHIVED</text>
+        <view 
+          class="history-item slide-in" 
+          v-for="(plan, index) in archivedPlans" 
+          :key="plan.id" 
+          @click="goToDetail(plan.id)"
+          :style="{ animationDelay: index * 0.05 + 's' }"
+        >
+          <view class="timeline-node">
+            <view class="node-dot"></view>
           </view>
-          <text class="task-name">{{ plan.title }}</text>
-          <view class="card-footer">
-            <text class="type-code">CYCLES: {{ plan.total_days }} DAYS</text>
-            <text class="detail-link">REVIEW >></text>
+          
+          <view class="content-card">
+            <view class="card-header">
+              <text class="archive-date">{{ formatDate(plan.created_at) }}</text>
+              <view class="status-badge">ARCHIVED</view>
+            </view>
+            
+            <text class="plan-title">{{ plan.title }}</text>
+            
+            <view class="card-footer">
+              <view class="meta-info">
+                <text class="meta-label">DURATION:</text>
+                <text class="meta-value">{{ plan.total_days }} DAYS</text>
+              </view>
+              <view class="review-btn">
+                <text>回顾详情</text>
+                <text class="arrow">→</text>
+              </view>
+            </view>
           </view>
         </view>
       </view>
       
-      <view style="height: 30px;"></view>
+      <view style="height: 60rpx;"></view>
     </scroll-view>
   </view>
 </template>
@@ -40,6 +59,9 @@
 import { ref } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 
+/* =================================================================
+   核心业务逻辑 (保持原样)
+   ================================================================= */
 const API_BASE = `http://101.35.132.175:5000`;
 const archivedPlans = ref([]);
 
@@ -51,7 +73,6 @@ onShow(() => {
     uni.showToast({ title: '请先登录', icon: 'none' });
   }
 });
-
 
 onPullDownRefresh(() => {
   const user = uni.getStorageSync('userInfo');
@@ -68,7 +89,7 @@ const fetchArchived = (userId) => {
       }
     },
     fail: () => {
-      uni.showToast({ title: '无法连接数据中枢', icon: 'none' });
+      uni.showToast({ title: '网络连接异常', icon: 'none' });
     }
   });
 };
@@ -83,39 +104,223 @@ const formatDate = (str) => {
 }
 </script>
 
-<style>
-page { background-color: #050505; color: #ccc; font-family: 'Courier New', monospace; }
-.container { padding: 20px; min-height: 100vh; }
-.cyber-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 10% 10%, #111 0%, #000 80%); z-index: -1; }
+<style lang="scss" scoped>
+/* 1. 色彩变量 */
+$color-bg: #F5F5F0;        /* 浅米色 */
+$color-card: #FFFFFF;      /* 纯白 */
+$color-primary: #4A6FA5;   /* 莫兰迪蓝 */
+$color-text-main: #2C3E50; /* 深灰 */
+$color-text-sub: #95A5A6;  /* 浅灰 */
+$color-line: #E0E0E0;
 
-.header-box { margin-bottom: 30px; border-bottom: 1px solid #333; padding-bottom: 15px; border-left: 4px solid #00ff9d; padding-left: 15px; }
-.title { font-size: 28px; font-weight: 900; color: #fff; letter-spacing: 2px; display: block; }
-.subtitle { font-size: 12px; color: #00ff9d; display: block; margin-top: 5px; opacity: 0.8; }
+page { 
+  background-color: $color-bg; 
+  height: 100vh;
+  font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+}
 
-.timeline-item { display: flex; padding-bottom: 0; min-height: 100px; }
-.left-section { width: 30px; display: flex; flex-direction: column; align-items: center; margin-right: 15px; position: relative; }
-.neon-dot { width: 14px; height: 14px; background: #000; border: 2px solid #00ff9d; border-radius: 50%; z-index: 2; box-shadow: 0 0 10px #00ff9d; }
-.neon-line { width: 2px; background: rgba(0, 255, 157, 0.3); flex-grow: 1; margin-top: 5px; margin-bottom: -5px; }
+.container {
+  min-height: 100vh;
+  padding: 0 40rpx;
+  display: flex;
+  flex-direction: column;
+}
 
-.cyber-card { flex: 1; background: rgba(20,20,20,0.6); border: 1px solid rgba(0, 255, 157, 0.3); padding: 15px; margin-bottom: 20px; transition: all 0.2s; position: relative; overflow: hidden; }
-.cyber-card:active { border-color: #00ff9d; background: rgba(0, 255, 157, 0.1); transform: scale(0.98); }
+/* 2. 头部 */
+.header-section {
+  padding-top: var(--status-bar-height);
+  margin-top: 60rpx;
+  margin-bottom: 60rpx;
+}
 
-.row-top { display: flex; justify-content: space-between; margin-bottom: 8px; }
-.task-time { color: #666; font-size: 12px; font-weight: bold; }
-.status-badge { color: #000; background: #00ff9d; font-size: 10px; padding: 2px 6px; font-weight: 900; letter-spacing: 1px; }
+.page-title {
+  font-size: 56rpx;
+  font-weight: 300;
+  color: $color-text-main;
+  letter-spacing: -1px;
+  display: block;
+}
 
-.task-name { font-size: 16px; color: #fff; font-weight: bold; margin-bottom: 15px; display: block; text-shadow: 0 0 5px rgba(0, 255, 157, 0.3); }
+.page-subtitle {
+  font-size: 24rpx;
+  color: $color-text-sub;
+  margin-top: 8rpx;
+  letter-spacing: 1px;
+}
 
-.card-footer { display: flex; justify-content: space-between; border-top: 1px solid #333; padding-top: 10px; font-size: 10px; color: #888; align-items: center; }
-.detail-link { color: #00ff9d; letter-spacing: 1px; }
+/* 3. 历史列表 & 时间轴 */
+.history-list {
+  flex: 1;
+  height: 0;
+}
 
-.empty-box { text-align: center; margin-top: 80px; opacity: 0.6; }
-.glitch-text { font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #444; }
-.empty-sub { font-size: 14px; color: #666; margin-top: 10px; display: block; }
-.empty-tip { font-size: 12px; color: #444; margin-top: 5px; display: block; }
+.timeline-container {
+  position: relative;
+  padding-left: 20rpx;
+}
 
+.timeline-line {
+  position: absolute;
+  left: 31rpx; /* 对齐圆点中心 */
+  top: 10rpx;
+  bottom: 0;
+  width: 2rpx;
+  background-color: $color-line;
+  z-index: 0;
+}
+
+.history-item {
+  position: relative;
+  padding-left: 60rpx;
+  margin-bottom: 50rpx;
+  z-index: 1;
+}
+
+.timeline-node {
+  position: absolute;
+  left: 14rpx;
+  top: 40rpx;
+  width: 36rpx;
+  height: 36rpx;
+  background-color: $color-bg; /* 遮挡线条 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.node-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border: 4rpx solid $color-primary;
+  border-radius: 50%;
+  background-color: #FFF;
+}
+
+/* 内容卡片 */
+.content-card {
+  background: $color-card;
+  border-radius: 20rpx;
+  padding: 30rpx 40rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.02);
+  transition: all 0.3s ease;
+}
+
+.content-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 10rpx 30rpx rgba(74, 111, 165, 0.08);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.archive-date {
+  font-size: 24rpx;
+  color: $color-text-sub;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.status-badge {
+  font-size: 18rpx;
+  color: $color-primary;
+  background: rgba(74, 111, 165, 0.1);
+  padding: 4rpx 12rpx;
+  border-radius: 4rpx;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.plan-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: $color-text-main;
+  margin-bottom: 30rpx;
+  display: block;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 24rpx;
+  border-top: 1px solid #F5F5F5;
+}
+
+.meta-info {
+  display: flex;
+  align-items: center;
+}
+
+.meta-label {
+  font-size: 18rpx;
+  color: $color-text-sub;
+  font-weight: 600;
+  margin-right: 8rpx;
+}
+
+.meta-value {
+  font-size: 22rpx;
+  color: $color-text-main;
+  font-weight: 700;
+}
+
+.review-btn {
+  display: flex;
+  align-items: center;
+}
+
+.review-btn text {
+  font-size: 22rpx;
+  color: $color-primary;
+  font-weight: 600;
+}
+
+.review-btn .arrow {
+  margin-left: 6rpx;
+  font-size: 28rpx;
+}
+
+/* 4. 空状态 */
+.empty-state {
+  margin-top: 200rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 60rpx;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 100rpx;
+  color: $color-line;
+  margin-bottom: 40rpx;
+}
+
+.empty-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: $color-text-main;
+  margin-bottom: 16rpx;
+}
+
+.empty-tip {
+  font-size: 24rpx;
+  color: $color-text-sub;
+  line-height: 1.6;
+}
+
+/* 5. 动画 */
 .fade-in { animation: fadeIn 0.8s ease-out; }
-.slide-in { animation: slideIn 0.5s ease-out backwards; }
+.slide-in { animation: slideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideIn { 
+  from { opacity: 0; transform: translateY(30rpx); } 
+  to { opacity: 1; transform: translateY(0); } 
+}
 </style>

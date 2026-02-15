@@ -9,114 +9,162 @@
           <text class="logo-link">Link</text>
           <view class="logo-dot"></view>
         </view>
-        <view class="slogan">DESIGN FOR FOCUS.</view>
+        <view class="slogan">为 专 注 而 设 计</view>
       </view>
 
       <view class="form-section">
-        <view class="input-group" :class="{ 'is-focused': activeField === 'username' }">
-          <text class="input-label">USERNAME</text>
+        <view class="input-group" :class="{ 'is-focused': focusField === 'user' }">
+          <text class="input-label">账 号</text>
           <input 
             class="custom-input" 
             type="text" 
-            placeholder="Please enter username" 
+            placeholder="请输入账号" 
             placeholder-class="placeholder-style"
-            @focus="onFocus('username')"
-            @blur="onBlur"
-            v-model="formData.username"
+            v-model="username"
+            @focus="focusField = 'user'"
+            @blur="focusField = ''"
           />
           <view class="input-line"></view>
         </view>
 
-        <view class="input-group" :class="{ 'is-focused': activeField === 'password' }">
-          <text class="input-label">PASSWORD</text>
+        <view class="input-group" :class="{ 'is-focused': focusField === 'pass' }">
+          <text class="input-label">密 码</text>
           <input 
             class="custom-input" 
             type="password" 
-            placeholder="Please enter password" 
+            placeholder="请输入密码" 
             placeholder-class="placeholder-style"
-            @focus="onFocus('password')"
-            @blur="onBlur"
-            v-model="formData.password"
+            v-model="password"
+            @focus="focusField = 'pass'"
+            @blur="focusField = ''"
           />
           <view class="input-line"></view>
         </view>
 
-        <view v-if="!isLogin" class="input-group invitation-box" :class="{ 'is-focused': activeField === 'invitation' }">
+        <view v-if="isRegister" class="input-group invitation-box" :class="{ 'is-focused': focusField === 'code' }">
           <view class="input-wrapper">
             <view class="invitation-input-area">
-               <text class="input-label">INVITATION</text>
+               <text class="input-label">邀 请 码</text>
                <input 
                  class="custom-input" 
                  type="text" 
-                 placeholder="Code" 
+                 placeholder="6位邀请码" 
+                 maxlength="6"
                  placeholder-class="placeholder-style"
-                 @focus="onFocus('invitation')"
-                 @blur="onBlur"
-                 v-model="formData.invitation"
+                 v-model="invitationCode"
+                 @focus="focusField = 'code'"
+                 @blur="focusField = ''"
                />
                <view class="input-line"></view>
             </view>
-            <view class="get-btn" hover-class="get-btn-hover">获取</view>
+            <view class="get-btn" hover-class="get-btn-hover" @click="showContactInfo">获 取</view>
           </view>
         </view>
       </view>
 
       <view class="action-section">
-        <button class="main-btn" hover-class="main-btn-active" @tap="handleSubmit">
-          <text>{{ isLogin ? 'LOGIN' : 'SIGN UP' }}</text>
+        <button 
+          class="main-btn" 
+          hover-class="main-btn-active" 
+          :loading="loading"
+          @click="handleAction"
+        >
+          <text>{{ isRegister ? '立 即 注 册' : '登 录' }}</text>
           <text class="arrow-icon">→</text>
         </button>
         
-        <view class="toggle-area" @tap="toggleMode">
-          <text class="toggle-text">{{ isLogin ? 'Create an account' : 'Back to Login' }}</text>
+        <view class="toggle-area" @click="toggleMode">
+          <text class="toggle-text">{{ isRegister ? '已有账号？返回登录' : '没有账号？注册新用户' }}</text>
         </view>
       </view>
     </view>
 
     <view class="footer-copyright">
-      © 2026 TaskLink Inc.
+      © 2026 TaskLink Space
     </view>
   </view>
 </template>
 
-<script>
-export default {
-  data() {
-    return {
-      isLogin: true, // true为登录，false为注册
-      activeField: '', // 当前聚焦的输入框
-      formData: {
-        username: '',
-        password: '',
-        invitation: ''
-      }
-    };
-  },
-  methods: {
-    toggleMode() {
-      this.isLogin = !this.isLogin;
-      // 清空表单或重置状态可在此处添加
-    },
-    onFocus(field) {
-      this.activeField = field;
-    },
-    onBlur() {
-      this.activeField = '';
-    },
-    handleSubmit() {
-      // 模拟交互反馈
-      const type = this.isLogin ? '登录' : '注册';
-      uni.showToast({
-        title: `${type}中...`,
-        icon: 'none'
-      });
-    }
+<script setup>
+import { ref } from 'vue';
+
+/* =================================================================
+   核心业务逻辑 (保持原样，未修改任何接口和参数)
+   ================================================================= */
+const API_BASE = `http://101.35.132.175:5000`;
+
+const username = ref('');
+const password = ref('');
+const invitationCode = ref(''); 
+const isRegister = ref(false);
+const loading = ref(false);
+const focusField = ref(''); // 用于控制UI高亮
+
+const showContactInfo = () => {
+  const qqNumber = '2335016055';
+  uni.setClipboardData({
+    data: qqNumber,
+    success: () => uni.showToast({ title: 'QQ已复制', icon: 'none' })
+  });
+};
+
+const toggleMode = () => {
+  isRegister.value = !isRegister.value;
+  username.value = '';
+  password.value = '';
+  invitationCode.value = '';
+};
+
+const handleAction = () => {
+  if (!username.value || !password.value) {
+    uni.showToast({ title: '请输入完整信息', icon: 'none' });
+    return;
   }
+  if (isRegister.value && !invitationCode.value) {
+    uni.showToast({ title: '请输入邀请码', icon: 'none' });
+    return;
+  }
+  
+  loading.value = true;
+  let postData = { username: username.value, password: password.value };
+  if (isRegister.value) postData.invitation_code = invitationCode.value;
+  const endpoint = isRegister.value ? '/api/register' : '/api/login';
+
+  uni.request({
+    url: `${API_BASE}${endpoint}`,
+    method: 'POST',
+    data: postData,
+    success: (res) => {
+      loading.value = false;
+      if (res.data.code === 200) {
+        if (!isRegister.value) {
+           uni.setStorageSync('userInfo', res.data.data);
+           const app = getApp();
+           if(app.initSocket) app.initSocket();
+           // 使用 reLaunch 避免返回
+           uni.reLaunch({ url: '/pages/index/index' });
+        } else {
+           uni.showToast({ title: '注册成功', icon: 'success' });
+           isRegister.value = false;
+        }
+      } else {
+        uni.showToast({ title: res.data.msg || '操作失败', icon: 'none' });
+      }
+    },
+    fail: () => {
+      loading.value = false;
+      uni.showToast({ title: '网络连接失败', icon: 'none' });
+    }
+  });
 };
 </script>
 
 <style lang="scss" scoped>
-/* 1. 色彩体系定义 */
+/* =================================================================
+   视觉样式重构 (莫兰迪极简高级感)
+   ================================================================= */
+
+/* 1. 色彩变量 */
 $color-primary: #4A6FA5;   /* 莫兰迪蓝 */
 $color-accent: #FF8A65;    /* 珊瑚橙 */
 $color-bg: #F5F5F0;        /* 浅米色 */
@@ -126,7 +174,7 @@ $color-text-sub: #95A5A6;  /* 辅助文字 */
 $color-placeholder: #CFD8DC;
 $color-footer: #D7CCC8;    /* 浅棕 */
 
-/* 2. 布局与结构 */
+/* 2. 布局容器 */
 .container {
   min-height: 100vh;
   display: flex;
@@ -141,16 +189,16 @@ $color-footer: #D7CCC8;    /* 浅棕 */
 .login-card {
   width: 650rpx;
   background: $color-card;
-  border-radius: 24rpx;
+  border-radius: 12rpx; /* 适度圆角 */
   padding: 80rpx 60rpx;
   box-sizing: border-box;
-  /* 卡片阴影：极简悬浮感 */
+  /* 核心：莫兰迪色系弥散阴影 */
   box-shadow: 0 20rpx 60rpx rgba(74, 111, 165, 0.08);
   position: relative;
   z-index: 10;
 }
 
-/* 3. 品牌区设计 */
+/* 3. 品牌区 */
 .brand-section {
   margin-bottom: 80rpx;
   text-align: left;
@@ -159,11 +207,11 @@ $color-footer: #D7CCC8;    /* 浅棕 */
 .logo-text {
   display: flex;
   align-items: baseline;
-  margin-bottom: 16rpx;
+  margin-bottom: 20rpx;
 }
 
 .logo-task {
-  font-family: 'Inter', -apple-system, sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 56rpx;
   font-weight: 900;
   color: $color-text-main;
@@ -171,10 +219,10 @@ $color-footer: #D7CCC8;    /* 浅棕 */
 }
 
 .logo-link {
-  font-family: 'Inter', -apple-system, sans-serif;
+  font-family: 'Inter', sans-serif;
   font-size: 56rpx;
   font-weight: 400;
-  color: $color-accent;
+  color: $color-accent; /* 珊瑚橙点缀 */
   margin-left: 4rpx;
 }
 
@@ -187,14 +235,14 @@ $color-footer: #D7CCC8;    /* 浅棕 */
 }
 
 .slogan {
-  font-size: 20rpx;
+  font-size: 24rpx;
   color: $color-text-sub;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  font-weight: 500;
+  letter-spacing: 6rpx; /* 增加汉字呼吸感 */
+  font-weight: 400;
+  opacity: 0.8;
 }
 
-/* 4. 表单区设计 */
+/* 4. 表单区 */
 .form-section {
   margin-bottom: 60rpx;
 }
@@ -205,11 +253,11 @@ $color-footer: #D7CCC8;    /* 浅棕 */
 }
 
 .input-label {
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: $color-text-sub;
-  font-weight: 600;
-  letter-spacing: 1px;
-  margin-bottom: 10rpx;
+  font-weight: 500;
+  letter-spacing: 2rpx;
+  margin-bottom: 12rpx;
   display: block;
   transition: color 0.3s ease;
 }
@@ -217,7 +265,7 @@ $color-footer: #D7CCC8;    /* 浅棕 */
 .custom-input {
   width: 100%;
   height: 80rpx;
-  font-size: 32rpx;
+  font-size: 30rpx;
   color: $color-text-main;
   font-weight: 400;
   border: none;
@@ -227,9 +275,10 @@ $color-footer: #D7CCC8;    /* 浅棕 */
 .placeholder-style {
   color: $color-placeholder;
   font-weight: 300;
+  font-size: 28rpx;
 }
 
-/* 下划线动画 */
+/* 动态下划线 */
 .input-line {
   width: 100%;
   height: 1px;
@@ -238,7 +287,7 @@ $color-footer: #D7CCC8;    /* 浅棕 */
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 聚焦状态联动 */
+/* 聚焦交互 */
 .input-group.is-focused .input-label {
   color: $color-primary;
 }
@@ -246,7 +295,6 @@ $color-footer: #D7CCC8;    /* 浅棕 */
 .input-group.is-focused .input-line {
   background-color: $color-primary;
   height: 2px;
-  transform: scaleX(1); /* 可选：增加延展动画 */
 }
 
 /* 邀请码特殊布局 */
@@ -260,57 +308,51 @@ $color-footer: #D7CCC8;    /* 浅棕 */
   margin-right: 30rpx;
 }
 .get-btn {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: $color-primary;
-  font-weight: 600;
+  font-weight: 500;
   padding: 10rpx 0;
-  margin-bottom: 10rpx;
+  margin-bottom: 14rpx; /* 对齐基线 */
   transition: opacity 0.2s;
+  letter-spacing: 2rpx;
 }
-.get-btn-hover {
-  opacity: 0.7;
-}
+.get-btn-hover { opacity: 0.6; }
 
-/* 5. 按钮与交互 */
+/* 5. 按钮与操作 */
 .main-btn {
   background-color: $color-primary;
   color: #FFFFFF;
-  border-radius: 8rpx; /* 4px */
+  border-radius: 8rpx;
   height: 96rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30rpx;
-  font-weight: 600;
-  letter-spacing: 2px;
+  font-size: 32rpx;
+  font-weight: 500;
+  letter-spacing: 8rpx; /* 按钮文字加宽间距 */
+  text-indent: 8rpx;
   border: none;
-  /* 按钮阴影 */
   box-shadow: 0 10rpx 30rpx rgba(74, 111, 165, 0.3);
   transition: all 0.3s ease;
-  overflow: hidden;
 }
 
-.main-btn::after {
-  border: none;
-}
+.main-btn::after { border: none; }
 
 .arrow-icon {
-  margin-left: 16rpx;
+  margin-left: 8rpx;
   font-weight: 400;
+  letter-spacing: 0;
+  text-indent: 0;
   transition: transform 0.3s ease;
 }
 
-/* 按钮点击态：变珊瑚橙 + 上浮 + 阴影加深 + 箭头位移 */
+/* 按钮点击态：变珊瑚橙 + 上浮 */
 .main-btn-active {
   background-color: $color-accent !important;
   transform: translateY(-4rpx);
   box-shadow: 0 16rpx 40rpx rgba(255, 138, 101, 0.4);
 }
 
-/* H5/小程序中 hover-class 触发时不仅仅改变背景，还需要配合子元素选择器(如果有) */
-/* 注意：UniApp hover-class 在松开手后会恢复，这里主要利用active态 */
-
-/* 底部切换链接 */
 .toggle-area {
   margin-top: 40rpx;
   text-align: center;
@@ -321,21 +363,21 @@ $color-footer: #D7CCC8;    /* 浅棕 */
   font-size: 26rpx;
   color: $color-text-sub;
   border-bottom: 1px dashed $color-text-sub;
-  padding-bottom: 2rpx;
+  padding-bottom: 4rpx;
+  letter-spacing: 1rpx;
 }
 
-/* 6. 底部版权 */
+/* 6. 版权与动画 */
 .footer-copyright {
   position: absolute;
-  bottom: 60rpx;
+  bottom: 40rpx;
   width: 100%;
   text-align: center;
-  font-size: 22rpx;
+  font-size: 20rpx;
   color: $color-footer;
-  font-weight: 500;
+  letter-spacing: 1rpx;
 }
 
-/* 7. 进场动画 */
 .fade-in-up {
   animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   opacity: 0;

@@ -7,7 +7,7 @@ TaskLink 是一款集成了科学记忆算法与 AI 辅助决策的英语学习�
 
 ## 📸 核心界面展示
 ### 1. 背单词页（核心功能）
-<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img.png" width="600" alt="背单词核心页面">
+<img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img.png" width="400" height="500" alt="背单词核心页面">
 
 ### 2. 计划生成页
 <img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img_1.png" width="600" alt="AI计划生成页面">

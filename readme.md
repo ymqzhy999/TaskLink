@@ -6,7 +6,7 @@
 TaskLink 是一款集成了科学记忆算法与 AI 辅助决策的英语学习工具。项目采用前后端分离架构，通过算法优化复习周期，并利用大语言模型辅助学习规划。
 可以直接下载apk文件，后端部署在云服务器上，根据你对单词的掌握程度，动态计算最优复习间隔，帮你在即将遗忘前复习，实现高效、持久的单词记忆。邀请码：ALN6YS,O4H5TG,3W58AP,91UPJG
 ## 📥 下载安装
-APK 安装包下载：[TaskLink_v1.6.2apk]([https://github.com/ymqzhy999/TaskLink/tree/main/dist])
+APK 安装包下载：[TaskLink_v1.6.2apk](https://github.com/ymqzhy999/TaskLink/tree/main/dist)
 
 ## 📸 核心界面展示
 <img src="https://raw.githubusercontent.com/ymqzhy999/TaskLink/main/docs/images/img.png" width="400" height="570" alt="界面截图">

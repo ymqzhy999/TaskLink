@@ -1,6 +1,3 @@
-# backend/models.py
-from database import db
-from datetime import datetime
 from database import db
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -39,7 +36,6 @@ class User(db.Model):
         }
 
 
-# --- 原有的自动化任务表 (保持不变，用于ADB控制) ---
 class Task(db.Model):
     __tablename__ = 'tasks'
 
@@ -173,7 +169,6 @@ class InvitationCode(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)  # 创建时间
     used_at = db.Column(db.DateTime, nullable=True)  # 使用时间
 
-    # (可选) 记录是被谁使用的
     used_by_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     def to_dict(self):
@@ -264,3 +259,27 @@ class TrainingDetail(db.Model):
         }
 
 
+class UserVocabStats(db.Model):
+    __tablename__ = 'user_vocab_stats'
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    total_learned = db.Column(db.Integer, default=0)  # 总背诵单词数
+    count_0 = db.Column(db.Integer, default=0)  # 评分0：忘记
+    count_3 = db.Column(db.Integer, default=0)  # 评分3：模糊
+    count_4 = db.Column(db.Integer, default=0)  # 评分4：认识
+    count_5 = db.Column(db.Integer, default=0)  # 评分5：精通
+    last_updated = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # 关联用户，方便查询
+    user = db.relationship('User', backref=db.backref('stats', uselist=False))
+
+    def to_dict(self):
+        return {
+            "user_id": self.user_id,
+            "total_learned": self.total_learned,
+            "count_0": self.count_0,
+            "count_3": self.count_3,
+            "count_4": self.count_4,
+            "count_5": self.count_5,
+            "last_updated": self.last_updated.strftime('%Y-%m-%d %H:%M:%S')
+        }

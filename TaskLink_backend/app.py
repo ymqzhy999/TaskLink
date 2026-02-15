@@ -5,8 +5,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import db
-from models import User, Task, TaskLog, ChatMessage, AIPlan, AIPlanTask, InvitationCode, Vocabulary, UserWordProgress, \
-    TrainingSession, TrainingDetail
+from models import User, Task, TaskLog, ChatMessage, AIPlan, AIPlanTask, UserVocabStats, InvitationCode, Vocabulary, \
+    UserWordProgress, TrainingSession, TrainingDetail
 import requests
 import re
 from dotenv import load_dotenv
@@ -63,13 +63,13 @@ def call_deepseek_json(system_prompt, user_prompt):
     }
 
     payload = {
-        "model": "deepseek-reasoner",  # 或者 deepseek-reasoner
+        "model": "deepseek-reasoner",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
         ],
-        "response_format": {"type": "json_object"},  # 強制 JSON 模式 (如果模型支持)
-        "temperature": 1.3  # 稍微高一點，讓賽博朋克風格更狂野
+        "response_format": {"type": "json_object"},
+        "temperature": 1.3
     }
 
     try:
@@ -101,10 +101,6 @@ def generate_plan():
     if not user_id or not goal:
         return jsonify({"code": 400, "msg": "目标不能为空"}), 400
 
-
-
-
-
     if days <= 7:
         # 短周期：每天一个任务，精确执行
         task_count = days
@@ -129,7 +125,6 @@ def generate_plan():
         """
         time_unit = "Phase"
 
-    # 🔥 核心提示词：重拳整治废话 🔥
     system_prompt = f"""
     # Role: 阿琪的贾维斯 (Cyberpunk Tactical AI)
 
@@ -272,25 +267,20 @@ def get_plan_detail():
 
 @app.before_request
 def check_user_status():
-    # 1. 放行白名单
     allowed_endpoints = ['login', 'register', 'static', 'upload_avatar', 'upload_image']
     if request.endpoint in allowed_endpoints or request.endpoint is None:
         return None
 
-    # 2. 识别“谁在发起请求”
     current_user_id = None
 
     if request.method == 'GET':
-        # GET 请求通常只有 operator_id 或者 user_id (视作查看自己)
         current_user_id = request.args.get('operator_id') or request.args.get('user_id')
 
     elif request.method == 'POST':
         if request.is_json:
             data = request.get_json(silent=True)
             if data:
-                # 🔥🔥🔥 核心修复 🔥🔥🔥
-                # 优先认定 operator_id 为操作者
-                # 如果没有 operator_id，才把 user_id 当作操作者
+
                 current_user_id = data.get('operator_id')
 
                 if not current_user_id:
@@ -314,7 +304,7 @@ def register():
     data = request.json
     username = data.get('username')
     password = data.get('password')
-    invitation_code = data.get('invitation_code')  # 1. 获取邀请码
+    invitation_code = data.get('invitation_code')
 
     if not username or not password:
         return jsonify({"code": 400, "msg": "用户名或密码不能为空"}), 400
@@ -399,7 +389,6 @@ def login():
             'exp': expiration
         }, app.config['SECRET_KEY'], algorithm="HS256")
 
-        # 🔥🔥🔥 关键步骤：把 Token 存入数据库 🔥🔥🔥
         user.current_token = token
         db.session.commit()
 
@@ -420,14 +409,11 @@ def login():
         return jsonify({"code": 401, "msg": "用户名或密码错误"})
 
 
-# --- 2. 新增：管理员获取用户列表 ---
 @app.route('/api/admin/users', methods=['GET'])
 def get_all_users():
-    # 鉴权：从 URL 参数获取操作者 ID (实际项目建议用 Token 解析)
     operator_id = request.args.get('operator_id')
 
     admin = User.query.get(operator_id)
-    # 只有 role == 1 才能看
     if not admin or getattr(admin, 'role', 0) != 1:
         return jsonify({"code": 403, "msg": "无权访问"})
 
@@ -469,7 +455,6 @@ def update_user_status():
 
         msg = "账号已启用"
 
-        # 🔥 如果是禁用操作，通知 Node.js 踢人
         if int(new_status) == 0:
             msg = "账号已禁用，并强制下线"
             print(f"🚀 [Flask调试] 准备向 Node.js 发送踢人指令...")
@@ -492,12 +477,11 @@ def update_user_status():
 # 获取任务列表
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
-    current_user_id = g.user_id
+    user_id = g.user_id
 
     if not user_id:
         return jsonify({"code": 400, "msg": "缺少用户ID"}), 400
 
-    # 查询该用户的所有任务，按时间排序
     tasks = Task.query.filter_by(user_id=user_id).order_by(Task.trigger_time).all()
 
     return jsonify({
@@ -506,38 +490,6 @@ def get_tasks():
     })
 
 
-# 添加任务
-@app.route('/api/tasks', methods=['POST'])
-def add_task():
-    data = request.json
-    user_id = data.get('user_id')
-    title = data.get('title')
-    time = data.get('time')
-    action_type = data.get('type')  # APP / LINK / SCRIPT
-    target = data.get('target')  # 包名 / URL / 脚本名
-
-    if not all([user_id, title, time, action_type, target]):
-        return jsonify({"code": 400, "msg": "参数不完整"}), 400
-
-    new_task = Task(
-        user_id=user_id,
-        title=title,
-        # 👇 新增：接收备注和循环开关
-        description=data.get('description', ''),
-        is_loop=data.get('is_loop', False),
-
-        trigger_time=time,
-        action_type=action_type,
-        target_value=target
-    )
-
-    db.session.add(new_task)
-    db.session.commit()
-
-    return jsonify({"code": 200, "msg": "任务创建成功", "data": new_task.to_dict()})
-
-
-# 删除任务
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
     # 根据主键 ID 查找任务
@@ -563,7 +515,6 @@ def update_task(task_id):
 
     data = request.json
 
-    # 逐个检查字段，如果有传值就更新
     if 'title' in data: task.title = data['title']
     if 'time' in data: task.trigger_time = data['time']
     if 'type' in data: task.action_type = data['type']
@@ -625,7 +576,6 @@ def add_log():
         task_title=data.get('title'),
         task_type=data.get('type'),
         status=data.get('status', 'SUCCESS'),
-        # 👇 新增：接收脚本运行结果
         result=data.get('result', '')
     )
 
@@ -643,7 +593,6 @@ def get_logs():
     if not user_id:
         return jsonify({"code": 400, "msg": "缺少用户ID"}), 400
 
-    # 按时间倒序排列 (最新的在最前面)
     logs = TaskLog.query.filter_by(user_id=user_id).order_by(TaskLog.executed_at.desc()).all()
 
     return jsonify({
@@ -667,10 +616,8 @@ def upload_avatar():
         return jsonify({"code": 400, "msg": "No selected file"}), 400
 
     if file and allowed_file(file.filename):
-        # 获取文件后缀 (比如 .jpg)
         ext = os.path.splitext(file.filename)[1]
 
-        # 🔥 生成新文件名：使用 UUID (看起来像 550e8400-e29b....jpg)
         new_filename = f"{uuid.uuid4().hex}{ext}"
 
         save_path = os.path.join(app.config['UPLOAD_FOLDER'], new_filename)
@@ -678,14 +625,11 @@ def upload_avatar():
 
         file_url = f"/static/uploads/{new_filename}"
 
-        # 更新数据库
         try:
             user = User.query.get(user_id)
             if user:
                 user.avatar = file_url
                 db.session.commit()
-
-                # 返回完整的用户信息以便前端更新缓存
                 return jsonify({
                     "code": 200,
                     "msg": "上传成功",
@@ -701,24 +645,30 @@ def upload_avatar():
 
     return jsonify({"code": 400, "msg": "Type not allowed"}), 400
 
-
-# TaskLink_backend/app.py
-
 @app.route('/api/square/history', methods=['GET'])
 def get_square_history():
+
+    user_id = request.args.get('user_id')
+    print(user_id)
+    if str(user_id) in ['11', '12']:
+        return jsonify({
+            "code": 403,
+            "msg": "app需要更新",
+            "data": []
+        })
+
     messages = ChatMessage.query.order_by(ChatMessage.created_at.desc()).limit(50).all()
 
     return jsonify({
         "code": 200,
-        "data": [m.to_dict() for m in messages][::-1]  # 翻转列表，旧的在上面
+        "data": [m.to_dict() for m in messages][::-1]  # 翻转列表，让旧消息在上方
     })
 
 
-# 获取计划列表
 @app.route('/api/plans', methods=['GET'])
 def get_plans():
     user_id = request.args.get('user_id')
-    status = request.args.get('status')  # optional: 'active' or 'archived'
+    status = request.args.get('status')
 
     if not user_id:
         return jsonify({"code": 400, "msg": "缺少用户ID"}), 400
@@ -747,18 +697,12 @@ def toggle_task_status(task_id):
         return jsonify({"code": 404, "msg": "任务节点不存在"}), 404
 
     try:
-        # 1. 切换当前任务状态
         task.is_completed = not task.is_completed
 
-        # 2. 🔥 核心修复：检查所属计划的所有任务是否都已完成
         plan = AIPlan.query.get(task.plan_id)
         if plan:
-            # 获取该计划下的所有任务
             all_tasks = AIPlanTask.query.filter_by(plan_id=plan.id).all()
-            # 判断是否全部完成
             all_done = all(t.is_completed for t in all_tasks)
-
-            # 更新计划状态
             plan.is_completed = all_done
 
             status_hint = " (计划已归档)" if all_done else ""
@@ -766,8 +710,6 @@ def toggle_task_status(task_id):
             status_hint = ""
 
         db.session.commit()
-
-        # 返回信息带上计划状态，方便前端调试
         status_msg = "已完成" if task.is_completed else "已重置"
         return jsonify({
             "code": 200,
@@ -785,7 +727,6 @@ def toggle_task_status(task_id):
 
 @app.route('/api/chat/upload', methods=['POST'])
 def upload_chat_image():
-    # 1. 检查是否有文件
     if 'file' not in request.files:
         return jsonify({"code": 400, "msg": "未接收到文件"}), 400
 
@@ -793,22 +734,15 @@ def upload_chat_image():
     if file.filename == '':
         return jsonify({"code": 400, "msg": "文件名为空"}), 400
 
-    # 2. 检查文件类型
     if file and allowed_file(file.filename):
         try:
-            # 获取后缀 (如 .jpg)
             ext = os.path.splitext(file.filename)[1]
 
-            # 生成唯一文件名 (防止文件名冲突覆盖)
-            # 格式: chat_时间戳_随机串.jpg
             filename = f"chat_{int(time.time())}_{uuid.uuid4().hex[:8]}{ext}"
 
-            # 3. 保存到 CHAT_FOLDER (static/chat_images)
             save_path = os.path.join(app.config['CHAT_FOLDER'], filename)
             file.save(save_path)
 
-            # 4. 生成访问 URL
-            # 这里的 URL 不需要加 http 域名，前端会自动拼接或者由 Nginx 处理
             image_url = f"/static/chat_images/{filename}"
 
             return jsonify({
@@ -827,7 +761,6 @@ def upload_chat_image():
 
 @app.route('/api/vocab/due', methods=['GET'])
 def get_due_vocab():
-    """获取单词 (支持强制拉取新词 + 困难模式) - 每组 15 个"""
     user_id = getattr(g, 'user_id', None) or request.args.get('user_id')
     target_level = request.args.get('level', 'CET4')
     force_new = request.args.get('force_new', 'false') == 'true'
@@ -901,10 +834,8 @@ def get_due_vocab():
 
 @app.route('/api/vocab/review', methods=['POST'])
 def submit_vocab_review():
-    """提交单词学习结果，使用优化版 SM-2 算法"""
     user_id = getattr(g, 'user_id', None)
 
-    # 如果 g 中没有，尝试从 JSON body 中获取 (兼容你前端的传参方式)
     if not user_id and request.json:
         user_id = request.json.get('user_id')
 
@@ -918,10 +849,8 @@ def submit_vocab_review():
     if not word_id or quality is None:
         return jsonify({"code": 400, "msg": "参数不完整"}), 400
 
-    # 获取或创建用户单词进度记录
     progress = UserWordProgress.query.filter_by(user_id=user_id, word_id=word_id).first()
 
-    # 初始化新词
     if not progress:
         progress = UserWordProgress(
             user_id=user_id,
@@ -933,16 +862,12 @@ def submit_vocab_review():
         )
         db.session.add(progress)
 
-    # --- SM-2 算法核心 ---
 
-    # 1. 更新易读度 (EF)
     old_ef = progress.easiness_factor
     new_ef = old_ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
     new_ef = max(1.3, new_ef)  # 设定下限
 
-    # 2. 计算复习间隔 (Interval) & 连续次数 (Repetitions)
     new_repetitions = progress.repetitions
-    new_interval = progress.interval
 
     if quality < 3:
         new_repetitions = 0  # 归零
@@ -955,28 +880,46 @@ def submit_vocab_review():
     else:
         new_repetitions += 1
 
-        # 阶段 1: 第一次复习
         if new_repetitions == 1:
             new_interval = 2 if quality == 5 else 1
 
-        # 阶段 2: 第二次复习
         elif new_repetitions == 2:
             new_interval = 4 if quality == 5 else 3
 
-        # 阶段 3+: 后续复习
         else:
             bonus = 1.15 if quality == 5 else 1.0
             new_interval = round(progress.interval * new_ef * bonus)
 
-    # 应用计算结果
     progress.easiness_factor = new_ef
     progress.repetitions = new_repetitions
     progress.interval = new_interval
     progress.last_reviewed_at = datetime.now()
     progress.next_review_at = datetime.now() + timedelta(days=new_interval)
 
+
     try:
+        stats = UserVocabStats.query.get(user_id)
+        if not stats:
+            stats = UserVocabStats(user_id=user_id)
+            db.session.add(stats)
+
+        # 增加总学习次数
+        stats.total_learned += 1
+        stats.last_updated = datetime.now()
+
+        # 根据评分增加对应计数
+        if quality == 0:
+            stats.count_0 += 1
+        elif quality == 3:
+            stats.count_3 += 1
+        elif quality == 4:
+            stats.count_4 += 1
+        elif quality == 5:
+            stats.count_5 += 1
+
+        # 提交所有更改 (Progress + Stats)
         db.session.commit()
+
         return jsonify({
             "code": 200,
             "msg": "进度已更新",
@@ -988,12 +931,12 @@ def submit_vocab_review():
         })
     except Exception as e:
         db.session.rollback()
+        print(f"Error submitting review: {e}")  # 打印错误日志方便调试
         return jsonify({"code": 500, "msg": str(e)}), 500
 
 
 @app.route('/api/vocab/sentence', methods=['POST'])
 def generate_sentence():
-    """调用 DeepSeek 为单词生成例句和近义词"""
     data = request.json
     word = data.get('word')
 
@@ -1001,7 +944,6 @@ def generate_sentence():
         return jsonify({"code": 400, "msg": "缺少单词参数"}), 400
 
     try:
-        # 🔥 修改 Prompt: 明确要求返回 en, cn 和 synonyms
         prompt = f"""
         请为英语单词 "{word}" 生成以下数据 (必须是严格的 JSON 格式):
         1. "en": 一个简短、地道的英语例句，包含该单词。
@@ -1015,25 +957,23 @@ def generate_sentence():
         }
 
         payload = {
-            "model": "deepseek-chat",  # 或 deepseek-v3
+            "model": "deepseek-chat",
             "messages": [
                 {"role": "system",
                  "content": "你是一个专业的英语教学助手。请只返回 JSON 数据，不要包含任何 Markdown 格式或额外文字。"},
                 {"role": "user", "content": prompt}
             ],
             "temperature": 0.7,
-            "response_format": {"type": "json_object"}  # 🔥 强制让 DeepSeek 返回 JSON 对象
+            "response_format": {"type": "json_object"}
         }
 
-        response = requests.post(DEEPSEEK_API_URL, json=payload, headers=headers, timeout=15)  # 稍微增加超时时间
+        response = requests.post(DEEPSEEK_API_URL, json=payload, headers=headers, timeout=15)
 
         if response.status_code == 200:
             result = response.json()
             content = result['choices'][0]['message']['content']
             print(content)
-            # --- JSON 清洗与解析 ---
             import json
-            # 去除可能的 markdown 标记
             clean_content = content.replace("```json", "").replace("```", "").strip()
 
             try:
@@ -1072,32 +1012,24 @@ def generate_sentence():
 def search_vocab():
     user_id = getattr(g, 'user_id', None) or request.args.get('user_id')
 
-    # 1. 获取参数
     search_term = request.args.get('word', '').strip()
     first_letter = request.args.get('letter', '').strip()
     only_difficult = request.args.get('difficult', 'false') == 'true'
-    # 🔥 新增：获取目标等级 (默认空字符串表示全部)
     target_level = request.args.get('level', '').strip()
-
     page = int(request.args.get('page', 1))
     page_size = int(request.args.get('page_size', 20))
-
     stmt = db.session.query(Vocabulary)
 
-    # 2. 难词筛选
     if only_difficult:
         stmt = stmt.join(UserWordProgress, Vocabulary.id == UserWordProgress.word_id) \
             .filter(UserWordProgress.user_id == user_id, UserWordProgress.easiness_factor < 2.5)
 
-    # 3. 首字母筛选
     if first_letter:
         stmt = stmt.filter(Vocabulary.word.like(f"{first_letter}%"))
 
-    # 4. 🔥 新增：等级筛选 (如果传了具体等级，且不是 'ALL')
     if target_level and target_level != 'ALL':
         stmt = stmt.filter(Vocabulary.level == target_level)
 
-    # 5. 关键词搜索 (中英混合)
     if search_term:
         from sqlalchemy import or_
         stmt = stmt.filter(
@@ -1107,7 +1039,6 @@ def search_vocab():
             )
         )
 
-    # 6. 分页与返回
     total = stmt.count()
     results = stmt.limit(page_size).offset((page - 1) * page_size).all()
 
@@ -1120,24 +1051,19 @@ def search_vocab():
     })
 
 
-# 1. 保存/提交打卡记录
 @app.route('/api/training/save', methods=['POST'])
 def save_training_session():
-    """
-    保存当前的训练进度（无论是中途保存还是全部完成）
-    前端需要传: user_id, level, status, details(数组)
-    """
+
     data = request.json
     user_id = data.get('user_id')
     level = data.get('level')
-    status = data.get('status', 0)  # 0=未完成, 1=已完成
-    details_data = data.get('details', [])  # 包含单词列表 [{word_id, word, trans, quality}, ...]
+    status = data.get('status', 0)
+    details_data = data.get('details', [])
 
     if not user_id or not details_data:
         return jsonify({"code": 400, "msg": "数据不能为空"}), 400
 
     try:
-        # A. 创建主记录
         new_session = TrainingSession(
             user_id=user_id,
             level=level,
@@ -1145,45 +1071,38 @@ def save_training_session():
             total_words=len(details_data)
         )
         db.session.add(new_session)
-        db.session.flush()  # 立即执行以获取 new_session.id，但暂不提交事务
+        db.session.flush()
 
-        # B. 批量插入详情
         for item in details_data:
             detail = TrainingDetail(
                 session_id=new_session.id,
                 word_id=item.get('word_id'),
                 word_text=item.get('word'),
-                word_trans=item.get('trans'),  # 翻译
+                word_trans=item.get('trans'),
                 quality=item.get('quality', 0)
             )
             db.session.add(detail)
 
-        # C. 提交事务
         db.session.commit()
         print(f"✅ [History] 用户 {user_id} 保存打卡记录: ID={new_session.id}, 单词数={len(details_data)}")
 
         return jsonify({"code": 200, "msg": "保存成功", "session_id": new_session.id})
 
     except Exception as e:
-        db.session.rollback()  # 🔥 关键：出错了就全部撤销，防止产生脏数据
+        db.session.rollback()
         print(f"❌ [History Error] 保存失败: {str(e)}")
         return jsonify({"code": 500, "msg": "保存失败，请重试"}), 500
 
 
-# 2. 获取历史记录列表 (分页)
 @app.route('/api/training/history', methods=['GET'])
 def get_training_history():
-    """
-    获取历史球的列表，每页 6 条
-    """
     user_id = request.args.get('user_id')
     page = int(request.args.get('page', 1))
-    page_size = int(request.args.get('page_size', 6))  # 默认每页 6 条
+    page_size = int(request.args.get('page_size', 6))
 
     if not user_id:
         return jsonify({"code": 400, "msg": "未授权"}), 400
 
-    # 按时间倒序排列
     pagination = TrainingSession.query.filter_by(user_id=user_id) \
         .order_by(TrainingSession.created_at.desc()) \
         .paginate(page=page, per_page=page_size, error_out=False)
@@ -1198,22 +1117,15 @@ def get_training_history():
     })
 
 
-# 3. 获取某次打卡的详细单词列表
 @app.route('/api/training/detail', methods=['GET'])
 def get_training_detail():
-    """
-    点击某个历史球，进入详情页查看那次背了哪些词
-    """
+
     session_id = request.args.get('session_id')
 
     if not session_id:
         return jsonify({"code": 400, "msg": "缺少参数"}), 400
 
-    # 查询该次记录的所有单词
     details = TrainingDetail.query.filter_by(session_id=session_id).all()
-
-    # 🔥 补充：如果我们之前加了 audio_url 字段，可以在这里联表查询 Vocabulary 获取
-    # 这里先演示基础版，直接返回当时存的 word_text
 
     return jsonify({
         "code": 200,
@@ -1221,7 +1133,6 @@ def get_training_detail():
     })
 
 
-# 4. 删除打卡记录 (长按删除)
 @app.route('/api/training/delete', methods=['POST'])
 def delete_training_session():
     """
@@ -1229,7 +1140,7 @@ def delete_training_session():
     """
     data = request.json
     session_id = data.get('session_id')
-    user_id = data.get('user_id')  # 用于安全校验，防止删别人的
+    user_id = data.get('user_id')
 
     session = TrainingSession.query.filter_by(id=session_id, user_id=user_id).first()
 
@@ -1237,8 +1148,6 @@ def delete_training_session():
         return jsonify({"code": 404, "msg": "记录不存在或无权删除"}), 404
 
     try:
-        # 由于设置了 cascade="all, delete-orphan" 或者数据库外键级联，
-        # 删除 session 会自动删除对应的 details
         db.session.delete(session)
         db.session.commit()
         return jsonify({"code": 200, "msg": "删除成功"})
@@ -1247,9 +1156,111 @@ def delete_training_session():
         return jsonify({"code": 500, "msg": str(e)}), 500
 
 
+@app.route('/api/stats/user', methods=['GET'])
+def get_user_stats():
+    user_id = request.args.get('user_id')
+
+    if not user_id:
+        return jsonify({"code": 400, "msg": "Missing user_id"})
+
+    stats = UserVocabStats.query.get(user_id)
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"code": 404, "msg": "User not found"})
+
+    if not stats:
+        return jsonify({
+            "code": 200,
+            "data": {
+                "user_id": user.id,
+                "username": user.username,
+                "avatar": user.avatar,
+                "total_learned": 0,
+                "count_0": 0,
+                "count_3": 0,
+                "count_4": 0,
+                "count_5": 0
+            }
+        })
+
+    # 组合数据：统计数据 + 用户基础信息
+    result = stats.to_dict()
+    result['username'] = user.username
+    result['avatar'] = user.avatar
+
+    return jsonify({"code": 200, "data": result})
+
+
+@app.route('/api/stats/leaderboard', methods=['GET'])
+def get_leaderboard():
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+
+    pagination = db.session.query(UserVocabStats, User) \
+        .join(User, UserVocabStats.user_id == User.id) \
+        .order_by(UserVocabStats.total_learned.desc()) \
+        .paginate(page=page, per_page=per_page, error_out=False)
+
+    ranks = []
+    for stat, user in pagination.items:
+        ranks.append({
+            "user_id": user.id,
+            "username": user.username,
+            "avatar": user.avatar,
+            "total_learned": stat.total_learned
+        })
+
+    return jsonify({
+        "code": 200,
+        "data": ranks,
+        "has_more": pagination.has_next,
+        "total": pagination.total
+    })
+
+
+@app.route('/api/stats/trend', methods=['GET'])
+def get_learning_trend():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({"code": 400, "msg": "Missing user_id"})
+
+    now = datetime.now()
+    seven_days_ago = now - timedelta(days=6)
+    seven_days_ago = seven_days_ago.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    sessions = db.session.query(TrainingSession).filter(
+        TrainingSession.user_id == user_id,
+        TrainingSession.created_at >= seven_days_ago
+    ).all()
+
+    data_map = {}
+    for s in sessions:
+        day_str = s.created_at.strftime('%Y-%m-%d')
+        if day_str in data_map:
+            data_map[day_str] += s.total_words
+        else:
+            data_map[day_str] = s.total_words
+
+    trend_data = []
+    date_labels = []
+
+    for i in range(6, -1, -1):
+        target_date = now - timedelta(days=i)
+        day_key = target_date.strftime('%Y-%m-%d')
+        label_key = target_date.strftime('%m-%d')
+
+        date_labels.append(label_key)
+        trend_data.append(data_map.get(day_key, 0))
+
+    return jsonify({
+        "code": 200,
+        "data": {
+            "dates": date_labels,
+            "values": trend_data
+        }
+    })
+
+
 if __name__ == '__main__':
-    # # 配置你手机的局域网 IP
-    # PHONE_IP = "192.168.10.8"  # 👈 替换成你手机在 WiFi 下的真实 IP
-    # # 尝试无线连接
-    # ADBController.connect_wireless(PHONE_IP)
     app.run(host='0.0.0.0', port=5000, debug=True)

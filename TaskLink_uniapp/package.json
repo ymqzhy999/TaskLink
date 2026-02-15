@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@hyoga/uni-socket.io": "^3.0.4",
+    "@qiun/ucharts": "^2.5.0-20230101",
+    "echarts": "^6.0.0",
     "node-notifier": "^10.0.1"
   }
 }

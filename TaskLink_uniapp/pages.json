@@ -95,7 +95,15 @@
 				"navigationBarBackgroundColor": "#F5F5F0",
 				"backgroundColor": "#F5F5F0"
 			}
-		}
+		},
+{
+    "path": "pages/profile/data_stats",
+    "style": {
+        "navigationBarTitleText": "学习分析报告",
+        "navigationStyle": "custom",
+        "backgroundColor": "#F5F5F0"
+    }
+}
 	],
 	
 	"globalStyle": {

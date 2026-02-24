@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="{ 'dark': isDarkMode }">
     <view class="header-section fade-in">
       <view class="header-content">
         <text class="page-title">Archives</text>
@@ -58,12 +58,14 @@
 <script setup>
 import { ref } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
+import { useTheme } from '@/utils/useTheme';
 
 /* =================================================================
    核心业务逻辑 (保持原样)
    ================================================================= */
 const API_BASE = `http://101.35.132.175:5000`;
 const archivedPlans = ref([]);
+const { isDarkMode } = useTheme();
 
 onShow(() => {
   const user = uni.getStorageSync('userInfo');
@@ -105,222 +107,95 @@ const formatDate = (str) => {
 </script>
 
 <style lang="scss" scoped>
-/* 1. 色彩变量 */
-$color-bg: #F5F5F0;        /* 浅米色 */
-$color-card: #FFFFFF;      /* 纯白 */
-$color-primary: #4A6FA5;   /* 莫兰迪蓝 */
-$color-text-main: #2C3E50; /* 深灰 */
-$color-text-sub: #95A5A6;  /* 浅灰 */
-$color-line: #E0E0E0;
+/* 1. 颜色变量 */
+$color-bg: #F5F5F0; $color-card: #FFFFFF; $color-primary: #4A6FA5;
+$color-accent: #FF8A65; $color-text-main: #2C3E50; $color-text-sub: #95A5A6;
 
-page { 
-  background-color: $color-bg; 
-  height: 100vh;
-  font-family: 'Inter', -apple-system, Helvetica, sans-serif;
-}
+/* 深色模式变量 */
+$dark-bg: #121212;
+$dark-card: #1E1E1E;
+$dark-text-main: #E0E0E0;
+$dark-text-sub: #A0A0A0;
 
-.container {
-  min-height: 100vh;
-  padding: 0 40rpx;
-  display: flex;
-  flex-direction: column;
-}
+page { background-color: $color-bg; font-family: 'Inter', sans-serif; transition: background-color 0.3s; }
 
-/* 2. 头部 */
-.header-section {
-  padding-top: var(--status-bar-height);
-  margin-top: 60rpx;
-  margin-bottom: 60rpx;
-}
+.container { min-height: 100vh; padding: 40rpx 30rpx; position: relative; transition: all 0.3s; padding-top: var(--status-bar-height); }
+.container.dark { background-color: $dark-bg !important; }
 
-.page-title {
-  font-size: 56rpx;
-  font-weight: 300;
-  color: $color-text-main;
-  letter-spacing: -1px;
-  display: block;
-}
+/* 2. Header */
+.header-section { margin-bottom: 60rpx; padding-top: 20rpx; }
+.page-title { font-size: 56rpx; font-weight: 300; color: $color-text-main; letter-spacing: -1px; line-height: 1; margin-bottom: 8rpx; transition: color 0.3s; }
+.container.dark .page-title { color: $dark-text-main; }
 
-.page-subtitle {
-  font-size: 24rpx;
-  color: $color-text-sub;
-  margin-top: 8rpx;
-  letter-spacing: 1px;
-}
+.page-subtitle { font-size: 24rpx; font-weight: 500; color: $color-text-sub; letter-spacing: 1px; text-transform: uppercase; transition: color 0.3s; }
+.container.dark .page-subtitle { color: $dark-text-sub; }
 
-/* 3. 历史列表 & 时间轴 */
-.history-list {
-  flex: 1;
-  height: 0;
-}
+/* 3. Empty State */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 120rpx; opacity: 0.6; }
+.empty-icon { font-size: 60rpx; margin-bottom: 24rpx; filter: grayscale(1); }
+.empty-title { font-size: 32rpx; font-weight: 600; color: $color-text-main; margin-bottom: 12rpx; transition: color 0.3s; }
+.container.dark .empty-title { color: $dark-text-main; }
 
-.timeline-container {
-  position: relative;
-  padding-left: 20rpx;
-}
+.empty-tip { font-size: 24rpx; color: $color-text-sub; text-align: center; max-width: 60%; line-height: 1.5; transition: color 0.3s; }
+.container.dark .empty-tip { color: $dark-text-sub; }
 
-.timeline-line {
-  position: absolute;
-  left: 31rpx; /* 对齐圆点中心 */
-  top: 10rpx;
-  bottom: 0;
-  width: 2rpx;
-  background-color: $color-line;
-  z-index: 0;
-}
+/* 4. Timeline List */
+.history-list { height: calc(100vh - 240rpx); }
+.timeline-container { position: relative; padding-left: 20rpx; }
 
-.history-item {
-  position: relative;
-  padding-left: 60rpx;
-  margin-bottom: 50rpx;
-  z-index: 1;
-}
+/* 时间轴线 */
+.timeline-line { position: absolute; left: 33rpx; top: 30rpx; bottom: 0; width: 2rpx; background: rgba(0,0,0,0.06); z-index: 0; transition: background-color 0.3s; }
+.container.dark .timeline-line { background: rgba(255,255,255,0.06); }
 
-.timeline-node {
-  position: absolute;
-  left: 14rpx;
-  top: 40rpx;
-  width: 36rpx;
-  height: 36rpx;
-  background-color: $color-bg; /* 遮挡线条 */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-}
+/* 单个历史项 */
+.history-item { display: flex; margin-bottom: 50rpx; position: relative; z-index: 1; }
+.history-item:last-child { margin-bottom: 0; }
 
-.node-dot {
-  width: 14rpx;
-  height: 14rpx;
-  border: 4rpx solid $color-primary;
-  border-radius: 50%;
-  background-color: #FFF;
-}
+/* 节点 */
+.timeline-node { width: 30rpx; margin-right: 30rpx; display: flex; justify-content: center; padding-top: 10rpx; }
+.node-dot { width: 16rpx; height: 16rpx; background: $color-text-sub; border-radius: 50%; border: 4rpx solid $color-bg; transition: border-color 0.3s; }
+.container.dark .node-dot { border-color: $dark-bg; }
 
 /* 内容卡片 */
-.content-card {
-  background: $color-card;
-  border-radius: 20rpx;
-  padding: 30rpx 40rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.02);
-  transition: all 0.3s ease;
+.content-card { 
+  flex: 1; 
+  background: $color-card; 
+  border-radius: 16rpx; 
+  padding: 30rpx; 
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.03); 
+  transition: transform 0.2s, background-color 0.3s; 
 }
+.container.dark .content-card { background-color: $dark-card; box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.3); }
 
-.content-card:active {
-  transform: scale(0.98);
-  box-shadow: 0 10rpx 30rpx rgba(74, 111, 165, 0.08);
-}
+.content-card:active { transform: scale(0.98); }
 
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20rpx;
-}
+/* 卡片内部 */
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20rpx; }
+.archive-date { font-size: 24rpx; font-weight: 700; color: $color-text-sub; letter-spacing: 0.5px; transition: color 0.3s; }
+.container.dark .archive-date { color: $dark-text-sub; }
 
-.archive-date {
-  font-size: 24rpx;
-  color: $color-text-sub;
-  font-weight: 600;
-  font-family: monospace;
-}
+.status-badge { font-size: 18rpx; font-weight: 800; color: #FFF; background: $color-text-sub; padding: 4rpx 12rpx; border-radius: 6rpx; letter-spacing: 1px; }
 
-.status-badge {
-  font-size: 18rpx;
-  color: $color-primary;
-  background: rgba(74, 111, 165, 0.1);
-  padding: 4rpx 12rpx;
-  border-radius: 4rpx;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
+.plan-title { font-size: 32rpx; font-weight: 700; color: $color-text-main; margin-bottom: 30rpx; display: block; transition: color 0.3s; }
+.container.dark .plan-title { color: $dark-text-main; }
 
-.plan-title {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: $color-text-main;
-  margin-bottom: 30rpx;
-  display: block;
-}
+.card-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(0,0,0,0.04); padding-top: 20rpx; transition: border-color 0.3s; }
+.container.dark .card-footer { border-top: 1px solid rgba(255,255,255,0.04); }
 
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 24rpx;
-  border-top: 1px solid #F5F5F5;
-}
+.meta-info { display: flex; flex-direction: column; }
+.meta-label { font-size: 18rpx; font-weight: 600; color: $color-text-sub; margin-bottom: 4rpx; transition: color 0.3s; }
+.container.dark .meta-label { color: $dark-text-sub; }
 
-.meta-info {
-  display: flex;
-  align-items: center;
-}
+.meta-value { font-size: 24rpx; font-weight: 700; color: $color-text-main; transition: color 0.3s; }
+.container.dark .meta-value { color: $dark-text-main; }
 
-.meta-label {
-  font-size: 18rpx;
-  color: $color-text-sub;
-  font-weight: 600;
-  margin-right: 8rpx;
-}
-
-.meta-value {
-  font-size: 22rpx;
-  color: $color-text-main;
-  font-weight: 700;
-}
-
-.review-btn {
-  display: flex;
-  align-items: center;
-}
-
-.review-btn text {
-  font-size: 22rpx;
-  color: $color-primary;
-  font-weight: 600;
-}
-
-.review-btn .arrow {
-  margin-left: 6rpx;
-  font-size: 28rpx;
-}
-
-/* 4. 空状态 */
-.empty-state {
-  margin-top: 200rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 60rpx;
-  text-align: center;
-}
-
-.empty-icon {
-  font-size: 100rpx;
-  color: $color-line;
-  margin-bottom: 40rpx;
-}
-
-.empty-title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: $color-text-main;
-  margin-bottom: 16rpx;
-}
-
-.empty-tip {
-  font-size: 24rpx;
-  color: $color-text-sub;
-  line-height: 1.6;
-}
+.review-btn { display: flex; align-items: center; font-size: 24rpx; font-weight: 600; color: $color-primary; }
+.arrow { margin-left: 8rpx; transition: transform 0.2s; }
+.content-card:active .arrow { transform: translateX(6rpx); }
 
 /* 5. 动画 */
 .fade-in { animation: fadeIn 0.8s ease-out; }
-.slide-in { animation: slideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
-
+.slide-in { animation: slideIn 0.6s ease-out backwards; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideIn { 
-  from { opacity: 0; transform: translateY(30rpx); } 
-  to { opacity: 1; transform: translateY(0); } 
-}
+@keyframes slideIn { from { opacity: 0; transform: translateX(20rpx); } to { opacity: 1; transform: translateX(0); } }
 </style>

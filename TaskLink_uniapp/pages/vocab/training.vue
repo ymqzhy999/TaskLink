@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="{ 'dark': isDarkMode }">
     <view class="nav-header">
       <view class="nav-left" @click="goBack">
         <text class="back-icon">←</text>
@@ -161,11 +161,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useTheme } from '@/utils/useTheme';
 
 /* =================================================================
    核心业务逻辑 (保持原样)
    ================================================================= */
 const API_BASE = `http://101.35.132.175:5000`; 
+const { isDarkMode } = useTheme();
 const vocabList = ref([]);
 const currentIndex = ref(0);
 const currentWord = ref(null);
@@ -410,11 +412,18 @@ $color-text-main: #2C3E50; /* 深灰 */
 $color-text-sub: #95A5A6;  /* 浅灰 */
 $color-line: #E0E0E0;
 
+/* 深色模式变量 */
+$dark-bg: #121212;
+$dark-card: #1E1E1E;
+$dark-text-main: #E0E0E0;
+$dark-text-sub: #A0A0A0;
+
 page { 
   background-color: $color-bg; 
   height: 100vh;
   font-family: 'Inter', -apple-system, Helvetica, sans-serif;
   overflow: hidden;
+  transition: background-color 0.3s;
 }
 
 .container {
@@ -422,7 +431,9 @@ page {
   display: flex;
   flex-direction: column;
   position: relative;
+  transition: all 0.3s;
 }
+.container.dark { background-color: $dark-bg !important; }
 
 /* 2. 顶部导航 */
 .nav-header {
@@ -434,13 +445,18 @@ page {
   justify-content: space-between;
   align-items: center;
   background: $color-bg;
+  transition: background-color 0.3s;
 }
+.container.dark .nav-header { background: $dark-bg; }
 
 .nav-left {
   display: flex;
   align-items: center;
   color: $color-primary;
+  transition: color 0.3s;
 }
+.container.dark .nav-left { color: $dark-text-sub; }
+
 .back-icon { font-size: 36rpx; margin-right: 4rpx; margin-top: -4rpx; }
 .back-text { font-size: 28rpx; font-weight: 500; }
 
@@ -464,11 +480,12 @@ page {
   position: relative;
   box-shadow: 0 4rpx 12rpx rgba(74, 111, 165, 0.05);
   transition: all 0.3s ease;
+}
+.container.dark .custom-selector { background: $dark-card; border-color: rgba(255,255,255,0.1); box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.3); }
 
-  &:active {
-    transform: scale(0.97);
-    background-color: #F0F4F8;
-  }
+.custom-selector:active {
+  transform: scale(0.97);
+  background-color: #F0F4F8;
 }
 
 .selector-label {
@@ -477,13 +494,17 @@ page {
   font-weight: 700;
   letter-spacing: 2rpx;
   margin-bottom: 4rpx;
+  transition: color 0.3s;
 }
+.container.dark .selector-label { color: $dark-text-sub; }
 
 .selector-value {
   font-size: 26rpx;
   color: #4A6FA5; /* 莫兰迪蓝主色 */
   font-weight: 600;
+  transition: color 0.3s;
 }
+.container.dark .selector-value { color: $dark-text-main; }
 
 .selector-arrow {
   position: absolute;
@@ -492,8 +513,6 @@ page {
   font-size: 18rpx;
   color: #CFD8DC;
 }
-.level-text { font-size: 24rpx; font-weight: 600; color: $color-text-main; margin-right: 8rpx; }
-.picker-arrow { font-size: 18rpx; color: $color-text-sub; }
 
 .icon-btn {
   width: 60rpx;
@@ -504,7 +523,9 @@ page {
   align-items: center;
   justify-content: center;
   box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+  transition: background-color 0.3s, box-shadow 0.3s;
 }
+.container.dark .icon-btn { background: $dark-card; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.3); }
 
 /* 3. 进度条 */
 .progress-section {
@@ -520,84 +541,18 @@ page {
   border-radius: 3rpx;
   margin-right: 20rpx;
   overflow: hidden;
+  transition: background-color 0.3s;
 }
+.container.dark .progress-track { background: #333; }
+
 .progress-fill {
   height: 100%;
   background: $color-primary;
   border-radius: 3rpx;
   transition: width 0.3s ease;
 }
-.progress-num { font-size: 22rpx; color: $color-text-sub; font-weight: 500; }
-
-
-
-.word-text {
-  font-size: 64rpx;
-  font-weight: 700;
-  color: $color-text-main;
-  text-align: center;
-  display: block;
-  margin-bottom: 20rpx;
-}
-
-.phonetic-box {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 40rpx;
-}
-.phonetic-text { font-size: 28rpx; color: $color-text-sub; margin-right: 12rpx; font-family: 'Times New Roman', serif; }
-.audio-icon { font-size: 32rpx; opacity: 0.6; }
-
-.tap-hint {
-  margin-top: auto;
-  margin-bottom: auto;
-  text-align: center;
-  padding: 30rpx;
-  border: 2rpx dashed #E0E0E0;
-  border-radius: 12rpx;
-}
-.tap-hint text { font-size: 24rpx; color: $color-text-sub; }
-
-/* 背面内容 */
-.card-back {
-  animation: fadeIn 0.4s ease;
-}
-.divider { height: 1px; background: #F0F0F0; margin: 20rpx 0 40rpx; }
-.meaning-text { 
-  font-size: 32rpx; 
-  color: $color-primary; 
-  font-weight: 600; 
-  text-align: center; 
-  display: block; 
-  margin-bottom: 40rpx;
-  line-height: 1.5;
-}
-
-.ai-section {
-  background: #FAFAFA;
-  padding: 24rpx;
-  border-radius: 12rpx;
-  margin-bottom: 20rpx;
-}
-.ai-header { display: flex; justify-content: space-between; margin-bottom: 10rpx; }
-.ai-tag { font-size: 20rpx; color: $color-text-sub; font-weight: 700; }
-.ai-status { font-size: 20rpx; color: $color-primary; }
-
-.en-sentence { font-size: 26rpx; color: $color-text-main; font-style: italic; display: block; margin-bottom: 8rpx; line-height: 1.4; }
-.cn-sentence { font-size: 24rpx; color: $color-text-sub; }
-.ai-placeholder { text-align: center; color: $color-primary; font-size: 24rpx; padding: 10rpx; }
-
-.synonyms-section { margin-top: 20rpx; }
-.syn-title { font-size: 20rpx; color: $color-text-sub; font-weight: 700; margin-bottom: 8rpx; display: block; }
-.syn-chips { display: flex; flex-wrap: wrap; gap: 10rpx; }
-.syn-chip { 
-  font-size: 22rpx; 
-  color: $color-text-main; 
-  background: #F0F0F0; 
-  padding: 4rpx 16rpx; 
-  border-radius: 8rpx; 
-}/* --- 找到并修改以下样式 --- */
+.progress-num { font-size: 22rpx; color: $color-text-sub; font-weight: 500; transition: color 0.3s; }
+.container.dark .progress-num { color: $dark-text-sub; }
 
 /* --- 核心优化：紧凑且具有呼吸感的卡片样式 --- */
 
@@ -629,6 +584,7 @@ page {
   max-height: 65vh; 
   overflow-y: auto; /* 内容过多时内部滚动 */
 }
+.container.dark .word-card { background: $dark-card; box-shadow: 0 12rpx 48rpx rgba(0,0,0,0.4); }
 
 /* 单词主体：缩小底部间距 */
 .word-text {
@@ -639,7 +595,9 @@ page {
   display: block;
   letter-spacing: 1rpx;
   margin-bottom: 12rpx;
+  transition: color 0.3s;
 }
+.container.dark .word-text { color: $dark-text-main; }
 
 /* 音标：大幅缩小底部间距，让释义靠上来 */
 .phonetic-box {
@@ -653,14 +611,35 @@ page {
   font-size: 30rpx;
   color: $color-text-sub;
   font-family: 'Inter', sans-serif;
+  transition: color 0.3s;
 }
+.container.dark .phonetic-text { color: $dark-text-sub; }
+
+.audio-icon { font-size: 32rpx; opacity: 0.6; color: $color-text-main; transition: color 0.3s; }
+.container.dark .audio-icon { color: $dark-text-sub; }
+
+.tap-hint {
+  margin-top: auto;
+  margin-bottom: auto;
+  text-align: center;
+  padding: 30rpx;
+  border: 2rpx dashed #E0E0E0;
+  border-radius: 12rpx;
+  transition: border-color 0.3s;
+}
+.container.dark .tap-hint { border-color: #333; }
+
+.tap-hint text { font-size: 24rpx; color: $color-text-sub; transition: color 0.3s; }
+.container.dark .tap-hint text { color: $dark-text-sub; }
 
 /* 分割线：紧凑化 */
 .divider { 
   height: 1px; 
   background: #F5F5F5; 
   margin: 10rpx 0 24rpx; 
+  transition: background-color 0.3s;
 }
+.container.dark .divider { background: rgba(255,255,255,0.05); }
 
 /* 释义：通过行高撑起质感，而不是靠物理间距 */
 .meaning-text { 
@@ -671,7 +650,9 @@ page {
   display: block; 
   margin-bottom: 24rpx; /* 缩小与例句的距离 */
   line-height: 1.6;
+  transition: color 0.3s;
 }
+.container.dark .meaning-text { color: $dark-text-main; }
 
 /* AI 例句：同样紧凑处理 */
 .ai-section {
@@ -679,7 +660,38 @@ page {
   padding: 24rpx 30rpx;
   border-radius: 16rpx;
   margin-top: 10rpx;
+  transition: background-color 0.3s;
 }
+.container.dark .ai-section { background: #252525; }
+
+.ai-header { display: flex; justify-content: space-between; margin-bottom: 10rpx; }
+.ai-tag { font-size: 20rpx; color: $color-text-sub; font-weight: 700; transition: color 0.3s; }
+.container.dark .ai-tag { color: $dark-text-sub; }
+
+.ai-status { font-size: 20rpx; color: $color-primary; }
+
+.en-sentence { font-size: 26rpx; color: $color-text-main; font-style: italic; display: block; margin-bottom: 8rpx; line-height: 1.4; transition: color 0.3s; }
+.container.dark .en-sentence { color: $dark-text-main; }
+
+.cn-sentence { font-size: 24rpx; color: $color-text-sub; transition: color 0.3s; }
+.container.dark .cn-sentence { color: $dark-text-sub; }
+
+.ai-placeholder { text-align: center; color: $color-primary; font-size: 24rpx; padding: 10rpx; }
+
+.synonyms-section { margin-top: 20rpx; }
+.syn-title { font-size: 20rpx; color: $color-text-sub; font-weight: 700; margin-bottom: 8rpx; display: block; transition: color 0.3s; }
+.container.dark .syn-title { color: $dark-text-sub; }
+
+.syn-chips { display: flex; flex-wrap: wrap; gap: 10rpx; }
+.syn-chip { 
+  font-size: 22rpx; 
+  color: $color-text-main; 
+  background: #F0F0F0; 
+  padding: 4rpx 16rpx; 
+  border-radius: 8rpx; 
+  transition: all 0.3s;
+}
+.container.dark .syn-chip { background: #333; color: $dark-text-main; }
 
 /* --- 底部评分区：向上贴近卡片 --- */
 .footer-control {
@@ -704,122 +716,10 @@ page {
   justify-content: center;
   background: $color-card;
   box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+  transition: all 0.3s;
 }
+.container.dark .rate-btn { background: $dark-card; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.3); }
 
-/* 历史球：位置调优，防止视觉重合感过强 */
-.history-fab {
-  position: fixed;
-  right: 40rpx;
-  bottom: 210rpx; /* 稍微下调，避开卡片主视觉 */
-  width: 90rpx;
-  height: 90rpx;
-  background: rgba(255, 255, 255, 0.9); 
-  backdrop-filter: blur(10px);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 6rpx 24rpx rgba(0,0,0,0.08);
-  font-size: 40rpx;
-  z-index: 100;
-  border: 1px solid rgba(74, 111, 165, 0.1);
-}
-
-.word-card {
-  background: $color-card;
-  border-radius: 32rpx;
-  box-shadow: 0 12rpx 48rpx rgba(74, 111, 165, 0.1);
-  /* 增加内边距，让文字离边框远一点 */
-  padding: 80rpx 60rpx; 
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  transition: all 0.3s ease;
-  
-  /* 允许卡片高度随内容增长，但最高不超过屏幕的 60% */
-  height: auto;
-  max-height: 60vh; 
-}
-
-/* 单词主体：加大字号并增加字间距 */
-.word-text {
-  font-size: 72rpx; 
-  font-weight: 700;
-  color: $color-text-main;
-  text-align: center;
-  display: block;
-  letter-spacing: 2rpx;
-  margin-bottom: 24rpx;
-}
-
-/* 音标：增加上下间距 */
-.phonetic-box {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 60rpx; 
-}
-
-.phonetic-text {
-  font-size: 32rpx;
-  color: $color-text-sub;
-  font-family: 'Inter', sans-serif;
-}
-
-/* 释义：关键在于行高 */
-.meaning-text { 
-  font-size: 36rpx; 
-  color: $color-primary; 
-  font-weight: 600; 
-  text-align: center; 
-  display: block; 
-  margin-bottom: 40rpx;
-  /* 增加行高，防止中文挤在一起 */
-  line-height: 1.8; 
-  letter-spacing: 1px;
-}
-
-/* 例句区域：优化阅读间距 */
-.ai-section {
-  background: #F8F9FA;
-  padding: 32rpx;
-  border-radius: 16rpx;
-  margin-top: 20rpx;
-}
-
-.en-sentence { 
-  font-size: 28rpx; 
-  color: $color-text-main; 
-  display: block; 
-  margin-bottom: 16rpx; 
-  /* 英文行高 */
-  line-height: 1.6; 
-}
-
-.cn-sentence { 
-  font-size: 26rpx; 
-  color: $color-text-sub; 
-  line-height: 1.6;
-}
-
-
-/* 5. 底部控制栏 */
-.footer-control {
-  padding: 30rpx 40rpx 60rpx;
-}
-
-.rating-bar { display: flex; justify-content: space-between; gap: 20rpx; }
-.rate-btn { 
-  flex: 1; 
-  height: 100rpx; 
-  border-radius: 16rpx; 
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  justify-content: center;
-  background: $color-card;
-  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
-}
 .rate-num { font-size: 32rpx; font-weight: 700; margin-bottom: 4rpx; }
 .rate-label { font-size: 20rpx; color: #FFF; padding: 2rpx 8rpx; border-radius: 6rpx; }
 
@@ -845,8 +745,11 @@ page {
   justify-content: center;
   font-size: 28rpx;
   font-weight: 600;
+  transition: background-color 0.3s, color 0.3s;
 }
 .nav-btn.prev { background: #E0E0E0; color: $color-text-sub; }
+.container.dark .nav-btn.prev { background: #333; color: $dark-text-sub; }
+
 .nav-btn.save { background: $color-accent; color: #FFF; box-shadow: 0 6rpx 20rpx rgba(255, 138, 101, 0.3); }
 .nav-btn.disabled { opacity: 0.5; pointer-events: none; }
 
@@ -859,8 +762,12 @@ page {
   justify-content: center;
 }
 .finish-icon { font-size: 80rpx; margin-bottom: 20rpx; }
-.finish-title { font-size: 36rpx; font-weight: 700; color: $color-text-main; margin-bottom: 10rpx; }
-.finish-sub { font-size: 24rpx; color: $color-text-sub; margin-bottom: 50rpx; }
+.finish-title { font-size: 36rpx; font-weight: 700; color: $color-text-main; margin-bottom: 10rpx; transition: color 0.3s; }
+.container.dark .finish-title { color: $dark-text-main; }
+
+.finish-sub { font-size: 24rpx; color: $color-text-sub; margin-bottom: 50rpx; transition: color 0.3s; }
+.container.dark .finish-sub { color: $dark-text-sub; }
+
 .restart-btn { 
   background: $color-primary; 
   color: #FFF; 
@@ -874,18 +781,22 @@ page {
 .history-fab {
   position: fixed;
   right: 40rpx;
-  bottom: 180rpx;
+  bottom: 210rpx; /* 稍微下调，避开卡片主视觉 */
   width: 90rpx;
   height: 90rpx;
-  background: $color-card;
+  background: rgba(255, 255, 255, 0.9); 
+  backdrop-filter: blur(10px);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.1);
+  box-shadow: 0 6rpx 24rpx rgba(0,0,0,0.08);
   font-size: 40rpx;
   z-index: 100;
+  border: 1px solid rgba(74, 111, 165, 0.1);
+  transition: all 0.3s;
 }
+.container.dark .history-fab { background: rgba(30, 30, 30, 0.9); border-color: rgba(255,255,255,0.1); }
 
 .drawer-mask {
   position: fixed;
@@ -907,10 +818,11 @@ page {
   border-radius: 30rpx 30rpx 0 0;
   z-index: 201;
   transform: translateY(100%);
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, background-color 0.3s;
   display: flex;
   flex-direction: column;
 }
+.container.dark .history-drawer { background: #1a1a1a; }
 .drawer-open { transform: translateY(0); }
 
 .drawer-header {
@@ -920,8 +832,13 @@ page {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: background-color 0.3s;
 }
-.drawer-title { font-size: 32rpx; font-weight: 700; color: $color-text-main; }
+.container.dark .drawer-header { background: #252525; }
+
+.drawer-title { font-size: 32rpx; font-weight: 700; color: $color-text-main; transition: color 0.3s; }
+.container.dark .drawer-title { color: $dark-text-main; }
+
 .close-icon { font-size: 32rpx; color: $color-text-sub; padding: 10rpx; }
 
 .drawer-body { flex: 1; padding: 20rpx 40rpx; box-sizing: border-box; }
@@ -935,15 +852,23 @@ page {
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.02);
+  transition: background-color 0.3s;
 }
+.container.dark .history-item { background: $dark-card; }
 
 .item-main { display: flex; flex-direction: column; }
-.item-date { font-size: 26rpx; font-weight: 600; color: $color-text-main; margin-bottom: 8rpx; }
+.item-date { font-size: 26rpx; font-weight: 600; color: $color-text-main; margin-bottom: 8rpx; transition: color 0.3s; }
+.container.dark .item-date { color: $dark-text-main; }
+
 .item-tags { display: flex; gap: 10rpx; }
-.tag-level { font-size: 20rpx; background: #F0F0F0; color: $color-text-sub; padding: 2rpx 8rpx; border-radius: 4rpx; }
+.tag-level { font-size: 20rpx; background: #F0F0F0; color: $color-text-sub; padding: 2rpx 8rpx; border-radius: 4rpx; transition: background-color 0.3s; }
+.container.dark .tag-level { background: #333; color: $dark-text-sub; }
+
 .tag-status { font-size: 20rpx; padding: 2rpx 8rpx; border-radius: 4rpx; }
 .tag-status.done { background: rgba(76, 175, 80, 0.1); color: #4CAF50; }
 .tag-status.saved { background: rgba(255, 152, 0, 0.1); color: #FF9800; }
+.container.dark .tag-status.done { background: rgba(76, 175, 80, 0.2); }
+.container.dark .tag-status.saved { background: rgba(255, 152, 0, 0.2); }
 
 .item-count { text-align: right; }
 .count-num { font-size: 36rpx; font-weight: 700; color: $color-primary; display: block; }
@@ -954,7 +879,7 @@ page {
   color: $color-text-sub;
   font-size: 24rpx;
   padding: 40rpx;
+  transition: color 0.3s;
 }
-
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.container.dark .empty-state, .container.dark .load-more-text { color: $dark-text-sub; }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="{ 'dark': isDarkMode }">
     <view class="nav-header">
       <view class="back-btn" @click="goBack">
         <text class="back-icon">←</text>
@@ -89,7 +89,8 @@
 
 <script setup>
 import { ref } from 'vue';
-import { onLoad } from '@dcloudio/uni-app';
+import { onLoad, onShow } from '@dcloudio/uni-app';
+import { useTheme } from '@/utils/useTheme';
 
 /* =================================================================
    核心业务逻辑 (保持原样)
@@ -98,6 +99,7 @@ const API_BASE = `http://101.35.132.175:5000`;
 const planId = ref(null);
 const loading = ref(true);
 const plan = ref({});
+const { isDarkMode } = useTheme();
 const tasks = ref([]);
 
 const activeDay = ref(-1); 
@@ -107,9 +109,13 @@ const displayTexts = ref({});
 const timers = {}; 
 
 onLoad((options) => {
-  planId.value = options.id;
-  if (planId.value) fetchDetail();
-  else setTimeout(() => goBack(), 1000);
+  if (options.id) {
+    planId.value = options.id;
+    fetchDetail(options.id);
+  } else {
+    uni.showToast({ title: '参数错误', icon: 'none' });
+    setTimeout(() => uni.navigateBack(), 1000);
+  }
 });
 
 const goBack = () => {
@@ -198,326 +204,158 @@ const toggleComplete = (task) => {
 </script>
 
 <style lang="scss" scoped>
-/* 1. 色彩变量 */
-$color-bg: #F5F5F0;        /* 浅米色 */
-$color-card: #FFFFFF;      /* 纯白 */
-$color-primary: #4A6FA5;   /* 莫兰迪蓝 */
-$color-accent: #FF8A65;    /* 珊瑚橙 */
-$color-text-main: #2C3E50; /* 深灰 */
-$color-text-sub: #95A5A6;  /* 浅灰 */
-$color-line: #E0E0E0;
+/* 1. 颜色变量 */
+$color-bg: #F5F5F0; $color-card: #FFFFFF; $color-primary: #4A6FA5;
+$color-accent: #FF8A65; $color-text-main: #2C3E50; $color-text-sub: #95A5A6;
 
-page { 
-  background-color: $color-bg; 
-  height: 100vh;
-  font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+/* 深色模式变量 */
+$dark-bg: #121212;
+$dark-card: #1E1E1E;
+$dark-text-main: #E0E0E0;
+$dark-text-sub: #A0A0A0;
+
+page { background-color: $color-bg; font-family: 'Inter', sans-serif; transition: background-color 0.3s; }
+
+.container { min-height: 100vh; padding: 40rpx 30rpx; position: relative; transition: all 0.3s; padding-top: var(--status-bar-height); }
+.container.dark { background-color: $dark-bg !important; }
+
+/* 2. Nav Header */
+.nav-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40rpx; transition: background-color 0.3s; }
+.back-btn { display: flex; align-items: center; font-size: 28rpx; font-weight: 600; color: $color-text-sub; transition: color 0.3s; }
+.container.dark .back-btn { color: $dark-text-sub; }
+
+.back-icon { font-size: 36rpx; margin-right: 8rpx; }
+
+.page-title { font-size: 32rpx; font-weight: 700; color: $color-text-main; transition: color 0.3s; }
+.container.dark .page-title { color: $dark-text-main; }
+
+/* 3. Plan Header */
+.plan-header-card { 
+  background: $color-card; 
+  border-radius: 20rpx; 
+  padding: 40rpx 30rpx; 
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.03); 
+  margin-bottom: 60rpx; 
+  transition: background-color 0.3s, box-shadow 0.3s; 
 }
+.container.dark .plan-header-card { background: $dark-card; box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.3); }
 
-.container {
-  min-height: 100vh;
-  background-color: $color-bg;
-  padding: 0 30rpx;
-  box-sizing: border-box;
+.plan-title { font-size: 40rpx; font-weight: 800; color: $color-text-main; margin-bottom: 24rpx; line-height: 1.3; transition: color 0.3s; }
+.container.dark .plan-title { color: $dark-text-main; }
+
+.plan-meta-row { margin-bottom: 40rpx; }
+.meta-tag { display: inline-flex; flex-direction: column; }
+.tag-label { font-size: 20rpx; font-weight: 700; color: $color-text-sub; letter-spacing: 1px; margin-bottom: 8rpx; transition: color 0.3s; }
+.container.dark .tag-label { color: $dark-text-sub; }
+
+.tag-value { font-size: 26rpx; color: $color-text-main; font-weight: 500; transition: color 0.3s; }
+.container.dark .tag-value { color: $dark-text-main; }
+
+.plan-stats-row { display: flex; justify-content: space-around; align-items: center; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 30rpx; transition: border-color 0.3s; }
+.container.dark .plan-stats-row { border-top: 1px solid rgba(255,255,255,0.05); }
+
+.stat-item { display: flex; flex-direction: column; align-items: center; }
+.stat-num { font-size: 36rpx; font-weight: 800; color: $color-text-main; margin-bottom: 4rpx; transition: color 0.3s; }
+.container.dark .stat-num { color: $dark-text-main; }
+.highlight { color: $color-primary; }
+
+.stat-label { font-size: 22rpx; color: $color-text-sub; font-weight: 600; transition: color 0.3s; }
+.container.dark .stat-label { color: $dark-text-sub; }
+
+.stat-divider { width: 1px; height: 40rpx; background: rgba(0,0,0,0.05); transition: background-color 0.3s; }
+.container.dark .stat-divider { background: rgba(255,255,255,0.05); }
+
+/* 4. Timeline */
+.timeline-section { position: relative; padding-left: 20rpx; }
+.timeline-line { position: absolute; left: 34rpx; top: 40rpx; bottom: 0; width: 4rpx; background: rgba(0,0,0,0.06); z-index: 0; transition: background-color 0.3s; }
+.container.dark .timeline-line { background: rgba(255,255,255,0.06); }
+
+.timeline-item { display: flex; margin-bottom: 40rpx; position: relative; z-index: 1; align-items: flex-start; }
+
+.timeline-node { 
+  width: 32rpx; 
+  height: 32rpx; 
+  background: $color-bg; 
+  border: 4rpx solid $color-text-sub; 
+  border-radius: 50%; 
+  margin-right: 30rpx; 
+  margin-top: 36rpx; 
+  flex-shrink: 0; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  transition: all 0.3s; 
 }
+.container.dark .timeline-node { background: $dark-bg; border-color: $dark-text-sub; }
 
-/* 2. 导航栏 */
-.nav-header {
-  height: 88rpx;
-  padding-top: var(--status-bar-height);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20rpx;
-}
-
-.back-btn {
-  display: flex;
-  align-items: center;
-  color: $color-primary;
-  font-size: 28rpx;
-  font-weight: 500;
-  padding: 10rpx;
-}
-
-.back-icon {
-  font-size: 36rpx;
-  margin-right: 4rpx;
-  margin-top: -4rpx;
-}
-
-.page-title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: $color-text-main;
-}
-
-/* 3. 计划概览卡片 */
-.plan-header-card {
-  background: $color-card;
-  border-radius: 20rpx;
-  padding: 40rpx;
-  margin-bottom: 50rpx;
-  box-shadow: 0 10rpx 40rpx rgba(74, 111, 165, 0.08);
-}
-
-.plan-title {
-  font-size: 40rpx;
-  font-weight: 700;
-  color: $color-text-main;
-  margin-bottom: 24rpx;
-  display: block;
-}
-
-.plan-meta-row {
-  margin-bottom: 40rpx;
-}
-
-.meta-tag {
-  display: inline-flex;
-  flex-direction: column;
-}
-
-.tag-label {
-  font-size: 20rpx;
-  color: $color-text-sub;
-  font-weight: 600;
-  letter-spacing: 1px;
-  margin-bottom: 6rpx;
-}
-
-.tag-value {
-  font-size: 26rpx;
-  color: $color-text-main;
-  line-height: 1.4;
-}
-
-.plan-stats-row {
-  display: flex;
-  align-items: center;
-  border-top: 1px solid #F0F0F0;
-  padding-top: 30rpx;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex: 1;
-}
-
-.stat-num {
-  font-size: 44rpx;
-  font-weight: 700;
-  color: $color-text-main;
-  line-height: 1;
-  margin-bottom: 8rpx;
-}
-
-.stat-num.highlight { color: $color-primary; }
-
-.stat-label {
-  font-size: 22rpx;
-  color: $color-text-sub;
-}
-
-.stat-divider {
-  width: 1px;
-  height: 50rpx;
-  background: #F0F0F0;
-}
-
-/* 4. 时间轴区域 */
-.timeline-section {
-  position: relative;
-  padding-left: 20rpx;
-}
-
-.timeline-line {
-  position: absolute;
-  left: 29rpx; /* 调整至节点中心 */
-  top: 0;
-  bottom: 0;
-  width: 2rpx;
-  background: #E0E0E0;
-  z-index: 0;
-}
-
-.timeline-item {
-  position: relative;
-  padding-left: 60rpx; /* 为节点留出空间 */
-  margin-bottom: 40rpx;
-  z-index: 1;
-}
-
-/* 节点样式 */
-.timeline-node {
-  position: absolute;
-  left: 10rpx;
-  top: 40rpx;
-  width: 40rpx;
-  height: 40rpx;
-  background: $color-bg; /* 遮挡线条 */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-}
-
-.node-center {
-  width: 16rpx;
-  height: 16rpx;
-  background: $color-text-sub;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-}
-
-.timeline-node.completed .node-center {
-  background: $color-accent;
-  transform: scale(1.2);
-}
+.timeline-node.completed { border-color: $color-primary; background: $color-primary; }
+.node-center { width: 12rpx; height: 12rpx; background: #FFF; border-radius: 50%; opacity: 0; transition: opacity 0.3s; }
+.timeline-node.completed .node-center { opacity: 1; }
 
 /* 任务卡片 */
-.task-card {
-  background: $color-card;
-  border-radius: 16rpx;
-  padding: 30rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.03);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  border: 1px solid transparent;
+.task-card { 
+  flex: 1; 
+  background: $color-card; 
+  border-radius: 16rpx; 
+  padding: 30rpx; 
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.02); 
+  transition: all 0.3s ease; 
 }
+.container.dark .task-card { background: $dark-card; box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.3); }
 
-.task-card:active { transform: scale(0.99); }
+.task-card.active { box-shadow: 0 10rpx 30rpx rgba(74, 111, 165, 0.1); }
+.container.dark .task-card.active { box-shadow: 0 10rpx 30rpx rgba(0,0,0,0.4); }
 
-.task-card.active {
-  box-shadow: 0 16rpx 40rpx rgba(74, 111, 165, 0.1);
-  border-color: rgba(74, 111, 165, 0.2);
+.task-card.card-completed { opacity: 0.8; }
+.task-card.card-completed .task-title { text-decoration: line-through; color: $color-text-sub; }
+.container.dark .task-card.card-completed .task-title { color: $dark-text-sub; }
+
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+.header-left { display: flex; flex-direction: column; }
+
+.day-index { font-size: 20rpx; font-weight: 800; color: $color-text-sub; letter-spacing: 1px; margin-bottom: 8rpx; transition: color 0.3s; }
+.container.dark .day-index { color: $dark-text-sub; }
+
+.task-title { font-size: 30rpx; font-weight: 700; color: $color-text-main; line-height: 1.4; transition: color 0.3s; }
+.container.dark .task-title { color: $dark-text-main; }
+
+.expand-icon { font-size: 20rpx; color: $color-text-sub; transition: transform 0.3s; margin-top: 10rpx; }
+.expand-icon.rotated { transform: rotate(180deg); }
+
+/* 展开内容 */
+.card-body { margin-top: 30rpx; padding-top: 30rpx; border-top: 1px solid rgba(0,0,0,0.05); transition: border-color 0.3s; }
+.container.dark .card-body { border-top: 1px solid rgba(255,255,255,0.05); }
+
+.task-content { font-size: 26rpx; color: $color-text-main; line-height: 1.8; white-space: pre-wrap; transition: color 0.3s; }
+.container.dark .task-content { color: $dark-text-main; }
+
+.action-bar { margin-top: 30rpx; display: flex; justify-content: flex-end; }
+.complete-btn { 
+  background: #F0F2F5; 
+  padding: 12rpx 30rpx; 
+  border-radius: 8rpx; 
+  font-size: 24rpx; 
+  font-weight: 600; 
+  color: $color-text-sub; 
+  transition: all 0.3s; 
 }
+.container.dark .complete-btn { background: #333; color: $dark-text-sub; }
 
-.task-card.card-completed {
-  opacity: 0.8;
-}
+.btn-done { background: rgba(76, 175, 80, 0.1); color: #4CAF50; }
+.container.dark .btn-done { background: rgba(76, 175, 80, 0.2); color: #4CAF50; }
 
-.task-card.card-completed .task-title {
-  text-decoration: line-through;
-  color: $color-text-sub;
-}
+/* Loading */
+.loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; }
+.loading-spinner { width: 60rpx; height: 60rpx; border: 6rpx solid rgba(0,0,0,0.1); border-top-color: $color-primary; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20rpx; transition: border-color 0.3s; }
+.container.dark .loading-spinner { border-color: rgba(255,255,255,0.1); border-top-color: $color-primary; }
 
-/* 卡片头部 */
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
+.loading-text { font-size: 24rpx; color: $color-text-sub; font-weight: 600; transition: color 0.3s; }
+.container.dark .loading-text { color: $dark-text-sub; }
 
-.header-left {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.day-index {
-  font-size: 20rpx;
-  color: $color-text-sub;
-  font-weight: 700;
-  margin-bottom: 8rpx;
-  letter-spacing: 0.5px;
-}
-
-.task-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: $color-text-main;
-  line-height: 1.4;
-}
-
-.expand-icon {
-  font-size: 20rpx;
-  color: $color-text-sub;
-  transition: transform 0.3s ease;
-  margin-left: 20rpx;
-  margin-top: 10rpx;
-}
-
-.expand-icon.rotated {
-  transform: rotate(180deg);
-  color: $color-primary;
-}
-
-/* 卡片展开内容 */
-.card-body {
-  margin-top: 30rpx;
-  padding-top: 30rpx;
-  border-top: 1px solid #F5F5F5;
-}
-
-.task-content {
-  font-size: 26rpx;
-  color: $color-text-main;
-  line-height: 1.8;
-  white-space: pre-wrap;
-}
-
-.cursor-blink {
-  display: inline-block;
-  width: 4rpx;
-  height: 28rpx;
-  background: $color-primary;
-  margin-left: 4rpx;
-  vertical-align: middle;
-  animation: blink 1s infinite;
-}
-
-/* 操作栏 */
-.action-bar {
-  margin-top: 40rpx;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.complete-btn {
-  font-size: 24rpx;
-  color: $color-primary;
-  background: rgba(74, 111, 165, 0.1);
-  padding: 12rpx 30rpx;
-  border-radius: 30rpx;
-  font-weight: 600;
-  transition: all 0.2s;
-}
-
-.complete-btn:active { background: rgba(74, 111, 165, 0.2); }
-
-.complete-btn.btn-done {
-  background: rgba(255, 138, 101, 0.1);
-  color: $color-accent;
-}
-
-/* 动画与加载 */
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 60vh;
-}
-
-.loading-spinner {
-  width: 50rpx;
-  height: 50rpx;
-  border: 4rpx solid rgba(74, 111, 165, 0.2);
-  border-top-color: $color-primary;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 20rpx;
-}
-
-.loading-text {
-  font-size: 24rpx;
-  color: $color-text-sub;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes blink { 50% { opacity: 0; } }
+/* 5. 动画 */
+.fade-in { animation: fadeIn 0.8s ease-out; }
+.slide-up { animation: slideUp 0.6s ease-out backwards; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(20rpx); } to { opacity: 1; transform: translateY(0); } }
-.fade-in { animation: slideUp 0.5s ease-out; }
-.slide-up { animation: slideUp 0.5s ease-out backwards; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>

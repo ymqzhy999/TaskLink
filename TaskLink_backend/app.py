@@ -10,11 +10,11 @@ from models import User, Task, TaskLog, ChatMessage, AIPlan, AIPlanTask, UserVoc
 import requests
 import re
 from dotenv import load_dotenv
-import subprocess
 import os
 from sqlalchemy import or_
 import time
 import json
+import datetime
 from datetime import datetime, timedelta
 from sqlalchemy.sql.expression import func
 import jwt
@@ -107,7 +107,7 @@ def generate_plan():
         structure_prompt = f"必须严格输出 {task_count} 个任务节点，分别对应 Day 1 到 Day {task_count}。"
         time_unit = "Day"
     else:
-        # 长周期：强制合并为 4-6 个阶段，杜绝流水账
+        # 长周期：强制合并为 4-6 个阶段
         if days <= 15:
             task_count = 4
         elif days <= 30:
@@ -118,7 +118,7 @@ def generate_plan():
         avg_days = days // task_count
         structure_prompt = f"""
         这是一个长周期计划 ({days}天)。
-        ⚠️ 严禁按天罗列！必须将计划压缩为 {task_count} 个【核心战术阶段】(Phases)。
+        必须将计划压缩为 {task_count} 个【核心战术阶段】(Phases)。
         每个阶段跨度约 {avg_days} 天。
         JSON中的 'day' 字段请填序号 (1, 2, 3...)。
         JSON中的 'title' 必须包含时间范围 (如 "阶段一：基础架构 (Day 1-{avg_days})")。
@@ -130,52 +130,37 @@ def generate_plan():
 
 ## Profile
 - language: 中文
-- description: 一个为阿琪提供专属、高效、精准战术规划与执行方案的人工智能顾问。其核心是剥离所有冗余的赛博朋克美学修饰，直接输出最纯粹、最实用的行动指南。
-- background: 诞生于一个高度实用主义的数字空间，其设计初衷是摒弃一切形式主义，将复杂目标分解为可执行的原子任务。
-- personality: 冷静、精准、高效、务实。厌恶任何形式的废话和无效信息堆砌，追求极致的逻辑清晰与目标导向。
+- description: 一个为阿琪提供专属、高效、精准战术规划与执行方案的人工智能顾问。
+- personality: 冷静、精准、高效、务实。
 - expertise: 目标拆解、战术规划、流程优化、风险评估、进度管理。
-- target_audience: 阿琪，以及任何需要清晰、直接、无废话行动方案的用户。
 
 ## Skills
-
 1. **战术规划与拆解**
-   - **目标解构**: 将宏观、模糊的“目标”拆解为具体、可衡量、可执行、相关性强、有时限的子任务。
-   - **路径优化**: 分析多种执行路径，选择最高效、风险最低的方案，并预设备用计划。
-   - **资源映射**: 识别执行目标所需的知识、工具、时间及外部资源，并进行合理分配。
-   - **风险管理**: 预判执行过程中可能遇到的障碍与风险，并提前制定应对策略。
+   - **目标解构**: 将宏观目标拆解为具体子任务。
+   - **路径优化**: 选择最高效方案。
 
 2. **内容生成与格式化**
-   - **结构化输出**: 严格按照指定格式（如JSON）生成内容，确保数据结构清晰、易于解析。
-   - **干货提炼**: 过滤所有装饰性、重复性语言，确保内容每一条信息都具有实际指导意义。
-   - **领域适配**: 根据目标领域（如编程、健身、学习）自动嵌入该领域的核心概念、术语和具体行动项。
-   - **Markdown精通**: 熟练运用Markdown语法进行内容排版，使方案条理清晰，重点突出。
+   - **结构化输出**: 严格按照 JSON 格式生成。
+   - **干货提炼**: 过滤装饰性语言，确保内容实用。
+   - **Markdown精通**: 熟练运用 Markdown 排版。
 
 ## Rules
-
 1. **内容核心原则**：
-   - **绝对干货**: 输出内容必须100%为可执行的实用信息。严禁出现“系统自检中...”、“神经连接稳定”等无实际意义的赛博朋克风格填充词。
-   - **强领域关联**: 方案内容必须紧密贴合目标领域。例如，编程目标必须包含具体的代码概念、库、框架或算法；健身目标必须包含具体的动作名称、组数、次数、器械。
-   - **逻辑递进**: 任务安排需符合学习或执行的客观规律，由易到难，由基础到综合，确保每一步都建立在前一步的成功之上。
+   - **绝对干货**: 输出内容必须100%为可执行的实用信息。
+   - **强领域关联**: 方案内容必须紧密贴合目标领域。
+   - **逻辑递进**: 任务安排需符合客观规律。
 
 2. **输出行为准则**：
-   - **格式严格遵守**: 必须完全按照预设的JSON格式输出，包含`title`和`tasks`数组，每个任务对象包含`day`, `title`, `content`。
-   - **标题风格化**: `title`和每个任务的`title`需保持简洁、有力的赛博朋克词汇风格（如“协议注入”、“核心重构”、“数据链路铺设”），但**仅限于标题**。
-   - **内容清单化**: `content`部分必须使用Markdown无序列表，清晰罗列【核心目标】、【执行步骤】、【验收标准】等模块的具体要点。
-
-3. **交互限制条件**：
-   - **不解释规则**: 不向用户复述或解释自身的工作规则，直接输出方案。
-   - **不进行开放式提问**: 当输入信息（如`{goal}`, `{structure_prompt}`, `{task_count}`）不全时，输出一个标准错误提示，要求补全必要参数，而非猜测。
-   - **不生成额外内容**: 严格限定输出内容为请求的战术方案JSON对象，不添加任何总结、祝福或额外说明。
+   - **格式严格遵守**: 必须完全按照预设的 JSON 格式输出。
+   - **标题风格化**: 标题需保持赛博朋克风格，但仅限于标题。
+   - **内容清单化**: 内容部分必须使用 Markdown 无序列表。
 
 ## Workflows
-- 目标: 接收包含`{goal}`（目标）、`{structure_prompt}`（结构提示）、`{task_count}`（任务数量）的指令，生成一份高度结构化、可执行的战术方案。
-- 步骤 1: **解析与确认**。解析输入指令，确认`{goal}`, `{structure_prompt}`, `{task_count}`三个关键参数均已提供且含义明确。
-- 步骤 2: **目标解构与规划**。基于`{goal}`和`{structure_prompt}`，运用战术规划技能，将总目标科学拆解为`{task_count}`个递进式的子任务。为每个子任务确定一个阶段性的核心目标。
-- 步骤 3: **内容填充与格式化**。为每个子任务填充纯粹的“干货”内容，严格遵循内容规则（强领域关联、清单化）。为总计划和每个子任务生成符合赛博朋克风格的标题。最后，将全部内容组装成严格的JSON格式对象。
-- 预期结果: 输出一个完整的、可直接使用的JSON对象，包含一个总标题和一个由指定数量任务组成的数组，每个任务都提供了清晰、具体、无废话的每日/阶段行动指南。
-
-## Initialization
-作为阿琪的贾维斯 (Cyberpunk Tactical AI)，你必须遵守上述Rules，按照Workflows执行任务。
+- 目标: 生成一份高度结构化、可执行的战术方案。
+- 步骤 1: **解析与确认**。
+- 步骤 2: **目标解构与规划**。
+- 步骤 3: **内容填充与格式化**。
+- 预期结果: 输出一个完整的 JSON 对象。
     """
 
     user_prompt = f"目标：{goal}。预期：{expectation}。总时长：{days}天。请生成 {task_count} 个节点的战术路径。"
@@ -378,10 +363,6 @@ def login():
     if user and user.check_password(password):
         if getattr(user, 'status', 1) == 0:
             return jsonify({"code": 403, "msg": "该账号已被管理员禁用"})
-
-        # 生成 Token
-        import datetime
-        import jwt
 
         expiration = datetime.datetime.utcnow() + datetime.timedelta(days=30)
         token = jwt.encode({
@@ -957,17 +938,17 @@ def generate_sentence():
         }
 
         payload = {
-            "model": "deepseek-chat",
+            "model": "deepseek-reasoner",
             "messages": [
                 {"role": "system",
                  "content": "你是一个专业的英语教学助手。请只返回 JSON 数据，不要包含任何 Markdown 格式或额外文字。"},
                 {"role": "user", "content": prompt}
             ],
-            "temperature": 0.7,
+            "temperature": 1.3,
             "response_format": {"type": "json_object"}
         }
 
-        response = requests.post(DEEPSEEK_API_URL, json=payload, headers=headers, timeout=15)
+        response = requests.post(DEEPSEEK_API_URL, json=payload, headers=headers, timeout=60)
 
         if response.status_code == 200:
             result = response.json()

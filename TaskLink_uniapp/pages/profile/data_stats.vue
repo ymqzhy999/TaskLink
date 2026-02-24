@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="{ 'dark': isDarkMode }">
     <view class="nav-header">
       <view class="back-btn" @click="goBack">←</view>
       <text class="nav-title">学习分析报告</text>
@@ -98,13 +98,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, getCurrentInstance } from 'vue';
+import { ref, onMounted, computed, getCurrentInstance, watch } from 'vue';
 import uCharts from '@qiun/ucharts';
+import { useTheme } from '@/utils/useTheme';
 
 const API_BASE = `http://101.35.132.175:5000`;
 const myId = ref(uni.getStorageSync('userInfo')?.id);
 const selectedUserId = ref(myId.value); 
 const { proxy } = getCurrentInstance();
+const { isDarkMode } = useTheme();
 
 const currentStats = ref({});
 const leaderboard = ref([]);
@@ -129,6 +131,15 @@ const calculateLevel = (count) => {
   return Math.floor(Math.sqrt(count) / 2) + 1;
 };
 
+// 监听主题变化重绘图表
+watch(isDarkMode, () => {
+  if (currentStats.value) {
+     // 简单触发重绘，这里重新调用 fetchUserDetail 也可以，或者直接调用 draw
+     // 为了简单起见，重新调用 fetchUserDetail 来刷新图表
+     if (selectedUserId.value) fetchUserDetail(selectedUserId.value);
+  }
+});
+
 // --- 绘图逻辑 (保持不变) ---
 const drawRose = (data) => {
   const chartData = {
@@ -141,25 +152,33 @@ const drawRose = (data) => {
       ]
     }]
   };
+  
+  const bgColor = isDarkMode.value ? '#1E1E1E' : '#FFFFFF';
+  const textColor = isDarkMode.value ? '#E0E0E0' : '#666666';
+
   const ctx = uni.createCanvasContext('roseCanvas', proxy);
   canvaRose = new uCharts({
     type: "rose",
     context: ctx,
     width: cWidth, height: cHeight, categories: [], series: chartData.series, animation: true, pixelRatio: pixelRatio,
-    background: "#FFFFFF", color: ["#4A6FA5","#8DA399","#F9E79F","#EF9A9A"], padding: [5,5,5,5], fontSize: 11,
-    legend: { show: true, position: "bottom", lineHeight: 16, fontSize: 11 },
-    extra: { rose: { type: "area", minRadius: 40, activeOpacity: 0.5, offsetAngle: 0, labelWidth: 15, border: true, borderWidth: 2, borderColor: "#FFFFFF" } }
+    background: bgColor, color: ["#4A6FA5","#8DA399","#F9E79F","#EF9A9A"], padding: [5,5,5,5], fontSize: 11,
+    legend: { show: true, position: "bottom", lineHeight: 16, fontSize: 11, fontColor: textColor },
+    extra: { rose: { type: "area", minRadius: 40, activeOpacity: 0.5, offsetAngle: 0, labelWidth: 15, border: true, borderWidth: 2, borderColor: bgColor } }
   });
 };
 
 const drawTrend = (data) => {
   const chartData = { categories: data.dates, series: [{ name: "学习量", data: data.values }] };
+  const bgColor = isDarkMode.value ? '#1E1E1E' : '#FFFFFF';
+  const textColor = isDarkMode.value ? '#E0E0E0' : '#666666';
+  const gridColor = isDarkMode.value ? '#333333' : '#E0E0E0';
+
   const ctx = uni.createCanvasContext('trendCanvas', proxy);
   canvaTrend = new uCharts({
     type: "area", context: ctx, width: cWidth, height: cHeight, categories: chartData.categories, series: chartData.series, animation: true, pixelRatio: pixelRatio,
-    background: "#FFFFFF", color: ["#4A6FA5"], padding: [15,10,0,5], fontSize: 11, enableScroll: false,
-    xAxis: { disableGrid: true, fontSize: 10, axisLineColor: "#E0E0E0" },
-    yAxis: { gridType: "dash", dashLength: 2, data: [{ min: 0, fontSize: 10, axisLineColor: "#E0E0E0" }] },
+    background: bgColor, color: ["#4A6FA5"], padding: [15,10,0,5], fontSize: 11, enableScroll: false,
+    xAxis: { disableGrid: true, fontSize: 10, axisLineColor: gridColor, fontColor: textColor },
+    yAxis: { gridType: "dash", dashLength: 2, data: [{ min: 0, fontSize: 10, axisLineColor: gridColor, fontColor: textColor }] },
     extra: { area: { type: "curve", opacity: 0.2, addLine: true, width: 2, gradient: true } }
   });
 };
@@ -232,57 +251,101 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
-/* 样式保持不变 */
-$color-bg: #F5F5F0;
-$color-card: #FFFFFF;
-$color-primary: #4A6FA5;
-$color-text-main: #2C3E50;
-$color-text-sub: #95A5A6;
+/* 1. 颜色变量 */
+$color-bg: #F5F5F0; $color-card: #FFFFFF; $color-primary: #4A6FA5;
+$color-accent: #FF8A65; $color-text-main: #2C3E50; $color-text-sub: #95A5A6;
 
-page { background-color: $color-bg; font-family: 'Inter', sans-serif; }
-.container { min-height: 100vh; display: flex; flex-direction: column; }
+/* 深色模式变量 */
+$dark-bg: #121212;
+$dark-card: #1E1E1E;
+$dark-text-main: #E0E0E0;
+$dark-text-sub: #A0A0A0;
+
+page { background-color: $color-bg; font-family: 'Inter', sans-serif; transition: background-color 0.3s; }
+
+.container { min-height: 100vh; display: flex; flex-direction: column; transition: all 0.3s; }
+.container.dark { background-color: $dark-bg !important; }
+
+/* 2. Header */
 .nav-header { padding: 100rpx 40rpx 20rpx; display: flex; justify-content: space-between; align-items: center; }
-.back-btn { font-size: 40rpx; color: $color-primary; padding: 10rpx; }
-.nav-title { font-size: 32rpx; font-weight: 700; color: $color-text-main; }
+.back-btn { font-size: 40rpx; color: $color-primary; padding: 10rpx; transition: color 0.3s; }
+.container.dark .back-btn { color: $dark-text-main; }
+
+.nav-title { font-size: 32rpx; font-weight: 700; color: $color-text-main; transition: color 0.3s; }
+.container.dark .nav-title { color: $dark-text-main; }
+
 .content-scroll { flex: 1; padding: 0 40rpx; box-sizing: border-box; }
 
-.user-summary-card { margin: 20rpx 0 40rpx; background: $color-card; border-radius: 24rpx; padding: 30rpx; box-shadow: 0 4rpx 16rpx rgba(74, 111, 165, 0.08); }
+/* 3. Summary Card */
+.user-summary-card { margin: 20rpx 0 40rpx; background: $color-card; border-radius: 24rpx; padding: 30rpx; box-shadow: 0 4rpx 16rpx rgba(74, 111, 165, 0.08); transition: background-color 0.3s, box-shadow 0.3s; }
+.container.dark .user-summary-card { background: $dark-card; box-shadow: 0 8rpx 20rpx rgba(0,0,0,0.3); }
+
 .user-row { display: flex; align-items: center; }
 .u-avatar { width: 90rpx; height: 90rpx; border-radius: 50%; margin-right: 24rpx; background: #eee; border: 2rpx solid #F0F0F0; }
 .u-info { flex: 1; display: flex; flex-direction: column; }
-.u-name { font-size: 32rpx; font-weight: 700; color: $color-text-main; margin-bottom: 8rpx; }
+
+.u-name { font-size: 32rpx; font-weight: 700; color: $color-text-main; margin-bottom: 8rpx; transition: color 0.3s; }
+.container.dark .u-name { color: $dark-text-main; }
+
 .u-tags { display: flex; gap: 10rpx; }
 .u-badge, .u-level { font-size: 18rpx; padding: 4rpx 12rpx; border-radius: 8rpx; font-weight: 600; }
 .bg-blue { background: rgba(74, 111, 165, 0.1); color: $color-primary; }
 .bg-gray { background: #F5F5F5; color: $color-text-sub; }
 .u-level { background: #FFF3E0; color: #FF9800; }
+
 .u-total { text-align: right; }
-.t-num { font-size: 44rpx; font-weight: 800; color: $color-primary; display: block; line-height: 1; margin-bottom: 6rpx; }
+.t-num { font-size: 44rpx; font-weight: 800; color: $color-primary; display: block; line-height: 1; margin-bottom: 6rpx; transition: color 0.3s; }
+.container.dark .t-num { color: $dark-text-main; }
+
 .t-label { font-size: 18rpx; color: $color-text-sub; letter-spacing: 1px; text-transform: uppercase; }
 
+/* 4. Charts */
 .charts-container { display: flex; flex-direction: column; gap: 30rpx; margin-bottom: 40rpx; }
-.chart-box { background: $color-card; border-radius: 24rpx; padding: 30rpx; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.03); }
-.chart-header { margin-bottom: 20rpx; display: flex; align-items: center; }
-.c-title { font-size: 26rpx; font-weight: 700; color: $color-text-main; padding-left: 16rpx; border-left: 6rpx solid $color-primary; }
-.canvas-wrap { width: 100%; display: flex; justify-content: center; align-items: center; } 
-.charts { background-color: #FFFFFF; }
+.chart-box { background: $color-card; border-radius: 24rpx; padding: 30rpx; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.03); transition: background-color 0.3s, box-shadow 0.3s; }
+.container.dark .chart-box { background: $dark-card; box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.3); }
 
-.rank-section { background: $color-card; border-radius: 24rpx; padding: 30rpx 0; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.03); margin-bottom: 40rpx; }
-.rank-header { padding: 0 30rpx 20rpx; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #F5F5F5; }
-.rh-title { font-size: 28rpx; font-weight: 700; color: $color-text-main; }
+.chart-header { margin-bottom: 20rpx; display: flex; align-items: center; }
+.c-title { font-size: 26rpx; font-weight: 700; color: $color-text-main; padding-left: 16rpx; border-left: 6rpx solid $color-primary; transition: color 0.3s; }
+.container.dark .c-title { color: $dark-text-main; }
+
+.canvas-wrap { width: 100%; display: flex; justify-content: center; align-items: center; }
+.charts { background-color: #FFFFFF; transition: background-color 0.3s; }
+.container.dark .charts { background-color: $dark-card; }
+
+/* 5. Rank */
+.rank-section { background: $color-card; border-radius: 24rpx; padding: 30rpx 0; box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.03); margin-bottom: 40rpx; transition: background-color 0.3s, box-shadow 0.3s; }
+.container.dark .rank-section { background: $dark-card; box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.3); }
+
+.rank-header { padding: 0 30rpx 20rpx; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #F5F5F5; transition: border-color 0.3s; }
+.container.dark .rank-header { border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+.rh-title { font-size: 28rpx; font-weight: 700; color: $color-text-main; transition: color 0.3s; }
+.container.dark .rh-title { color: $dark-text-main; }
+
 .rh-sub { font-size: 20rpx; color: $color-text-sub; }
+
 .rank-item { display: flex; align-items: center; justify-content: space-between; padding: 24rpx 30rpx; border-bottom: 1px solid #F9F9F9; transition: all 0.2s; }
+.container.dark .rank-item { border-bottom: 1px dashed rgba(255,255,255,0.05); }
+
 .rank-item:active { background-color: #F8F9FA; }
 .rank-item.active { background: rgba(74, 111, 165, 0.08); border-left: 6rpx solid $color-primary; }
+.container.dark .rank-item.active { background: rgba(74, 111, 165, 0.2); }
+
 .r-left { display: flex; align-items: center; flex: 1; overflow: hidden; }
 .r-idx-box { width: 60rpx; display: flex; justify-content: center; margin-right: 10rpx; }
-.r-idx { font-size: 24rpx; font-weight: 700; color: #CCC; }
+
+.r-idx { font-size: 24rpx; font-weight: 700; color: #CCC; transition: color 0.3s; }
+.container.dark .r-idx { color: $dark-text-sub; }
+
 .medal-badge { width: 36rpx; height: 36rpx; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20rpx; font-weight: 800; color: #FFF; box-shadow: 0 4rpx 8rpx rgba(0,0,0,0.15); text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
 .gold { background: linear-gradient(135deg, #FFD700 0%, #FDB931 100%); border: 2rpx solid #FFF; }
 .silver { background: linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%); border: 2rpx solid #FFF; }
 .bronze { background: linear-gradient(135deg, #CD7F32 0%, #A0522D 100%); border: 2rpx solid #FFF; }
+
 .r-avatar { width: 70rpx; height: 70rpx; border-radius: 50%; background: #eee; margin-right: 20rpx; }
-.r-name { font-size: 26rpx; color: $color-text-main; font-weight: 600; }
+.r-name { font-size: 26rpx; color: $color-text-main; font-weight: 600; transition: color 0.3s; }
+.container.dark .r-name { color: $dark-text-main; }
+
 .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240rpx; }
 .r-val { font-size: 30rpx; font-weight: 700; color: $color-primary; font-family: monospace; }
 

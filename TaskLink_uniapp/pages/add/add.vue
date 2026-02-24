@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="{ 'dark': isDarkMode }">
     <view class="header-section">
       <view class="header-content">
         <text class="page-title">Create New Plan</text>
@@ -94,10 +94,15 @@
 
 <script setup>
 import { ref, onUnmounted } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
+import { useTheme } from '@/utils/useTheme';
 
 const API_BASE = `http://101.35.132.175:5000`;
 const planForm = ref({ goal: '', expectation: '', days: '' });
 const isGenerating = ref(false);
+const { isDarkMode } = useTheme();
+
+
 
 const loadingStepText = ref('初始化请求...');
 const progressWidth = ref(0);
@@ -189,258 +194,105 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-/* 1. 色彩变量 */
-$color-bg: #F5F5F0;        /* 浅米色 */
-$color-card: #FFFFFF;      /* 纯白 */
-$color-primary: #4A6FA5;   /* 莫兰迪蓝 */
-$color-accent: #FF8A65;    /* 珊瑚橙 */
-$color-text-main: #2C3E50; /* 深灰 */
-$color-text-sub: #95A5A6;  /* 浅灰 */
-$color-line: #E0E0E0;
+/* 1. 颜色变量 */
+$color-bg: #F5F5F0; $color-card: #FFFFFF; $color-primary: #4A6FA5;
+$color-accent: #FF8A65; $color-text-main: #2C3E50; $color-text-sub: #95A5A6;
 
-page { 
-  background-color: $color-bg; 
-  height: 100vh;
-  font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+/* 深色模式变量 */
+$dark-bg: #121212;
+$dark-card: #1E1E1E;
+$dark-text-main: #E0E0E0;
+$dark-text-sub: #A0A0A0;
+$dark-input-bg: #2C2C2C;
+
+page { background-color: $color-bg; font-family: 'Inter', sans-serif; transition: background-color 0.3s; }
+
+.container { min-height: 100vh; padding: 40rpx 30rpx; position: relative; transition: all 0.3s; }
+.container.dark { background-color: $dark-bg; }
+
+/* 2. Header */
+.header-section { margin-bottom: 50rpx; display: flex; justify-content: space-between; align-items: flex-start; padding-top: 20rpx; }
+.page-title { font-size: 56rpx; font-weight: 300; color: $color-text-main; letter-spacing: -1px; line-height: 1; margin-bottom: 8rpx; transition: color 0.3s; }
+.container.dark .page-title { color: $dark-text-main; }
+
+.page-subtitle { font-size: 24rpx; font-weight: 500; color: $color-text-sub; letter-spacing: 1px; transition: color 0.3s; }
+.container.dark .page-subtitle { color: $dark-text-sub; }
+
+.status-badge { display: flex; align-items: center; background: rgba(76, 175, 80, 0.1); padding: 4rpx 12rpx; border-radius: 100rpx; transition: background-color 0.3s; }
+.container.dark .status-badge { background: rgba(76, 175, 80, 0.2); }
+
+.status-dot { width: 12rpx; height: 12rpx; background: #4CAF50; border-radius: 50%; margin-right: 8rpx; }
+.status-badge text { font-size: 20rpx; color: #4CAF50; font-weight: 600; }
+
+/* 3. Form Container */
+.form-container { margin-bottom: 40rpx; }
+.input-card { margin-bottom: 40rpx; }
+
+.label-row { display: flex; justify-content: space-between; margin-bottom: 16rpx; }
+.label-text { font-size: 28rpx; font-weight: 600; color: $color-text-main; transition: color 0.3s; }
+.container.dark .label-text { color: $dark-text-main; }
+
+.label-count { font-size: 22rpx; color: $color-text-sub; transition: color 0.3s; }
+.container.dark .label-count { color: $dark-text-sub; }
+
+.input-wrapper { background: #FFFFFF; border-radius: 16rpx; padding: 0 30rpx; box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.03); transition: background-color 0.3s, box-shadow 0.3s; }
+.container.dark .input-wrapper { background: $dark-card; box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.3); }
+
+.area-wrapper { padding: 30rpx; }
+
+.custom-input { height: 100rpx; font-size: 30rpx; color: $color-text-main; font-weight: 500; transition: color 0.3s; }
+.container.dark .custom-input { color: $dark-text-main; }
+
+.custom-textarea { width: 100%; min-height: 160rpx; font-size: 30rpx; color: $color-text-main; line-height: 1.5; transition: color 0.3s; }
+.container.dark .custom-textarea { color: $dark-text-main; }
+
+.ph-style { color: #B0BEC5; font-weight: 400; }
+
+/* 4. Footer Btn */
+.footer-section { position: fixed; bottom: 40rpx; left: 30rpx; right: 30rpx; }
+.generate-btn { 
+  background: $color-text-main; 
+  color: #FFF; 
+  height: 100rpx; 
+  border-radius: 24rpx; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  font-size: 32rpx; 
+  font-weight: 600; 
+  box-shadow: 0 10rpx 30rpx rgba(44, 62, 80, 0.3); 
+  transition: all 0.3s; 
 }
+.container.dark .generate-btn { background: $color-primary; box-shadow: 0 10rpx 30rpx rgba(0,0,0,0.4); }
 
-.container {
-  min-height: 100vh;
-  padding: 0 40rpx;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-}
+.generate-btn:active { transform: scale(0.98); }
+.btn-disabled { opacity: 0.7; pointer-events: none; }
+.btn-loading-content { display: flex; align-items: center; }
+.mini-spinner { width: 30rpx; height: 30rpx; border: 4rpx solid rgba(255,255,255,0.3); border-top-color: #FFF; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 16rpx; }
 
-/* 2. 头部 */
-.header-section {
-  padding-top: var(--status-bar-height);
-  margin-top: 40rpx;
-  margin-bottom: 60rpx;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
+/* 5. Loading Modal */
+.loading-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); backdrop-filter: blur(5px); z-index: 999; display: flex; align-items: center; justify-content: center; transition: background-color 0.3s; }
+.container.dark .loading-modal { background: rgba(0,0,0,0.8); }
 
-.page-title {
-  font-size: 40rpx;
-  font-weight: 700;
-  color: $color-text-main;
-  display: block;
-  margin-bottom: 8rpx;
-}
+.modal-card { width: 80%; background: #FFF; border-radius: 24rpx; padding: 60rpx 40rpx; display: flex; flex-direction: column; align-items: center; box-shadow: 0 20rpx 60rpx rgba(0,0,0,0.1); transition: background-color 0.3s; }
+.container.dark .modal-card { background: $dark-card; box-shadow: 0 20rpx 60rpx rgba(0,0,0,0.4); }
 
-.page-subtitle {
-  font-size: 24rpx;
-  color: $color-text-sub;
-  letter-spacing: 1px;
-}
+.spinner-ring { width: 80rpx; height: 80rpx; border: 6rpx solid #F0F0F0; border-top-color: $color-primary; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 40rpx; transition: border-color 0.3s; }
+.container.dark .spinner-ring { border-color: #333; border-top-color: $color-primary; }
 
-.status-badge {
-  display: flex;
-  align-items: center;
-  background: rgba(74, 111, 165, 0.1);
-  padding: 8rpx 20rpx;
-  border-radius: 30rpx;
-}
+.loading-title { font-size: 32rpx; font-weight: 700; color: $color-text-main; margin-bottom: 16rpx; transition: color 0.3s; }
+.container.dark .loading-title { color: $dark-text-main; }
 
-.status-dot {
-  width: 12rpx;
-  height: 12rpx;
-  background: $color-primary;
-  border-radius: 50%;
-  margin-right: 10rpx;
-}
+.loading-desc { font-size: 24rpx; color: $color-text-sub; margin-bottom: 40rpx; text-align: center; transition: color 0.3s; }
+.container.dark .loading-desc { color: $dark-text-sub; }
 
-.status-badge text {
-  font-size: 20rpx;
-  color: $color-primary;
-  font-weight: 600;
-}
+.progress-bar-bg { width: 100%; height: 8rpx; background: #F0F0F0; border-radius: 4rpx; overflow: hidden; transition: background-color 0.3s; }
+.container.dark .progress-bar-bg { background: #333; }
 
-/* 3. 表单区域 */
-.form-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 40rpx;
-}
+.progress-bar-fill { height: 100%; background: $color-primary; border-radius: 4rpx; transition: width 0.3s ease; }
 
-.input-card {
-  background: $color-card;
-  border-radius: 20rpx;
-  padding: 30rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.03);
-  transition: box-shadow 0.3s ease;
-}
-
-.input-card:focus-within {
-  box-shadow: 0 8rpx 30rpx rgba(74, 111, 165, 0.1);
-}
-
-.label-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 20rpx;
-}
-
-.label-text {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: $color-text-main;
-}
-
-.label-count {
-  font-size: 22rpx;
-  color: $color-text-sub;
-}
-
-.input-wrapper {
-  background: #FAFAFA;
-  border-radius: 12rpx;
-  padding: 20rpx;
-  border: 1px solid transparent;
-  transition: border-color 0.3s;
-}
-
-.input-wrapper:focus-within {
-  border-color: rgba(74, 111, 165, 0.3);
-  background: #FFF;
-}
-
-.custom-input {
-  height: 60rpx;
-  font-size: 30rpx;
-  color: $color-text-main;
-}
-
-.custom-textarea {
-  width: 100%;
-  font-size: 28rpx;
-  color: $color-text-main;
-  line-height: 1.6;
-  min-height: 160rpx;
-}
-
-.ph-style {
-  color: #CFD8DC;
-  font-weight: 300;
-}
-
-/* 4. 底部按钮 */
-.footer-section {
-  padding: 60rpx 0;
-  margin-bottom: 40rpx;
-}
-
-.generate-btn {
-  background: $color-primary;
-  color: #FFF;
-  height: 100rpx;
-  border-radius: 50rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32rpx;
-  font-weight: 600;
-  letter-spacing: 2rpx;
-  border: none;
-  box-shadow: 0 10rpx 30rpx rgba(74, 111, 165, 0.3);
-  transition: all 0.3s ease;
-}
-
-.generate-btn:active {
-  transform: scale(0.98);
-  box-shadow: 0 6rpx 20rpx rgba(74, 111, 165, 0.2);
-}
-
-.btn-disabled {
-  background: #B0BEC5;
-  box-shadow: none;
-  opacity: 0.8;
-}
-
-.btn-loading-content {
-  display: flex;
-  align-items: center;
-}
-
-.mini-spinner {
-  width: 30rpx;
-  height: 30rpx;
-  border: 4rpx solid rgba(255,255,255,0.3);
-  border-top-color: #FFF;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-right: 16rpx;
-}
-
-/* 5. 加载模态框 */
-.loading-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(245, 245, 240, 0.8);
-  backdrop-filter: blur(5px);
-  z-index: 999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.modal-card {
-  width: 560rpx;
-  background: $color-card;
-  border-radius: 30rpx;
-  padding: 60rpx 40rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-shadow: 0 20rpx 60rpx rgba(0,0,0,0.08);
-}
-
-.spinner-ring {
-  width: 100rpx;
-  height: 100rpx;
-  border: 6rpx solid #F0F0F0;
-  border-top-color: $color-primary;
-  border-radius: 50%;
-  animation: spin 1.2s linear infinite;
-  margin-bottom: 40rpx;
-}
-
-.loading-title {
-  font-size: 32rpx;
-  font-weight: 700;
-  color: $color-text-main;
-  margin-bottom: 16rpx;
-}
-
-.loading-desc {
-  font-size: 24rpx;
-  color: $color-text-sub;
-  margin-bottom: 50rpx;
-  height: 34rpx; /* 固定高度防止跳动 */
-}
-
-.progress-bar-bg {
-  width: 100%;
-  height: 8rpx;
-  background: #F0F0F0;
-  border-radius: 4rpx;
-  overflow: hidden;
-}
-
-.progress-bar-fill {
-  height: 100%;
-  background: $color-primary;
-  border-radius: 4rpx;
-  transition: width 0.3s ease;
-}
-
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+/* 6. 动画 */
 .fade-in { animation: fadeIn 0.8s ease-out; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(20rpx); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>

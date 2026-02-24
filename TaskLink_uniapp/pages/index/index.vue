@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="{ 'dark': isDarkMode }">
     <view class="header fade-in">
       <view class="header-left">
         <text class="app-name">Task<text class="app-name-highlight">Link</text></text>
@@ -85,12 +85,14 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
+import { useTheme } from '@/utils/useTheme';
 
 /* =================================================================
    核心业务逻辑 (保持原样)
    ================================================================= */
 const API_BASE = `http://101.35.132.175:5000`;
 const activePlans = ref([]);
+const { isDarkMode } = useTheme();
 
 onShow(() => {
   const user = uni.getStorageSync('userInfo');
@@ -171,7 +173,7 @@ const deletePlan = (id) => {
 
 <style lang="scss" scoped>
 /* =================================================================
-   视觉样式重构 (莫兰迪极简高级感)
+   视觉样式重构 (莫兰迪极简高级感) - Dark Mode Supported
    ================================================================= */
 
 /* 1. 色彩变量 */
@@ -183,19 +185,29 @@ $color-text-main: #2C3E50; /* 深灰 */
 $color-text-sub: #95A5A6;  /* 辅助文字 */
 $color-line: #E0E0E0;
 
+/* 深色模式变量 */
+$dark-bg: #121212;
+$dark-card: #1E1E1E;
+$dark-text-main: #E0E0E0;
+$dark-text-sub: #A0A0A0;
+
 page { 
   background-color: $color-bg; 
   color: $color-text-main; 
   font-family: 'Inter', -apple-system, Helvetica, sans-serif; 
+  transition: background-color 0.3s;
 }
 
 .container {
   min-height: 100vh;
   padding: 40rpx 40rpx;
+  padding-top: calc(var(--status-bar-height) + 40rpx);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  transition: all 0.3s;
 }
+.container.dark { background-color: $dark-bg !important; }
 
 /* 2. 头部 Header */
 .header {
@@ -213,28 +225,36 @@ page {
   letter-spacing: 1px;
   display: block;
   margin-bottom: 8rpx;
+  transition: color 0.3s;
 }
+.container.dark .app-name { color: $dark-text-main; }
 .app-name-highlight { color: $color-accent; }
 
 .page-title {
   font-size: 56rpx;
-  font-weight: 300; /* 细字体显得高级 */
+  font-weight: 300;
   color: $color-text-main;
   letter-spacing: -1px;
   line-height: 1;
+  transition: color 0.3s;
 }
+.container.dark .page-title { color: $dark-text-sub; }
 
 .date-badge {
   background: rgba(74, 111, 165, 0.1);
   padding: 8rpx 20rpx;
   border-radius: 100rpx;
+  transition: background-color 0.3s;
 }
+.container.dark .date-badge { background: #333; }
 .date-text {
   font-size: 20rpx;
   color: $color-primary;
   font-weight: 700;
   letter-spacing: 1px;
+  transition: color 0.3s;
 }
+.container.dark .date-text { color: $dark-text-main; }
 
 /* 3. 数据仪表盘 Dashboard */
 .dashboard {
@@ -256,8 +276,9 @@ page {
   flex-direction: column;
   justify-content: space-between;
   height: 200rpx;
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, background-color 0.3s;
 }
+.container.dark .stat-card { background-color: $dark-card; box-shadow: 0 20rpx 40rpx rgba(0,0,0,0.3); }
 
 .stat-card:active { transform: scale(0.98); }
 
@@ -268,7 +289,9 @@ page {
   letter-spacing: 1px;
   text-transform: uppercase;
   z-index: 2;
+  transition: color 0.3s;
 }
+.container.dark .stat-label { color: $dark-text-sub; }
 
 .stat-content {
   z-index: 2;
@@ -280,13 +303,17 @@ page {
   font-weight: 700;
   line-height: 1;
   color: $color-text-main;
+  transition: color 0.3s;
 }
+.container.dark .stat-num { color: $dark-text-main; }
 
 .stat-unit {
   font-size: 22rpx;
   color: $color-text-sub;
   margin-left: 8rpx;
+  transition: color 0.3s;
 }
+.container.dark .stat-unit { color: $dark-text-sub; }
 
 /* 差异化设计 */
 .primary-card .stat-num { color: $color-primary; }
@@ -327,18 +354,23 @@ page {
   font-weight: 600;
   color: $color-text-main;
   margin-right: 16rpx;
+  transition: color 0.3s;
 }
+.container.dark .section-title { color: $dark-text-main; }
+
 .section-subtitle {
   font-size: 20rpx;
   color: $color-text-sub;
   letter-spacing: 2px;
   font-weight: 500;
+  transition: color 0.3s;
 }
+.container.dark .section-subtitle { color: $dark-text-sub; }
 
 /* 5. 计划列表 */
 .plan-list-scroll {
   flex: 1;
-  height: 0; /* Flex布局下滚动必须 */
+  height: 0;
 }
 
 .plan-card {
@@ -349,8 +381,9 @@ page {
   position: relative;
   overflow: hidden;
   display: flex;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.3s;
 }
+.container.dark .plan-card { background-color: $dark-card; box-shadow: 0 10rpx 30rpx rgba(0,0,0,0.3); }
 
 .plan-card:active {
   transform: scale(0.98);
@@ -383,19 +416,25 @@ page {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 0.3s;
 }
+.container.dark .plan-title { color: $dark-text-main; }
 
 .plan-days-tag {
   background: #F0F4F8;
   padding: 6rpx 12rpx;
   border-radius: 4rpx;
+  transition: background-color 0.3s;
 }
+.container.dark .plan-days-tag { background: #333; }
 .plan-days-tag text {
   font-size: 18rpx;
   color: $color-text-sub;
   font-weight: 700;
   letter-spacing: 0.5px;
+  transition: color 0.3s;
 }
+.container.dark .plan-days-tag text { color: $dark-text-sub; }
 
 .plan-desc {
   font-size: 24rpx;
@@ -406,8 +445,10 @@ page {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 76rpx; /* 保持卡片高度一致 */
+  min-height: 76rpx;
+  transition: color 0.3s;
 }
+.container.dark .plan-desc { color: $dark-text-sub; }
 
 /* 极简进度条 */
 .progress-container {
@@ -423,20 +464,28 @@ page {
   font-size: 20rpx;
   color: $color-text-sub;
   font-weight: 500;
+  transition: color 0.3s;
 }
+.container.dark .progress-label { color: $dark-text-sub; }
+
 .progress-val {
   font-size: 24rpx;
   color: $color-primary;
   font-weight: 700;
+  transition: color 0.3s;
 }
+.container.dark .progress-val { color: $dark-text-main; }
 
 .progress-track {
   width: 100%;
-  height: 4rpx; /* 极细 */
+  height: 4rpx; 
   background: #EFF1F3;
   border-radius: 4rpx;
   overflow: hidden;
+  transition: background-color 0.3s;
 }
+.container.dark .progress-track { background: #333; }
+
 .progress-bar {
   height: 100%;
   background-color: $color-primary;
@@ -453,8 +502,22 @@ page {
   opacity: 0.6;
 }
 .empty-icon { font-size: 60rpx; margin-bottom: 20rpx; filter: grayscale(1); }
-.empty-text { font-size: 28rpx; color: $color-text-main; font-weight: 600; letter-spacing: 1px; margin-bottom: 8rpx; }
-.empty-sub { font-size: 22rpx; color: $color-text-sub; }
+.empty-text { 
+  font-size: 28rpx; 
+  color: $color-text-main; 
+  font-weight: 600; 
+  letter-spacing: 1px; 
+  margin-bottom: 8rpx;
+  transition: color 0.3s;
+}
+.container.dark .empty-text { color: $dark-text-main; }
+
+.empty-sub { 
+  font-size: 22rpx; 
+  color: $color-text-sub;
+  transition: color 0.3s;
+}
+.container.dark .empty-sub { color: $dark-text-sub; }
 
 /* 7. 动画 */
 .fade-in { animation: fadeIn 0.8s ease-out; }

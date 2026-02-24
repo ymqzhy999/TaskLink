@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="{ 'dark': isDarkMode }">
     <view class="bg-layer"></view>
 
     <view class="login-card fade-in-up">
@@ -87,6 +87,7 @@
 
 <script setup>
 import { ref } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
 
 /* =================================================================
    核心业务逻辑 (保持原样，未修改任何接口和参数)
@@ -98,6 +99,13 @@ const password = ref('');
 const invitationCode = ref(''); 
 const isRegister = ref(false);
 const loading = ref(false);
+const isDarkMode = ref(false);
+
+onShow(() => {
+  // 同步主题状态
+  const theme = uni.getStorageSync('theme');
+  isDarkMode.value = theme === 'dark';
+});
 const focusField = ref(''); // 用于控制UI高亮
 
 const showContactInfo = () => {
@@ -160,234 +168,80 @@ const handleAction = () => {
 </script>
 
 <style lang="scss" scoped>
-/* =================================================================
-   视觉样式重构 (莫兰迪极简高级感)
-   ================================================================= */
+/* 1. 颜色变量 */
+$color-bg: #F5F5F0; $color-card: #FFFFFF; $color-primary: #4A6FA5;
+$color-accent: #FF8A65; $color-text-main: #2C3E50; $color-text-sub: #95A5A6;
 
-/* 1. 色彩变量 */
-$color-primary: #4A6FA5;   /* 莫兰迪蓝 */
-$color-accent: #FF8A65;    /* 珊瑚橙 */
-$color-bg: #F5F5F0;        /* 浅米色 */
-$color-card: #FFFFFF;      /* 纯白 */
-$color-text-main: #2C3E50; /* 深灰 */
-$color-text-sub: #95A5A6;  /* 辅助文字 */
-$color-placeholder: #CFD8DC;
-$color-footer: #D7CCC8;    /* 浅棕 */
+/* 深色模式变量 */
+$dark-bg: #121212;
+$dark-card: #1E1E1E;
+$dark-text-main: #E0E0E0;
+$dark-text-sub: #A0A0A0;
+$dark-input-bg: #2C2C2C;
 
-/* 2. 布局容器 */
-.container {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background-color: $color-bg;
-  position: relative;
-  overflow: hidden;
-}
+page { background-color: $color-bg; font-family: 'Inter', sans-serif; transition: background-color 0.3s; }
 
-.login-card {
-  width: 650rpx;
-  background: $color-card;
-  border-radius: 12rpx; /* 适度圆角 */
-  padding: 80rpx 60rpx;
-  box-sizing: border-box;
-  /* 核心：莫兰迪色系弥散阴影 */
-  box-shadow: 0 20rpx 60rpx rgba(74, 111, 165, 0.08);
-  position: relative;
-  z-index: 10;
-}
+.container { min-height: 100vh; padding: 0 40rpx; display: flex; flex-direction: column; justify-content: center; position: relative; overflow: hidden; transition: background-color 0.3s; }
+.container.dark { background-color: $dark-bg; }
 
-/* 3. 品牌区 */
-.brand-section {
-  margin-bottom: 80rpx;
-  text-align: left;
-}
+/* 2. Bg Layer */
+.bg-layer { position: absolute; top: -200rpx; right: -200rpx; width: 600rpx; height: 600rpx; background: radial-gradient(circle, rgba(74, 111, 165, 0.1) 0%, rgba(245, 245, 240, 0) 70%); border-radius: 50%; z-index: 0; pointer-events: none; transition: opacity 0.3s; }
+.container.dark .bg-layer { background: radial-gradient(circle, rgba(74, 111, 165, 0.15) 0%, rgba(18, 18, 18, 0) 70%); }
 
-.logo-text {
-  display: flex;
-  align-items: baseline;
-  margin-bottom: 20rpx;
-}
+/* 3. Login Card */
+.login-card { background: $color-card; border-radius: 30rpx; padding: 60rpx 40rpx; box-shadow: 0 20rpx 60rpx rgba(0,0,0,0.05); position: relative; z-index: 1; transition: background-color 0.3s, box-shadow 0.3s; }
+.container.dark .login-card { background: $dark-card; box-shadow: 0 20rpx 60rpx rgba(0,0,0,0.3); }
 
-.logo-task {
-  font-family: 'Inter', sans-serif;
-  font-size: 56rpx;
-  font-weight: 900;
-  color: $color-text-main;
-  letter-spacing: -1px;
-}
+.brand-section { margin-bottom: 60rpx; text-align: center; }
+.logo-text { font-size: 60rpx; font-weight: 800; letter-spacing: -2px; margin-bottom: 10rpx; display: flex; align-items: baseline; justify-content: center; }
 
-.logo-link {
-  font-family: 'Inter', sans-serif;
-  font-size: 56rpx;
-  font-weight: 400;
-  color: $color-accent; /* 珊瑚橙点缀 */
-  margin-left: 4rpx;
-}
+.logo-task { color: $color-text-main; transition: color 0.3s; }
+.container.dark .logo-task { color: $dark-text-main; }
 
-.logo-dot {
-  width: 12rpx;
-  height: 12rpx;
-  background-color: $color-primary;
-  border-radius: 50%;
-  margin-left: 8rpx;
-}
+.logo-link { color: $color-primary; }
+.logo-dot { width: 12rpx; height: 12rpx; background: $color-accent; border-radius: 50%; margin-left: 4rpx; }
 
-.slogan {
-  font-size: 24rpx;
-  color: $color-text-sub;
-  letter-spacing: 6rpx; /* 增加汉字呼吸感 */
-  font-weight: 400;
-  opacity: 0.8;
-}
+.slogan { font-size: 20rpx; font-weight: 600; color: $color-text-sub; letter-spacing: 4px; text-transform: uppercase; transition: color 0.3s; }
+.container.dark .slogan { color: $dark-text-sub; }
 
-/* 4. 表单区 */
-.form-section {
-  margin-bottom: 60rpx;
-}
+/* 4. Form */
+.form-section { margin-bottom: 50rpx; }
+.input-group { margin-bottom: 40rpx; position: relative; }
+.input-label { font-size: 22rpx; font-weight: 700; color: $color-text-sub; margin-bottom: 10rpx; display: block; letter-spacing: 1px; transition: color 0.3s; }
+.container.dark .input-label { color: $dark-text-sub; }
 
-.input-group {
-  margin-bottom: 50rpx;
-  position: relative;
-}
+.custom-input { height: 80rpx; font-size: 30rpx; color: $color-text-main; font-weight: 600; transition: color 0.3s; }
+.container.dark .custom-input { color: $dark-text-main; }
 
-.input-label {
-  font-size: 24rpx;
-  color: $color-text-sub;
-  font-weight: 500;
-  letter-spacing: 2rpx;
-  margin-bottom: 12rpx;
-  display: block;
-  transition: color 0.3s ease;
-}
+.input-line { height: 2px; background: #F0F0F0; margin-top: 4rpx; transition: background-color 0.3s; }
+.container.dark .input-line { background: #333; }
 
-.custom-input {
-  width: 100%;
-  height: 80rpx;
-  font-size: 30rpx;
-  color: $color-text-main;
-  font-weight: 400;
-  border: none;
-  background: transparent;
-}
+.is-focused .input-line { background: $color-primary; }
 
-.placeholder-style {
-  color: $color-placeholder;
-  font-weight: 300;
-  font-size: 28rpx;
-}
+/* Invitation Code */
+.invitation-box { display: flex; align-items: flex-end; }
+.input-wrapper { flex: 1; display: flex; align-items: flex-end; gap: 20rpx; }
+.invitation-input-area { flex: 1; }
 
-/* 动态下划线 */
-.input-line {
-  width: 100%;
-  height: 1px;
-  background-color: #E0E0E0;
-  margin-top: 4rpx;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+.get-btn { font-size: 22rpx; font-weight: 700; color: $color-primary; border: 2rpx solid rgba(74, 111, 165, 0.2); padding: 10rpx 24rpx; border-radius: 30rpx; white-space: nowrap; height: fit-content; margin-bottom: 10rpx; transition: all 0.2s; }
+.get-btn-hover { background: rgba(74, 111, 165, 0.1); }
 
-/* 聚焦交互 */
-.input-group.is-focused .input-label {
-  color: $color-primary;
-}
+/* 5. Actions */
+.main-btn { background: $color-text-main; color: #FFF; height: 100rpx; border-radius: 20rpx; display: flex; align-items: center; justify-content: space-between; padding: 0 40rpx; font-size: 30rpx; font-weight: 700; box-shadow: 0 10rpx 30rpx rgba(44, 62, 80, 0.2); transition: all 0.3s; border: none; }
+.container.dark .main-btn { background: $color-primary; box-shadow: 0 10rpx 30rpx rgba(0,0,0,0.4); }
 
-.input-group.is-focused .input-line {
-  background-color: $color-primary;
-  height: 2px;
-}
+.main-btn-active { transform: scale(0.98); opacity: 0.9; }
+.arrow-icon { font-size: 36rpx; font-weight: 300; }
 
-/* 邀请码特殊布局 */
-.input-wrapper {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-}
-.invitation-input-area {
-  flex: 1;
-  margin-right: 30rpx;
-}
-.get-btn {
-  font-size: 28rpx;
-  color: $color-primary;
-  font-weight: 500;
-  padding: 10rpx 0;
-  margin-bottom: 14rpx; /* 对齐基线 */
-  transition: opacity 0.2s;
-  letter-spacing: 2rpx;
-}
-.get-btn-hover { opacity: 0.6; }
+.toggle-area { margin-top: 30rpx; text-align: center; padding: 20rpx; }
+.toggle-text { font-size: 24rpx; color: $color-text-sub; text-decoration: underline; transition: color 0.3s; }
+.container.dark .toggle-text { color: $dark-text-sub; }
 
-/* 5. 按钮与操作 */
-.main-btn {
-  background-color: $color-primary;
-  color: #FFFFFF;
-  border-radius: 8rpx;
-  height: 96rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32rpx;
-  font-weight: 500;
-  letter-spacing: 8rpx; /* 按钮文字加宽间距 */
-  text-indent: 8rpx;
-  border: none;
-  box-shadow: 0 10rpx 30rpx rgba(74, 111, 165, 0.3);
-  transition: all 0.3s ease;
-}
+/* 6. Footer */
+.footer-copyright { position: absolute; bottom: 40rpx; left: 0; width: 100%; text-align: center; font-size: 20rpx; color: $color-text-sub; opacity: 0.6; font-family: monospace; transition: color 0.3s; }
+.container.dark .footer-copyright { color: $dark-text-sub; }
 
-.main-btn::after { border: none; }
-
-.arrow-icon {
-  margin-left: 8rpx;
-  font-weight: 400;
-  letter-spacing: 0;
-  text-indent: 0;
-  transition: transform 0.3s ease;
-}
-
-/* 按钮点击态：变珊瑚橙 + 上浮 */
-.main-btn-active {
-  background-color: $color-accent !important;
-  transform: translateY(-4rpx);
-  box-shadow: 0 16rpx 40rpx rgba(255, 138, 101, 0.4);
-}
-
-.toggle-area {
-  margin-top: 40rpx;
-  text-align: center;
-  padding: 20rpx;
-}
-
-.toggle-text {
-  font-size: 26rpx;
-  color: $color-text-sub;
-  border-bottom: 1px dashed $color-text-sub;
-  padding-bottom: 4rpx;
-  letter-spacing: 1rpx;
-}
-
-/* 6. 版权与动画 */
-.footer-copyright {
-  position: absolute;
-  bottom: 40rpx;
-  width: 100%;
-  text-align: center;
-  font-size: 20rpx;
-  color: $color-footer;
-  letter-spacing: 1rpx;
-}
-
-.fade-in-up {
-  animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  opacity: 0;
-  transform: translateY(60rpx);
-}
-
-@keyframes fadeInUp {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* Animation */
+.fade-in-up { animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(40rpx); } to { opacity: 1; transform: translateY(0); } }
 </style>

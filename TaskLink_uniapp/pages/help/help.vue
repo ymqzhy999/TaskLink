@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="{ 'dark': isDarkMode }">
     <view class="header-section">
       <view class="header-content">
         <text class="page-title">User Guide</text>
@@ -120,15 +120,14 @@
 
 <script setup>
 import { ref } from 'vue';
+import { useTheme } from '@/utils/useTheme';
 
-const openIndex = ref(0);
+const openIndex = ref(-1);
+const { isDarkMode } = useTheme();
 
 const toggle = (index) => {
-  if (openIndex.value === index) {
-    openIndex.value = -1;
-  } else {
-    openIndex.value = index;
-  }
+  if (openIndex.value === index) openIndex.value = -1;
+  else openIndex.value = index;
 };
 </script>
 
@@ -141,17 +140,26 @@ $color-text-main: #2C3E50; /* 深灰 */
 $color-text-sub: #95A5A6;  /* 浅灰 */
 $color-line: #E0E0E0;
 
+/* 深色模式变量 */
+$dark-bg: #121212;
+$dark-card: #1E1E1E;
+$dark-text-main: #E0E0E0;
+$dark-text-sub: #A0A0A0;
+
 page { 
   background-color: $color-bg; 
   height: 100vh;
   font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+  transition: background-color 0.3s;
 }
 
 .container {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  transition: all 0.3s;
 }
+.container.dark { background-color: $dark-bg !important; }
 
 /* 2. 头部 */
 .header-section {
@@ -160,6 +168,10 @@ page {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: background-color 0.3s;
+}
+.container.dark .header-section {
+  background: $dark-bg;
 }
 
 .page-title {
@@ -168,13 +180,17 @@ page {
   color: $color-text-main;
   display: block;
   margin-bottom: 8rpx;
+  transition: color 0.3s;
 }
+.container.dark .page-title { color: $dark-text-main; }
 
 .page-subtitle {
   font-size: 24rpx;
   color: $color-text-sub;
   letter-spacing: 1px;
+  transition: color 0.3s;
 }
+.container.dark .page-subtitle { color: $dark-text-sub; }
 
 .logo-box {
   width: 80rpx;
@@ -185,7 +201,9 @@ page {
   align-items: center;
   justify-content: center;
   box-shadow: 0 8rpx 20rpx rgba(0,0,0,0.05);
+  transition: background-color 0.3s, box-shadow 0.3s;
 }
+.container.dark .logo-box { background: $dark-card; box-shadow: 0 8rpx 20rpx rgba(0,0,0,0.3); }
 
 .logo-text {
   font-size: 40rpx;
@@ -238,11 +256,13 @@ page {
   transition: all 0.3s ease;
   border: 1px solid transparent;
 }
+.container.dark .faq-card { background: $dark-card; box-shadow: 0 4rpx 10rpx rgba(0,0,0,0.3); }
 
 .faq-card.expanded {
   box-shadow: 0 10rpx 30rpx rgba(74, 111, 165, 0.08);
   border-color: rgba(74, 111, 165, 0.1);
 }
+.container.dark .faq-card.expanded { box-shadow: 0 10rpx 30rpx rgba(0,0,0,0.4); border-color: rgba(74, 111, 165, 0.2); }
 
 .card-header {
   padding: 30rpx;
@@ -258,19 +278,24 @@ page {
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
   margin-right: 20rpx;
+  transition: background-color 0.3s, color 0.3s;
 }
+.container.dark .q-badge { background: #333; color: $dark-text-sub; }
 
 .faq-card.expanded .q-badge {
   background: rgba(74, 111, 165, 0.1);
   color: $color-primary;
 }
+.container.dark .faq-card.expanded .q-badge { background: rgba(74, 111, 165, 0.2); }
 
 .q-title {
   flex: 1;
   font-size: 28rpx;
   font-weight: 600;
   color: $color-text-main;
+  transition: color 0.3s;
 }
+.container.dark .q-title { color: $dark-text-main; }
 
 .arrow-icon {
   font-size: 20rpx;
@@ -293,7 +318,9 @@ page {
   font-size: 26rpx;
   color: #546E7A;
   line-height: 1.8; /* 优化中文行高 */
+  transition: color 0.3s;
 }
+.container.dark .answer-text { color: $dark-text-sub; }
 
 .highlight {
   color: $color-primary;
@@ -306,7 +333,9 @@ page {
   background: #FAFAFA;
   padding: 24rpx;
   border-radius: 12rpx;
+  transition: background-color 0.3s;
 }
+.container.dark .rating-guide { background: #252525; }
 
 .rate-row {
   display: flex;
@@ -333,7 +362,9 @@ page {
 .rate-desc {
   font-size: 24rpx;
   color: $color-text-main;
+  transition: color 0.3s;
 }
+.container.dark .rate-desc { color: $dark-text-main; }
 
 .tip-text {
   font-size: 20rpx;

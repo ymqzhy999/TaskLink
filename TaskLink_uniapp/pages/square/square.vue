@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="{ 'dark': isDarkMode }">
     <view class="nav-header">
       <view class="nav-content">
         <block v-if="!isSelectionMode">
@@ -144,6 +144,7 @@
 <script setup>
 import { ref, nextTick, onUnmounted } from 'vue';
 import { onUnload, onShow, onHide } from '@dcloudio/uni-app';
+import { useTheme } from '@/utils/useTheme';
 
 
 const FLASK_URL = `http://101.35.132.175:5000`; 
@@ -156,6 +157,7 @@ const onlineCount = ref(1);
 const isSelectionMode = ref(false); 
 const selectedIds = ref([]);  
 const showEmojiPanel = ref(false); 
+const { isDarkMode } = useTheme();
 
 // 页面活跃锁
 const isPageActive = ref(true);
@@ -418,28 +420,55 @@ $color-white: #FFFFFF;
 $color-bubble-other: #FFFFFF;
 $color-bubble-self: #4A6FA5;
 
+/* 深色模式变量 */
+$dark-bg: #121212;
+$dark-card: #1E1E1E;
+$dark-text-main: #E0E0E0;
+$dark-text-sub: #A0A0A0;
+$dark-bubble-other: #2C2C2C;
+$dark-input-bg: #2C2C2C;
+
 page { 
   background-color: $color-bg; 
   height: 100vh; 
   overflow: hidden; 
   font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+  transition: background-color 0.3s;
 }
 
 .container { 
-  height: 100vh; 
   display: flex; 
   flex-direction: column; 
-  background-color: $color-bg;
+  height: 100vh; 
+  background-color: $color-bg; 
+  transition: background-color 0.3s; 
+}
+.container.dark { 
+  background-color: $dark-bg !important; 
 }
 
-/* 2. 顶部导航栏 */
-.nav-header {
-  background: rgba(245, 245, 240, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(0,0,0,0.03);
-  padding-top: var(--status-bar-height);
-  flex-shrink: 0;
+/* 2. 顶部导航 */
+.nav-header { 
+  height: 88rpx; 
+  padding: 0 30rpx; 
+  display: flex; 
+  align-items: center; 
+  background: rgba(245, 245, 240, 0.95); 
+  backdrop-filter: blur(10px); 
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
   z-index: 100;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  transition: background-color 0.3s, border-color 0.3s;
+  /* 适配不同端的顶部安全区 */
+  padding-top: var(--status-bar-height);
+  box-sizing: content-box; 
+}
+.container.dark .nav-header { 
+  background: rgba(18, 18, 18, 0.95) !important; 
+  border-bottom: 1px solid rgba(255,255,255,0.05); 
 }
 
 .nav-content {
@@ -455,7 +484,9 @@ page {
   font-weight: 700;
   color: $color-text-main;
   letter-spacing: -0.5px;
+  transition: color 0.3s;
 }
+.container.dark .page-title { color: $dark-text-main; }
 
 .online-badge {
   display: flex;
@@ -464,7 +495,9 @@ page {
   padding: 6rpx 16rpx;
   border-radius: 20rpx;
   margin-left: 16rpx;
+  transition: background-color 0.3s;
 }
+.container.dark .online-badge { background: rgba(74, 111, 165, 0.2); }
 
 .online-badge text {
   font-size: 20rpx;
@@ -503,6 +536,10 @@ page {
   background: $color-bg;
   padding: 30rpx; 
   box-sizing: border-box; 
+  transition: background-color 0.3s;
+}
+.container.dark .chat-area {
+  background: $dark-bg;
 }
 
 .system-msg { 
@@ -517,7 +554,9 @@ page {
   padding: 8rpx 20rpx;
   border-radius: 20rpx;
   letter-spacing: 1px;
+  transition: color 0.3s, background-color 0.3s;
 }
+.container.dark .system-text { color: $dark-text-sub; background: rgba(255,255,255,0.05); }
 
 /* 消息行 */
 .msg-row { 
@@ -578,7 +617,9 @@ page {
   color: $color-text-sub; 
   margin-bottom: 8rpx; 
   margin-left: 4rpx;
+  transition: color 0.3s;
 }
+.container.dark .sender-name { color: $dark-text-sub; }
 .self .sender-name { margin-right: 4rpx; }
 
 /* --- 核心修改：气泡样式修正 --- */
@@ -591,7 +632,9 @@ page {
   min-height: 40rpx;
   display: flex;
   align-items: center;
+  transition: background-color 0.3s, box-shadow 0.3s;
 }
+.container.dark .bubble { background: $dark-bubble-other; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.2); }
 
 .self .bubble { 
   background: $color-bubble-self; 
@@ -624,7 +667,9 @@ page {
   line-height: 1.5;
   color: $color-text-main;
   word-break: break-all;
+  transition: color 0.3s;
 }
+.container.dark .msg-text { color: $dark-text-main; }
 
 .self .msg-text {
   color: $color-white;
@@ -638,6 +683,11 @@ page {
   padding-bottom: calc(constant(safe-area-inset-bottom)); 
   padding-bottom: calc(env(safe-area-inset-bottom)); 
   z-index: 100;
+  transition: background-color 0.3s, border-color 0.3s;
+}
+.container.dark .input-area-wrapper { 
+  background: $dark-card; 
+  border-top: 1px solid rgba(255,255,255,0.05); 
 }
 
 .input-bar { 
@@ -657,7 +707,8 @@ page {
   margin-right: 10rpx; 
 }
 
-.iconfont { font-size: 40rpx; color: #78909C; }
+.iconfont { font-size: 40rpx; color: #78909C; transition: color 0.3s; }
+.container.dark .iconfont { color: $dark-text-sub; }
 
 .minimal-input { 
   flex: 1; 
@@ -668,7 +719,9 @@ page {
   font-size: 28rpx; 
   color: $color-text-main; 
   margin-right: 20rpx;
+  transition: background-color 0.3s, color 0.3s;
 }
+.container.dark .minimal-input { background: $dark-input-bg; color: $dark-text-main; }
 
 .ph-style { color: #B0BEC5; }
 
@@ -689,6 +742,11 @@ page {
   height: 400rpx; 
   background: #F9FAFB; 
   border-top: 1px solid #EEE; 
+  transition: background-color 0.3s, border-color 0.3s;
+}
+.container.dark .emoji-panel { 
+  background: #1A1A1A; 
+  border-top: 1px solid rgba(255,255,255,0.05); 
 }
 
 .emoji-grid { display: flex; flex-wrap: wrap; padding: 20rpx; }
@@ -713,7 +771,9 @@ page {
   justify-content: center; 
   padding-bottom: calc(constant(safe-area-inset-bottom)); 
   padding-bottom: calc(env(safe-area-inset-bottom)); 
+  transition: background-color 0.3s;
 }
+.container.dark .delete-bar { background: $dark-card; }
 
 .delete-btn { 
   color: #FF5252;

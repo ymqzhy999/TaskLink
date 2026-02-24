@@ -1,5 +1,5 @@
 <template>
-  <view class="container">
+  <view class="container" :class="{ 'dark': isDarkMode }">
     <view class="nav-header">
       <view class="back-btn" @click="goBack">
         <text class="back-icon">←</text>
@@ -42,13 +42,15 @@
 
 <script setup>
 import { ref } from 'vue';                
-import { onLoad } from '@dcloudio/uni-app';   
+import { onLoad, onShow } from '@dcloudio/uni-app';   
+import { useTheme } from '@/utils/useTheme';
 
 /* =================================================================
    核心业务逻辑 (保持原样)
    ================================================================= */
 const API_BASE = `http://101.35.132.175:5000`;
 const list = ref([]);
+const { isDarkMode } = useTheme();
 
 onLoad((options) => {
   if (options.id) {
@@ -92,6 +94,12 @@ $color-primary: #4A6FA5;   /* 莫兰迪蓝 */
 $color-text-main: #2C3E50; /* 深灰 */
 $color-text-sub: #95A5A6;  /* 浅灰 */
 
+/* 深色模式变量 */
+$dark-bg: #121212;
+$dark-card: #1E1E1E;
+$dark-text-main: #E0E0E0;
+$dark-text-sub: #A0A0A0;
+
 /* 评分配色 */
 $q0: #EF9A9A; /* 柔和红 */
 $q3: #FFE082; /* 柔和黄 */
@@ -102,12 +110,18 @@ page {
   background-color: $color-bg; 
   height: 100vh;
   font-family: 'Inter', -apple-system, Helvetica, sans-serif;
+  transition: background-color 0.3s;
 }
 
 .container {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  transition: all 0.3s;
+}
+
+.container.dark {
+  background-color: $dark-bg !important;
 }
 
 /* 2. 导航栏 */
@@ -120,6 +134,11 @@ page {
   padding-left: 30rpx;
   padding-right: 30rpx;
   background-color: $color-bg;
+  transition: background-color 0.3s;
+}
+
+.container.dark .nav-header {
+  background-color: $dark-bg;
 }
 
 .back-btn {
@@ -128,6 +147,11 @@ page {
   color: $color-primary;
   font-size: 28rpx;
   font-weight: 500;
+  transition: color 0.3s;
+}
+
+.container.dark .back-btn {
+  color: $dark-text-main;
 }
 
 .back-icon {
@@ -140,6 +164,11 @@ page {
   font-size: 32rpx;
   font-weight: 600;
   color: $color-text-main;
+  transition: color 0.3s;
+}
+
+.container.dark .page-title {
+  color: $dark-text-main;
 }
 
 /* 3. 列表区域 */
@@ -162,7 +191,12 @@ page {
   justify-content: space-between;
   align-items: center;
   border-left: 8rpx solid transparent;
-  transition: transform 0.2s;
+  transition: transform 0.2s, background-color 0.3s, box-shadow 0.3s;
+}
+
+.container.dark .word-card {
+  background: $dark-card;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.3);
 }
 
 .word-card:active { transform: scale(0.98); }
@@ -188,6 +222,11 @@ page {
   font-weight: 700;
   color: $color-text-main;
   margin-right: 20rpx;
+  transition: color 0.3s;
+}
+
+.container.dark .w-text {
+  color: $dark-text-main;
 }
 
 .audio-btn {
@@ -200,6 +239,11 @@ page {
   font-size: 26rpx;
   color: $color-text-sub;
   display: block;
+  transition: color 0.3s;
+}
+
+.container.dark .w-trans {
+  color: $dark-text-sub;
 }
 
 /* 4. 评分标签 */

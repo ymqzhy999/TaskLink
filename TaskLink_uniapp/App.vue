@@ -8,9 +8,9 @@
 			socket: null,
 			userInfo: null,
 			isBackground: false,
-			isSquareOpen: false
+			isSquareOpen: false,
+			isDarkMode: false // 全局深色模式状态
 		},
-		
 		
 		_isConnecting: false,
 		
@@ -23,12 +23,12 @@
 			}, false);
 			// #endif
 
+			// 1. 初始化用户信息
 			const userInfo = uni.getStorageSync('userInfo');
 			if (userInfo) {
 				this.globalData.userInfo = userInfo;
 				this.initSocket(); 
 				
-
 				uni.switchTab({
 					url: '/pages/index/index',
 					fail: () => {
@@ -38,12 +38,26 @@
 			} else {
 				uni.reLaunch({ url: '/pages/login/login' });
 			}
+			
+			// 2. 初始化深色模式
+			const theme = uni.getStorageSync('theme');
+			if (theme === 'dark') {
+				this.setDarkMode(true);
+			} else {
+				this.setDarkMode(false);
+			}
+			
+			// 监听全局主题切换事件
+			uni.$on('toggleTheme', (isDark) => {
+				console.log('App.vue 收到 toggleTheme 事件:', isDark);
+				this.setDarkMode(isDark);
+			});
 		},
 
 		onShow: function() {
 			this.globalData.isBackground = false;
 			
-			// 检查 Socket 状态，如果断开且不处于连接中，尝试补救
+			// 检查 Socket 状态
 			const socket = this.globalData.socket;
 			if (socket && !socket.connected && !this._isConnecting) {
 				console.log('App onShow 检测到断线，尝试恢复...');
@@ -56,7 +70,38 @@
 		},
 
 		methods: {
+			setDarkMode(isDark) {
+				console.log('App.vue 执行 setDarkMode:', isDark);
+				this.globalData.isDarkMode = isDark;
+				uni.setStorageSync('theme', isDark ? 'dark' : 'light');
+				
+				if (isDark) {
+					uni.setNavigationBarColor({
+						frontColor: '#ffffff',
+						backgroundColor: '#121212'
+					});
+					uni.setTabBarStyle({
+						backgroundColor: '#1E1E1E',
+						color: '#888888',
+						selectedColor: '#4A6FA5',
+						borderStyle: 'black'
+					});
+				} else {
+					uni.setNavigationBarColor({
+						frontColor: '#000000',
+						backgroundColor: '#ffffff'
+					});
+					uni.setTabBarStyle({
+						backgroundColor: '#ffffff',
+						color: '#666666',
+						selectedColor: '#4A6FA5',
+						borderStyle: 'white'
+					});
+				}
+			},
+
 			initSocket() {
+				// ... (保持原有 Socket 逻辑不变)
 				// 1. 基础检查
 				if (this._isConnecting) return;
 				const userInfo = uni.getStorageSync('userInfo');
@@ -149,18 +194,28 @@
 <style lang="scss">
 	@import '@/uni.scss';
 	
+	/* 全局样式动态切换 */
 	page {
-		background-color: #F5F5F0 !important; /* 浅米色 */
-		color: #2C3E50; /* 深灰文字 */
+		transition: background-color 0.3s, color 0.3s;
+	}
+	
+	/* 默认(浅色) */
+	page {
+		background-color: #F5F5F0; /* 移除 !important */
+		color: #2C3E50;
 		font-family: 'Inter', -apple-system, Helvetica, sans-serif;
 		height: 100%;
 	}
 
 	uni-page-body {
-		background-color: #F5F5F0 !important;
+		background-color: #F5F5F0; /* 移除 !important */
 		height: 100%;
 		min-height: 100vh;
 	}
+	
+	/* 深色模式全局样式 (通过在 body/page 上加 class 实现较难，通常是在页面最外层 view 加 .dark) 
+	   但在 App.vue 这里主要定义全局 CSS 变量或默认样式 
+	*/
 	
 	::-webkit-scrollbar {
 		display: none;

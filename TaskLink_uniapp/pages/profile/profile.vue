@@ -63,6 +63,17 @@
           <text class="arrow">></text>
         </view>
 
+        <!-- 宠物空间：统一入口，避免在 Profile 卡片里再堆内容 -->
+        <view class="menu-item" @click="goToPetDesign">
+          <view class="item-left">
+            <view class="icon-box purple">
+              <text class="menu-icon">🐾</text>
+            </view>
+            <text class="menu-text">宠物空间</text> 
+          </view>
+          <text class="arrow">></text>
+        </view>
+
         <view class="menu-item" @click="goToHelp">
           <view class="item-left">
             <view class="icon-box green">
@@ -162,6 +173,7 @@ const goToHelp = () => uni.navigateTo({ url: '/pages/help/help' });
 const goToStats = () => uni.navigateTo({ url: '/pages/profile/data_stats' });
 const goToAdmin = () => uni.navigateTo({ url: '/pages/admin/manager' });
 const startVocabularyTraining = () => uni.navigateTo({ url: '/pages/vocab/training' });
+const goToPetDesign = () => uni.navigateTo({ url: '/pages/pet/customize' });
 
 const getAvatarUrl = () => {
   if (userInfo.value.avatar) {

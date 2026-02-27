@@ -96,11 +96,13 @@
 import { ref, onUnmounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useTheme } from '@/utils/useTheme';
+import { usePet } from '@/composables/usePet';
 
 const API_BASE = `http://101.35.132.175:5000`;
 const planForm = ref({ goal: '', expectation: '', days: '' });
 const isGenerating = ref(false);
 const { isDarkMode } = useTheme();
+const { onPlanCreated } = usePet();
 
 
 
@@ -170,6 +172,8 @@ const generatePlan = () => {
     success: (res) => {
       stopLoadingAnim();
       if (res.data.code === 200) {
+        // 触发宠物响应
+        onPlanCreated();
         // 延迟跳转，展示100%进度
         setTimeout(() => {
           isGenerating.value = false;

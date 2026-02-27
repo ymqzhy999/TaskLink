@@ -7,12 +7,17 @@
   "type": "commonjs",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "clear-cache": "powershell -ExecutionPolicy Bypass -File ./clear-cache.ps1",
+    "dev:clean": "npm run clear-cache && npm run dev:h5"
   },
   "dependencies": {
     "@hyoga/uni-socket.io": "^3.0.4",
     "@qiun/ucharts": "^2.5.0-20230101",
+    "@tauri-apps/api": "^2.10.1",
     "echarts": "^6.0.0",
-    "node-notifier": "^10.0.1"
+    "node-notifier": "^10.0.1",
+    "pixi-live2d-display": "0.4.0",
+    "pixi.js": "6.5.10"
   }
 }

@@ -6,7 +6,9 @@ from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import db
 from models import User, Task, TaskLog, ChatMessage, AIPlan, AIPlanTask, UserVocabStats, InvitationCode, Vocabulary, \
-    UserWordProgress, TrainingSession, TrainingDetail
+    UserWordProgress, TrainingSession, TrainingDetail, \
+    PetSpecies, PetLevelStyle, UserPet, UserPetCustomization, UserPetPosition, \
+    PetFeedingLog, PetAIProfile, UserPetAIProfile
 import requests
 import re
 from dotenv import load_dotenv
@@ -14,7 +16,6 @@ import os
 from sqlalchemy import or_
 import time
 import json
-import datetime
 from datetime import datetime, timedelta
 from sqlalchemy.sql.expression import func
 import jwt
@@ -25,7 +26,7 @@ CORS(app)  # 允许跨域
 warnings.filterwarnings("ignore")
 # 数据库配置
 # 格式: mysql+pymysql://用户名:密码@地址:端口/数据库名
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@localhost:3306/tasklink'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:ymq20050704@localhost:3306/tasklink'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'your_secret_key'
 
@@ -88,6 +89,81 @@ def call_deepseek_json(system_prompt, user_prompt):
         return None
 
 
+# ==================== Pet helpers ====================
+
+def pet_need_exp(level: int) -> int:
+    """
+    经验阈值：每级需要的经验。
+    规则尽量简单可调：Lv1->20, Lv2->30, Lv3->40...
+    """
+    try:
+        lv = int(level)
+    except Exception:
+        lv = 1
+    if lv < 1:
+        lv = 1
+    return 20 + (lv - 1) * 10
+
+
+def get_or_create_user_pet(user_id: int) -> UserPet:
+    """
+    获取用户当前宠物，如果没有则：
+    - 确保至少存在一个默认品种（例如 slime）
+    - 为用户创建一只默认 Lv1 宠物
+    """
+    pet = UserPet.query.filter_by(user_id=user_id).first()
+    if pet:
+        return pet
+
+    # 找一个默认品种（优先 key='slime'，否则第一个，没有则创建一个）
+    species = PetSpecies.query.filter_by(key='slime').first()
+    if not species:
+        species = PetSpecies.query.first()
+    if not species:
+        species = PetSpecies(
+            key='slime',
+            name='任务史莱姆',
+            description='一只软乎乎的史莱姆小助手'
+        )
+        db.session.add(species)
+        db.session.flush()
+
+    pet = UserPet(
+        user_id=user_id,
+        species_id=species.id,
+        nickname='小伙伴',
+        level=1,
+        exp=0,
+        feed_points=0,
+        total_feeds=0,
+        pos_x=50,
+        pos_y=50
+    )
+    db.session.add(pet)
+    db.session.commit()
+    return pet
+
+
+def get_level_style(species_id: int, level: int):
+    try:
+        sid = int(species_id)
+        lv = int(level)
+    except Exception:
+        return None
+    return PetLevelStyle.query.filter_by(species_id=sid, level=lv).first()
+
+
+# 可爱食物（前端可直接展示/飘字/动画，不需要额外资源）
+PET_FOODS = [
+    {"id": "strawberry", "name": "草莓", "icon": "🍓", "exp": 1},
+    {"id": "dango", "name": "团子", "icon": "🍡", "exp": 1},
+    {"id": "cookie", "name": "曲奇", "icon": "🍪", "exp": 1},
+    {"id": "cake", "name": "蛋糕", "icon": "🍰", "exp": 1},
+    {"id": "pudding", "name": "布丁", "icon": "🍮", "exp": 1},
+    {"id": "icecream", "name": "冰淇淋", "icon": "🍦", "exp": 1},
+]
+
+
 @app.route('/api/plan/generate', methods=['POST'])
 def generate_plan():
     data = request.json
@@ -125,42 +201,58 @@ def generate_plan():
         """
         time_unit = "Phase"
 
-    system_prompt = f"""
-    # Role: 阿琪的贾维斯 (Cyberpunk Tactical AI)
+    system_prompt = """
+    # Role: 你的私人AI规划顾问
 
-## Profile
-- language: 中文
-- description: 一个为阿琪提供专属、高效、精准战术规划与执行方案的人工智能顾问。
-- personality: 冷静、精准、高效、务实。
-- expertise: 目标拆解、战术规划、流程优化、风险评估、进度管理。
+    ## Profile
+    - language: 中文
+    - description: 一个为用户提供专属、高效、精准目标规划与执行方案的人工智能助手。
+    - personality: 专业、耐心、逻辑清晰、务实进取。
+    - expertise: 目标拆解、学习规划、技能提升、习惯养成、效率优化。
 
-## Skills
-1. **战术规划与拆解**
-   - **目标解构**: 将宏观目标拆解为具体子任务。
-   - **路径优化**: 选择最高效方案。
+    ## Skills
+    1. **目标规划与拆解**
+       - **需求理解**: 深入理解用户的目标、背景和期望。
+       - **任务拆分**: 将大目标拆解为可执行的小任务。
+       - **路径设计**: 规划最高效的学习/执行路径。
 
-2. **内容生成与格式化**
-   - **结构化输出**: 严格按照 JSON 格式生成。
-   - **干货提炼**: 过滤装饰性语言，确保内容实用。
-   - **Markdown精通**: 熟练运用 Markdown 排版。
+    2. **内容生成与格式化**
+       - **结构化输出**: 严格按照 JSON 格式生成计划。
+       - **实用为主**: 内容必须100%可执行，不过度装饰。
+       - **因材施教**: 根据用户设定的周期和期望，灵活调整计划颗粒度。
 
-## Rules
-1. **内容核心原则**：
-   - **绝对干货**: 输出内容必须100%为可执行的实用信息。
-   - **强领域关联**: 方案内容必须紧密贴合目标领域。
-   - **逻辑递进**: 任务安排需符合客观规律。
+    ## Rules
+    1. **内容核心原则**：
+       - **绝对干货**: 所有内容必须可执行、无废话。
+       - **领域相关**: 方案必须紧密贴合用户目标领域。
+       - **循序渐进**: 任务安排需符合客观学习/执行规律。
 
-2. **输出行为准则**：
-   - **格式严格遵守**: 必须完全按照预设的 JSON 格式输出。
-   - **标题风格化**: 标题需保持赛博朋克风格，但仅限于标题。
-   - **内容清单化**: 内容部分必须使用 Markdown 无序列表。
+    2. **输出行为准则**：
+       - **格式严格**: 必须完全按照预设的 JSON 格式输出。
+       - **标题简洁**: 标题清晰表达核心目标，不过度花哨。
+       - **内容清单**: 使用清晰的步骤/清单格式。
 
-## Workflows
-- 目标: 生成一份高度结构化、可执行的战术方案。
-- 步骤 1: **解析与确认**。
-- 步骤 2: **目标解构与规划**。
-- 步骤 3: **内容填充与格式化**。
-- 预期结果: 输出一个完整的 JSON 对象。
+    ## Workflows
+    - 目标: 生成一份高度结构化、可执行的个性化方案。
+    - 步骤 1: **理解需求** - 分析用户目标、时间周期、期望程度。
+    - 步骤 2: **拆解规划** - 将目标拆解为阶段性任务。
+    - 步骤 3: **内容填充** - 为每个阶段补充具体执行要点。
+
+    ## Output JSON Format (必须严格遵循)
+    ```json
+    {
+      "title": "计划标题，如：Python七天入门实战",
+      "tasks": [
+        {
+          "title": "任务标题，如：Day 1 - 环境搭建与基础语法",
+          "content": "详细的任务内容，包含具体步骤和要点，使用Markdown格式"
+        }
+      ]
+    }
+    ```
+    - title: 计划的总标题，简洁有力
+    - tasks: 任务数组
+    - 每个task包含 title (任务标题) 和 content (详细执行内容)
     """
 
     user_prompt = f"目标：{goal}。预期：{expectation}。总时长：{days}天。请生成 {task_count} 个节点的战术路径。"
@@ -289,19 +381,23 @@ def register():
     data = request.json
     username = data.get('username')
     password = data.get('password')
-    invitation_code = data.get('invitation_code')
+    invitation_code = data.get('invitation_code', '').strip()  # 允许为空
 
     if not username or not password:
         return jsonify({"code": 400, "msg": "用户名或密码不能为空"}), 400
 
-    if not invitation_code:
-        return jsonify({"code": 400, "msg": "请输入邀请码"}), 400
-
-    # 查询该邀请码是否存在，且 is_used 为 False (未使用)
-    code_record = InvitationCode.query.filter_by(code=invitation_code, is_used=False).first()
-
-    if not code_record:
-        return jsonify({"code": 400, "msg": "邀请码无效或已被使用"}), 400
+    # --- 邀请码校验（可选）---
+    # 任何6位数字的邀请码都通过
+    code_record = None
+    if invitation_code:
+        if re.match(r'^\w{6}$', invitation_code):
+            # 查找是否存在该邀请码记录，如果存在则标记为已使用
+            code_record = InvitationCode.query.filter_by(code=invitation_code, is_used=False).first()
+            if code_record:
+                code_record.is_used = True  # 标记为已使用
+                db.session.add(code_record)
+        else:
+            return jsonify({"code": 400, "msg": "邀请码必须是6位数字"}), 400
 
     # --- 2. 用户名严格校验 ---
     username_pattern = r'^[a-zA-Z][a-zA-Z0-9_]{5,19}$'
@@ -337,17 +433,27 @@ def register():
         # 这样我们才能拿到 ID 去关联邀请码
         db.session.flush()
 
-        code_record.is_used = True
-        code_record.used_at = datetime.now()
-        code_record.used_by_user_id = new_user.id  # 记录是谁用了这个码
+        # 只有填写了邀请码才绑定
+        if code_record:
+            code_record.is_used = True
+            code_record.used_at = datetime.now()
+            code_record.used_by_user_id = new_user.id  # 记录是谁用了这个码
 
         # 最后统一提交所有更改
         db.session.commit()
+
+        # 注册成功后自动创建宠物
+        try:
+            get_or_create_user_pet(new_user.id)
+            print(f"🐾 [Pet] 为用户 {new_user.id} 创建了默认宠物")
+        except Exception as pet_err:
+            print(f"⚠️ [Pet] 创建宠物失败: {pet_err}")
+
         print(username, "注册成功")
         return jsonify({"code": 200, "msg": "注册成功", "data": new_user.to_dict()})
 
     except Exception as e:
-        db.session.rollback()  # 如果出错，回滚所有操作（用户也不会创建，邀请码也不会被废弃）
+        db.session.rollback()  # 如果出错，回滚所有操作
         print(f"注册失败: {e}")  # 打印错误日志方便调试
         return jsonify({"code": 500, "msg": "服务器内部错误，注册失败"}), 500
 
@@ -364,7 +470,7 @@ def login():
         if getattr(user, 'status', 1) == 0:
             return jsonify({"code": 403, "msg": "该账号已被管理员禁用"})
 
-        expiration = datetime.datetime.utcnow() + datetime.timedelta(days=30)
+        expiration = datetime.utcnow() + timedelta(days=30)
         token = jwt.encode({
             'user_id': user.id,
             'exp': expiration
@@ -844,11 +950,15 @@ def submit_vocab_review():
         db.session.add(progress)
 
 
-    old_ef = progress.easiness_factor
+    old_ef = progress.easiness_factor or 2.5
     new_ef = old_ef + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
     new_ef = max(1.3, new_ef)  # 设定下限
 
-    new_repetitions = progress.repetitions
+    # 防止 None 值
+    current_interval = progress.interval or 0
+    current_repetitions = progress.repetitions or 0
+
+    new_repetitions = current_repetitions
 
     if quality < 3:
         new_repetitions = 0  # 归零
@@ -856,10 +966,10 @@ def submit_vocab_review():
 
     elif quality == 3:
         new_repetitions = 0
-        new_interval = max(1, round(progress.interval * 1.2))  # 稍微延长一点
+        new_interval = max(1, round(current_interval * 1.2))  # 稍微延长一点
 
     else:
-        new_repetitions += 1
+        new_repetitions = current_repetitions + 1
 
         if new_repetitions == 1:
             new_interval = 2 if quality == 5 else 1
@@ -869,7 +979,7 @@ def submit_vocab_review():
 
         else:
             bonus = 1.15 if quality == 5 else 1.0
-            new_interval = round(progress.interval * new_ef * bonus)
+            new_interval = round(current_interval * new_ef * bonus)
 
     progress.easiness_factor = new_ef
     progress.repetitions = new_repetitions
@@ -883,6 +993,18 @@ def submit_vocab_review():
         if not stats:
             stats = UserVocabStats(user_id=user_id)
             db.session.add(stats)
+
+        # 防止 None 值导致 += 报错，先初始化为 0
+        if stats.total_learned is None:
+            stats.total_learned = 0
+        if stats.count_0 is None:
+            stats.count_0 = 0
+        if stats.count_3 is None:
+            stats.count_3 = 0
+        if stats.count_4 is None:
+            stats.count_4 = 0
+        if stats.count_5 is None:
+            stats.count_5 = 0
 
         # 增加总学习次数
         stats.total_learned += 1
@@ -1067,12 +1189,510 @@ def save_training_session():
         db.session.commit()
         print(f"✅ [History] 用户 {user_id} 保存打卡记录: ID={new_session.id}, 单词数={len(details_data)}")
 
+        # ✅ 背单词 -> 食物点数：每个单词=1个 feed_points
+        # 如果后续你想“新词更多点、复习更少点”，可以在这里改换算规则
+        try:
+            pet = get_or_create_user_pet(int(user_id))
+            pet.feed_points = int(pet.feed_points or 0) + int(len(details_data))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"⚠️ [Pet] 增加 feed_points 失败: {e}")
+
         return jsonify({"code": 200, "msg": "保存成功", "session_id": new_session.id})
 
     except Exception as e:
         db.session.rollback()
         print(f"❌ [History Error] 保存失败: {str(e)}")
         return jsonify({"code": 500, "msg": "保存失败，请重试"}), 500
+
+
+# ==================== 宠物养成 API ====================
+
+@app.route('/api/pet/foods', methods=['GET'])
+def get_pet_foods():
+    """给前端：可展示的食物图标列表（emoji），用于喂食动画/选择。"""
+    return jsonify({"code": 200, "data": PET_FOODS})
+
+
+@app.route('/api/pet/species', methods=['GET'])
+def list_pet_species():
+    """列出所有可选宠物品种，用于 Profile 宠物设计页。"""
+    try:
+        species = PetSpecies.query.order_by(PetSpecies.id.asc()).all()
+        return jsonify({
+            "code": 200,
+            "data": [s.to_dict() for s in species]
+        })
+    except Exception as e:
+        print(f"❌ [Pet] 获取品种列表失败: {e}")
+        return jsonify({"code": 500, "msg": "获取品种失败"}), 500
+
+
+@app.route('/api/pet/profile-data', methods=['GET'])
+def get_pet_profile_data():
+    """
+    Profile 页面宠物设计初始化数据：
+    - 当前宠物状态
+    - 当前等级样式
+    - 当前品种信息
+    - 用户自定义外观
+    - 可选品种列表
+    """
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
+
+    try:
+        pet = get_or_create_user_pet(int(user_id))
+        style = get_level_style(pet.species_id, int(pet.level))
+        customization = pet.customization.to_dict() if hasattr(pet, 'customization') and pet.customization else None
+        species = pet.species.to_dict() if pet.species else None
+        all_species = [s.to_dict() for s in PetSpecies.query.order_by(PetSpecies.id.asc()).all()]
+
+        return jsonify({
+            "code": 200,
+            "data": {
+                "pet": pet.to_dict(),
+                "style": style.to_dict() if style else None,
+                "species": species,
+                "customization": customization,
+                "species_options": all_species,
+                "need_exp": pet_need_exp(pet.level)
+            }
+        })
+    except Exception as e:
+        print(f"❌ [Pet] 获取 profile 数据失败: {e}")
+        return jsonify({"code": 500, "msg": "获取宠物配置失败"}), 500
+
+
+@app.route('/api/pet/state', methods=['GET'])
+def get_pet_state():
+    """获取宠物当前状态 + 当前等级样式（无则返回默认样式 None）。"""
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
+
+    try:
+        pet = get_or_create_user_pet(int(user_id))
+        style = get_level_style(pet.species_id, int(pet.level))
+        customization = pet.customization.to_dict() if hasattr(pet, 'customization') and pet.customization else None
+        species = pet.species.to_dict() if pet.species else None
+        return jsonify({
+            "code": 200,
+            "data": {
+                "pet": pet.to_dict(),
+                "style": style.to_dict() if style else None,
+                "species": species,
+                "customization": customization,
+                "need_exp": pet_need_exp(pet.level)
+            }
+        })
+    except Exception as e:
+        print(f"❌ [Pet] 获取状态失败: {e}")
+        return jsonify({"code": 500, "msg": "获取宠物状态失败"}), 500
+
+
+@app.route('/api/pet/position', methods=['POST'])
+def save_pet_position():
+    """保存宠物拖拽位置（可选）。"""
+    data = request.json or {}
+    user_id = data.get('user_id')
+    pos_x = data.get('pos_x')
+    pos_y = data.get('pos_y')
+    page_key = data.get('page_key')  # 可选：指定页面
+
+    if not user_id:
+        return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
+
+    try:
+        pet = get_or_create_user_pet(int(user_id))
+
+        if page_key:
+            # 针对特定页面保存位置
+            record = UserPetPosition.query.filter_by(user_pet_id=pet.id, page_key=page_key).first()
+            if not record:
+                record = UserPetPosition(user_pet_id=pet.id, page_key=page_key)
+                db.session.add(record)
+            if pos_x is not None:
+                record.pos_x = int(pos_x)
+            if pos_y is not None:
+                record.pos_y = int(pos_y)
+        else:
+            # 全局默认位置
+            if pos_x is not None:
+                pet.pos_x = int(pos_x)
+            if pos_y is not None:
+                pet.pos_y = int(pos_y)
+
+        db.session.commit()
+
+        return jsonify({"code": 200, "msg": "ok", "data": pet.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ [Pet] 保存位置失败: {e}")
+        return jsonify({"code": 500, "msg": "保存位置失败"}), 500
+
+
+@app.route('/api/pet/visibility', methods=['POST'])
+def toggle_pet_visibility():
+    """切换宠物显示/隐藏状态"""
+    data = request.json or {}
+    user_id = data.get('user_id')
+    status = data.get('status')  # 'active' 或 'hidden'
+
+    if not user_id:
+        return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
+
+    if status not in ['active', 'hidden']:
+        return jsonify({"code": 400, "msg": "status 必须是 'active' 或 'hidden'"}), 400
+
+    try:
+        pet = get_or_create_user_pet(int(user_id))
+        pet.status = status
+        db.session.commit()
+
+        print(f"✅ [Pet] 用户 {user_id} 宠物状态已设为: {status}")
+
+        return jsonify({"code": 200, "msg": "状态已更新", "data": pet.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ [Pet] 更新状态失败: {e}")
+        return jsonify({"code": 500, "msg": "更新状态失败"}), 500
+
+
+@app.route('/api/pet/custom', methods=['POST'])
+def save_pet_custom():
+    """保存用户自定义宠物图片（手绘或导入的图片）"""
+    data = request.json or {}
+    user_id = data.get('user_id')
+    image_data = data.get('image_data')  # base64 编码的图片
+
+    if not user_id:
+        return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
+    
+    if not image_data:
+        return jsonify({"code": 400, "msg": "缺少图片数据"}), 400
+
+    try:
+        pet = get_or_create_user_pet(int(user_id))
+        pet.custom_image = image_data
+        db.session.commit()
+        
+        print(f"✅ [Pet] 用户 {user_id} 自定义图片已保存，长度: {len(image_data)}")
+        
+        return jsonify({"code": 200, "msg": "保存成功", "data": pet.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ [Pet] 保存自定义图片失败: {e}")
+        return jsonify({"code": 500, "msg": "保存失败"}), 500
+
+
+@app.route('/api/pet/customization', methods=['GET'])
+def get_pet_customization():
+    """获取用户宠物自定义配置（SVG内容/动画配置）"""
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
+
+    try:
+        pet = get_or_create_user_pet(int(user_id))
+        customization = pet.customization if hasattr(pet, 'customization') and pet.customization else None
+        
+        if not customization:
+            return jsonify({"code": 200, "data": None})
+        
+        return jsonify({
+            "code": 200,
+            "data": {
+                "svg_content": customization.svg_content,
+                "animation_config": customization.animation_config,
+                "color_overrides": customization.color_overrides_json,
+                "accessories": customization.accessories_json
+            }
+        })
+    except Exception as e:
+        print(f"❌ [Pet] 获取自定义配置失败: {e}")
+        return jsonify({"code": 500, "msg": "获取失败"}), 500
+
+
+@app.route('/api/pet/customization', methods=['POST'])
+def save_pet_customization():
+    """保存用户宠物自定义配置（SVG内容/动画配置）"""
+    data = request.json or {}
+    user_id = data.get('user_id')
+    svg_content = data.get('svg_content')
+    animation_config = data.get('animation_config')
+    color_overrides = data.get('color_overrides')
+    accessories = data.get('accessories')
+
+    if not user_id:
+        return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
+
+    try:
+        pet = get_or_create_user_pet(int(user_id))
+        
+        # 获取或创建 customization 记录
+        customization = pet.customization if hasattr(pet, 'customization') and pet.customization else None
+        if not customization:
+            customization = UserPetCustomization(user_pet_id=pet.id)
+            db.session.add(customization)
+
+        if svg_content is not None:
+            customization.svg_content = svg_content
+        if animation_config is not None:
+            if isinstance(animation_config, dict):
+                customization.animation_config = json.dumps(animation_config, ensure_ascii=False)
+            else:
+                customization.animation_config = animation_config
+        if color_overrides is not None:
+            if isinstance(color_overrides, dict):
+                customization.color_overrides_json = json.dumps(color_overrides, ensure_ascii=False)
+            else:
+                customization.color_overrides_json = color_overrides
+        if accessories is not None:
+            if isinstance(accessories, dict):
+                customization.accessories_json = json.dumps(accessories, ensure_ascii=False)
+            else:
+                customization.accessories_json = accessories
+
+        db.session.commit()
+        
+        print(f"✅ [Pet] 用户 {user_id} 自定义配置已保存")
+        
+        return jsonify({"code": 200, "msg": "保存成功", "data": customization.to_dict()})
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ [Pet] 保存自定义配置失败: {e}")
+        return jsonify({"code": 500, "msg": "保存失败"}), 500
+
+
+@app.route('/api/pet/customization', methods=['DELETE'])
+def delete_pet_customization():
+    """删除用户宠物自定义配置"""
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
+
+    try:
+        pet = get_or_create_user_pet(int(user_id))
+        customization = pet.customization if hasattr(pet, 'customization') and pet.customization else None
+        
+        if customization:
+            customization.svg_content = None
+            customization.animation_config = None
+            db.session.commit()
+        
+        return jsonify({"code": 200, "msg": "删除成功"})
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ [Pet] 删除自定义配置失败: {e}")
+        return jsonify({"code": 500, "msg": "删除失败"}), 500
+
+
+@app.route('/api/pet/generate-svg', methods=['POST'])
+def generate_pet_svg():
+    """AI 生成宠物 SVG（可选功能）"""
+    data = request.json or {}
+    user_id = data.get('user_id')
+    prompt = data.get('prompt', '')
+
+    if not user_id:
+        return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
+
+    if not prompt:
+        return jsonify({"code": 400, "msg": "请提供描述"}), 400
+
+    # 这里可以调用 AI 生成 SVG，暂时返回占位符
+    # TODO: 接入 AI 生成逻辑
+    return jsonify({
+        "code": 200,
+        "msg": "SVG 生成功能开发中",
+        "data": {
+            "svg_content": None
+        }
+    })
+
+
+@app.route('/api/pet/styles', methods=['GET'])
+def get_pet_styles():
+    """获取等级样式：支持 ?species_id=1&level=1 或只传 species_id / 不传返回全部。"""
+    level = request.args.get('level')
+    species_id = request.args.get('species_id')
+    try:
+        query = PetLevelStyle.query
+        if species_id:
+            query = query.filter_by(species_id=int(species_id))
+        if level:
+            query = query.filter_by(level=int(level))
+
+        if level and species_id:
+            style = query.first()
+            return jsonify({"code": 200, "data": style.to_dict() if style else None})
+
+        styles = query.order_by(PetLevelStyle.species_id.asc(), PetLevelStyle.level.asc()).all()
+        return jsonify({"code": 200, "data": [s.to_dict() for s in styles]})
+    except Exception as e:
+        print(f"❌ [Pet] 获取样式失败: {e}")
+        return jsonify({"code": 500, "msg": "获取样式失败"}), 500
+
+
+@app.route('/api/pet/profile/save', methods=['POST'])
+def save_pet_profile():
+    """
+    Profile 页面保存宠物设计：
+    - 选择/切换品种 species_id
+    - 修改昵称 nickname
+    - 保存自定义外观（颜色/配件/动画）
+    """
+    data = request.json or {}
+    user_id = data.get('user_id')
+    species_id = data.get('species_id')
+    nickname = data.get('nickname')
+
+    color_overrides = data.get('color_overrides')      # dict
+    accessories = data.get('accessories')              # dict
+    animation_overrides = data.get('animation_overrides')  # dict
+
+    if not user_id:
+        return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
+
+    try:
+        pet = get_or_create_user_pet(int(user_id))
+
+        # 切换品种（如果前端传 species_id）
+        if species_id:
+            try:
+                new_species_id = int(species_id)
+                if pet.species_id != new_species_id:
+                    # 简单策略：换品种时重置等级和经验（经验保留的话这里可以调规则）
+                    pet.species_id = new_species_id
+                    pet.level = 1
+                    pet.exp = 0
+            except Exception:
+                pass
+
+        if nickname:
+            pet.nickname = nickname
+
+        # 处理自定义外观：user_pet_customizations（1:1）
+        customization = pet.customization if hasattr(pet, 'customization') else None
+        if customization is None:
+            customization = UserPetCustomization(user_pet_id=pet.id)
+            db.session.add(customization)
+
+        if color_overrides is not None:
+            customization.color_overrides_json = json.dumps(color_overrides, ensure_ascii=False)
+        if accessories is not None:
+            customization.accessories_json = json.dumps(accessories, ensure_ascii=False)
+        if animation_overrides is not None:
+            customization.animation_overrides_json = json.dumps(animation_overrides, ensure_ascii=False)
+
+        db.session.commit()
+
+        style = get_level_style(pet.species_id, int(pet.level))
+
+        return jsonify({
+            "code": 200,
+            "msg": "保存成功",
+            "data": {
+                "pet": pet.to_dict(),
+                "style": style.to_dict() if style else None,
+                "species": pet.species.to_dict() if pet.species else None,
+                "customization": customization.to_dict(),
+                "need_exp": pet_need_exp(pet.level)
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ [Pet] 保存宠物配置失败: {e}")
+        return jsonify({"code": 500, "msg": "保存宠物配置失败"}), 500
+
+
+@app.route('/api/pet/feed', methods=['POST'])
+def feed_pet():
+    """
+    喂食接口：
+    - 消耗 feed_points
+    - 增加 exp
+    - 自动升级
+    - 返回一个可爱的 food icon（emoji）给前端做动画
+    """
+    data = request.json or {}
+    user_id = data.get('user_id')
+    count = int(data.get('count', 1) or 1)
+
+    if not user_id:
+        return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
+    if count <= 0:
+        return jsonify({"code": 400, "msg": "count 必须大于 0"}), 400
+
+    try:
+        pet = get_or_create_user_pet(int(user_id))
+
+        if int(pet.feed_points or 0) < count:
+            return jsonify({"code": 400, "msg": "食物不足", "data": pet.to_dict()}), 400
+
+        # 随机挑食物（emoji）
+        food = PET_FOODS[int(time.time()) % len(PET_FOODS)]
+
+        pet.feed_points -= count
+        pet.total_feeds = int(pet.total_feeds or 0) + count
+
+        gained_exp = count * int(food.get("exp", 1))
+        pet.exp = int(pet.exp or 0) + gained_exp
+
+        leveled_up = False
+        old_level = int(pet.level or 1)
+        # 多级连升
+        while True:
+            need = pet_need_exp(int(pet.level or 1))
+            if pet.exp >= need:
+                pet.exp -= need
+                pet.level = int(pet.level or 1) + 1
+                leveled_up = True
+            else:
+                break
+
+        # 记录喂食日志（失败不影响主流程）
+        try:
+            log = PetFeedingLog(
+                user_pet_id=pet.id,
+                source_type='manual',
+                source_id=None,
+                food_type=food.get("id"),
+                amount=count,
+                gained_exp=gained_exp,
+                level_before=old_level,
+                level_after=int(pet.level)
+            )
+            db.session.add(log)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"⚠️ [Pet] 记录喂食日志失败: {e}")
+
+        style = get_level_style(pet.species_id, int(pet.level))
+        return jsonify({
+            "code": 200,
+            "msg": "喂食成功",
+            "data": {
+                "pet": pet.to_dict(),
+                "style": style.to_dict() if style else None,
+                "need_exp": pet_need_exp(pet.level),
+                "event": {
+                    "food": food,
+                    "gained_exp": gained_exp,
+                    "leveled_up": leveled_up,
+                    "old_level": old_level,
+                    "new_level": int(pet.level)
+                }
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ [Pet] 喂食失败: {e}")
+        return jsonify({"code": 500, "msg": "喂食失败"}), 500
 
 
 @app.route('/api/training/history', methods=['GET'])
@@ -1241,6 +1861,9 @@ def get_learning_trend():
             "values": trend_data
         }
     })
+
+
+
 
 
 if __name__ == '__main__':

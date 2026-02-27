@@ -529,12 +529,20 @@ page {
 .cancel-btn { font-size: 28rpx; color: $color-primary; padding: 10rpx 20rpx; }
 
 /* 3. 聊天区域 */
+/* 3. 聊天区域 */
 .chat-area { 
   flex: 1; 
   height: 0; 
   width: 100%; 
   background: $color-bg;
-  padding: 30rpx; 
+  
+  /* 🔥 核心修改：将上下内边距分开写 */
+  /* 顶部 padding = 原本的 30rpx + 导航栏高度(88rpx) + 状态栏高度 */
+  padding-top: calc(118rpx + var(--status-bar-height)); 
+  padding-bottom: 30rpx;
+  padding-left: 30rpx;
+  padding-right: 30rpx;
+  
   box-sizing: border-box; 
   transition: background-color 0.3s;
 }

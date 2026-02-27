@@ -5,6 +5,7 @@
         <text class="app-name">Task<text class="app-name-highlight">Link</text></text>
         <text class="page-title">计划中心</text>
       </view>
+	  
       <view class="header-right">
         <view class="date-badge">
           <text class="date-text">TODAY</text>
@@ -63,6 +64,7 @@
           <text class="plan-desc">{{ plan.goal }}</text>
           
           <view class="progress-container">
+			  
             <view class="progress-info">
               <text class="progress-label">Completeness</text>
               <text class="progress-val">{{ plan.progress }}%</text>
@@ -79,6 +81,16 @@
       <view style="height: 100rpx;"></view>
     </scroll-view>
 
+    <!-- 悬浮宠物组件 -->
+    <PetCanvas 
+      :pet-data="petData" 
+      :style-config="styleConfig" 
+      :position="petPosition"
+      :custom-image="customPetImage"
+      @feed="handleFeedPet"
+      @positionChange="onPetPositionChange"
+    />
+
   </view>
 </template>
 
@@ -86,13 +98,99 @@
 import { ref, computed } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 import { useTheme } from '@/utils/useTheme';
+import PetCanvas from '@/components/PetCanvas.vue';
 
-/* =================================================================
-   核心业务逻辑 (保持原样)
-   ================================================================= */
+
 const API_BASE = `http://101.35.132.175:5000`;
 const activePlans = ref([]);
 const { isDarkMode } = useTheme();
+
+// 宠物相关数据
+const petData = ref(null);
+const styleConfig = ref(null);
+const petPosition = ref({ x: 20, y: 120 });
+const customPetImage = ref('');
+
+// 获取宠物状态
+const fetchPetState = () => {
+  const user = uni.getStorageSync('userInfo');
+  if (!user) return;
+  
+  uni.request({
+    url: `${API_BASE}/api/pet/state?user_id=${user.id}`,
+    success: (res) => {
+      if (res.data.code === 200 && res.data.data) {
+        petData.value = res.data.data.pet;
+        styleConfig.value = res.data.data.style;
+        
+        // 设置位置
+        if (res.data.data.pet) {
+          petPosition.value = {
+            x: res.data.data.pet.pos_x || 20,
+            y: res.data.data.pet.pos_y || 120
+          };
+          
+          // 优先使用后端保存的自定义图片
+          if (res.data.data.pet.custom_image) {
+            customPetImage.value = res.data.data.pet.custom_image;
+          } else {
+            // 降级：使用本地缓存
+            const localImage = uni.getStorageSync('customPetImage');
+            if (localImage) {
+              customPetImage.value = localImage;
+            }
+          }
+        }
+      }
+    }
+  });
+};
+
+// 宠物位置变化处理
+const onPetPositionChange = (pos) => {
+  petPosition.value = pos;
+  
+  const user = uni.getStorageSync('userInfo');
+  if (!user || !petData.value) return;
+  
+  // 保存位置到后端
+  uni.request({
+    url: `${API_BASE}/api/pet/position`,
+    method: 'POST',
+    header: { 'Content-Type': 'application/json' },
+    data: { user_id: user.id, pos_x: pos.x, pos_y: pos.y },
+    fail: () => {}
+  });
+};
+
+// 喂食宠物
+const handleFeedPet = () => {
+  const user = uni.getStorageSync('userInfo');
+  if (!user) return;
+  
+  if (!petData.value || !petData.value.feed_points || petData.value.feed_points <= 0) {
+    uni.showToast({ title: '没有食物啦，快去背单词~', icon: 'none', duration: 2000 });
+    return;
+  }
+  
+  uni.request({
+    url: `${API_BASE}/api/pet/feed`,
+    method: 'POST',
+    header: { 'Content-Type': 'application/json' },
+    data: { user_id: user.id, count: 1 },
+    success: (res) => {
+      if (res.data.code === 200) {
+        fetchPetState(); // 刷新宠物状态
+        uni.showToast({ title: '喂食成功 +1 经验', icon: 'success', duration: 1500 });
+      } else {
+        uni.showToast({ title: res.data.msg || '喂食失败', icon: 'none', duration: 1500 });
+      }
+    },
+    fail: () => {
+      uni.showToast({ title: '网络错误', icon: 'none', duration: 1500 });
+    }
+  });
+};
 
 onShow(() => {
   const user = uni.getStorageSync('userInfo');
@@ -101,6 +199,7 @@ onShow(() => {
     return;
   }
   fetchPlans();
+  fetchPetState(); // 获取宠物状态
 });
 
 onPullDownRefresh(() => {
@@ -518,6 +617,15 @@ page {
   transition: color 0.3s;
 }
 .container.dark .empty-sub { color: $dark-text-sub; }
+
+/* 悬浮宠物区域 */
+.floating-pet {
+  position: fixed;
+  right: 20rpx;
+  bottom: 120rpx;
+  z-index: 999;
+  touch-action: none;
+}
 
 /* 7. 动画 */
 .fade-in { animation: fadeIn 0.8s ease-out; }

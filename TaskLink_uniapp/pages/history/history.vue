@@ -1,5 +1,6 @@
 <template>
   <view class="container" :class="{ 'dark': isDarkMode }">
+    
     <view class="header-section fade-in">
       <view class="header-content">
         <text class="page-title">Archives</text>
@@ -60,9 +61,6 @@ import { ref } from 'vue';
 import { onShow, onPullDownRefresh } from '@dcloudio/uni-app';
 import { useTheme } from '@/utils/useTheme';
 
-/* =================================================================
-   核心业务逻辑 (保持原样)
-   ================================================================= */
 const API_BASE = `http://101.35.132.175:5000`;
 const archivedPlans = ref([]);
 const { isDarkMode } = useTheme();

@@ -91,6 +91,7 @@
 import { ref } from 'vue';
 import { onLoad, onShow } from '@dcloudio/uni-app';
 import { useTheme } from '@/utils/useTheme';
+import { usePet } from '@/composables/usePet';
 
 /* =================================================================
    核心业务逻辑 (保持原样)
@@ -180,6 +181,8 @@ const startTypewriter = (index, fullText) => {
   }, 10); 
 };
 
+const { onTaskCompleted } = usePet();
+
 const toggleComplete = (task) => {
   const originalStatus = task.is_completed;
   task.is_completed = !task.is_completed;
@@ -190,6 +193,10 @@ const toggleComplete = (task) => {
     success: (res) => {
       if (res.data.code === 200) {
         uni.showToast({ title: task.is_completed ? '已完成' : '已撤销', icon: 'none' });
+        // 如果标记为完成，触发宠物响应
+        if (task.is_completed && !originalStatus) {
+          onTaskCompleted();
+        }
       } else {
         task.is_completed = originalStatus;
         uni.showToast({ title: '操作失败', icon: 'none' });

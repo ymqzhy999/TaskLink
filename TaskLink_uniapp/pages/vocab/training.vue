@@ -162,11 +162,9 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useTheme } from '@/utils/useTheme';
-
-/* =================================================================
-   核心业务逻辑 (保持原样)
-   ================================================================= */
-const API_BASE = `http://101.35.132.175:5000`; 
+import { usePet } from '@/composables/usePet';
+const API_BASE = `http://101.35.132.175:5000`;
+const { onVocabLearned } = usePet(); 
 const { isDarkMode } = useTheme();
 const vocabList = ref([]);
 const currentIndex = ref(0);
@@ -255,6 +253,11 @@ const submitResult = (quality) => {
         trans: currentWord.value.translation,
         quality: quality
     });
+
+    // 触发宠物响应（只在评分较高时）
+    if (quality >= 4) {
+      onVocabLearned();
+    }
 
     loadWord(currentIndex.value + 1);
 };
@@ -670,12 +673,29 @@ page {
 
 .ai-status { font-size: 20rpx; color: $color-primary; }
 
-.en-sentence { font-size: 26rpx; color: $color-text-main; font-style: italic; display: block; margin-bottom: 8rpx; line-height: 1.4; transition: color 0.3s; }
+/* 修改后的 AI 例句：英文部分 */
+.en-sentence { 
+  font-family: 'KaiTi', 'STKaiti', '楷体', serif; /* 优先使用系统自带的楷体 */
+  font-size: 32rpx; /* 从原来的 26rpx 调大到 32rpx */
+  color: $color-text-main; 
+  font-style: italic; /* 英文保留斜体，更有例句的感觉，如果不需要可以删掉这行 */
+  display: block; 
+  margin-bottom: 12rpx; /* 稍微增加与中文的间距 */
+  line-height: 1.5; /* 稍微放大行高，让楷体更舒展 */
+  transition: color 0.3s; 
+}
 .container.dark .en-sentence { color: $dark-text-main; }
 
-.cn-sentence { font-size: 24rpx; color: $color-text-sub; transition: color 0.3s; }
+/* 修改后的 AI 例句：中文部分 */
+.cn-sentence { 
+  font-family: 'KaiTi', 'STKaiti', '楷体', serif; 
+  font-size: 28rpx; /* 从原来的 24rpx 调大到 28rpx */
+  color: $color-text-sub; 
+  line-height: 1.5;
+  display: block;
+  transition: color 0.3s; 
+}
 .container.dark .cn-sentence { color: $dark-text-sub; }
-
 .ai-placeholder { text-align: center; color: $color-primary; font-size: 24rpx; padding: 10rpx; }
 
 .synonyms-section { margin-top: 20rpx; }
@@ -841,8 +861,13 @@ page {
 
 .close-icon { font-size: 32rpx; color: $color-text-sub; padding: 10rpx; }
 
-.drawer-body { flex: 1; padding: 20rpx 40rpx; box-sizing: border-box; }
-
+.drawer-body { 
+  flex: 1; 
+  height: 0;
+  padding: 20rpx 40rpx; 
+  box-sizing: border-box; 
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom)); 
+}
 .history-item {
   background: #FFF;
   border-radius: 16rpx;

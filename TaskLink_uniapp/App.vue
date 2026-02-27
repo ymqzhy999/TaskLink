@@ -3,7 +3,7 @@
 
 	const SOCKET_URL = `http://101.35.132.175:3000`;
 
-	export default {
+	export default {		
 		globalData: {
 			socket: null,
 			userInfo: null,
@@ -13,6 +13,11 @@
 		},
 		
 		_isConnecting: false,
+		
+		data() {
+			return {
+			};
+		},
 		
 		onLaunch: function() {
 			// #ifdef APP-PLUS
@@ -75,28 +80,74 @@
 				this.globalData.isDarkMode = isDark;
 				uni.setStorageSync('theme', isDark ? 'dark' : 'light');
 				
-				if (isDark) {
-					uni.setNavigationBarColor({
-						frontColor: '#ffffff',
-						backgroundColor: '#121212'
-					});
-					uni.setTabBarStyle({
-						backgroundColor: '#1E1E1E',
-						color: '#888888',
-						selectedColor: '#4A6FA5',
-						borderStyle: 'black'
-					});
-				} else {
-					uni.setNavigationBarColor({
-						frontColor: '#000000',
-						backgroundColor: '#ffffff'
-					});
-					uni.setTabBarStyle({
-						backgroundColor: '#ffffff',
-						color: '#666666',
-						selectedColor: '#4A6FA5',
-						borderStyle: 'white'
-					});
+				// 使用 try-catch 包装，避免在 H5 环境下某些 API 不支持导致的错误
+				try {
+					if (isDark) {
+						// #ifdef H5
+						// H5 环境下，导航栏颜色设置可能不支持，使用 document 方式
+						if (typeof document !== 'undefined') {
+							const metaTheme = document.querySelector('meta[name="theme-color"]');
+							if (metaTheme) {
+								metaTheme.setAttribute('content', '#121212');
+							} else {
+								const meta = document.createElement('meta');
+								meta.name = 'theme-color';
+								meta.content = '#121212';
+								document.head.appendChild(meta);
+							}
+						}
+						// #endif
+						
+						// #ifndef H5
+						uni.setNavigationBarColor({
+							frontColor: '#ffffff',
+							backgroundColor: '#121212'
+						});
+						// 只在 TabBar 页面设置样式
+						const pages = getCurrentPages();
+						const currentPage = pages[pages.length - 1];
+						const tabBarPages = ['pages/index/index', 'pages/plan/plan', 'pages/vocab/vocab', 'pages/profile/profile'];
+						if (currentPage && tabBarPages.some(p => currentPage.route && currentPage.route.includes(p))) {
+							uni.setTabBarStyle({
+								backgroundColor: '#1E1E1E',
+								color: '#888888',
+								selectedColor: '#4A6FA5',
+								borderStyle: 'black'
+							});
+						}
+						// #endif
+					} else {
+						// #ifdef H5
+						if (typeof document !== 'undefined') {
+							const metaTheme = document.querySelector('meta[name="theme-color"]');
+							if (metaTheme) {
+								metaTheme.setAttribute('content', '#ffffff');
+							}
+						}
+						// #endif
+						
+						// #ifndef H5
+						uni.setNavigationBarColor({
+							frontColor: '#000000',
+							backgroundColor: '#ffffff'
+						});
+						// 只在 TabBar 页面设置样式
+						const pages2 = getCurrentPages();
+						const currentPage2 = pages2[pages2.length - 1];
+						const tabBarPages = ['pages/index/index', 'pages/plan/plan', 'pages/vocab/vocab', 'pages/profile/profile'];
+						if (currentPage2 && tabBarPages.some(p => currentPage2.route && currentPage2.route.includes(p))) {
+							uni.setTabBarStyle({
+								backgroundColor: '#ffffff',
+								color: '#666666',
+								selectedColor: '#4A6FA5',
+								borderStyle: 'white'
+							});
+						}
+						// #endif
+					}
+				} catch (error) {
+					console.warn('设置深色模式时出错:', error);
+					// 即使出错也不影响主题状态
 				}
 			},
 

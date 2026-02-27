@@ -103,7 +103,15 @@
         "navigationStyle": "custom",
         "backgroundColor": "#F5F5F0"
     }
-}
+},
+		{
+			"path": "pages/pet/customize",
+			"style": {
+				"navigationBarTitleText": "自定义宠物",
+				"navigationBarBackgroundColor": "#F5F5F0",
+				"backgroundColor": "#F5F5F0"
+			}
+		}
 	],
 	
 	"globalStyle": {

@@ -17,6 +17,7 @@ urllib3==2.6.3
 python-dotenv==1.2.1
 click==8.3.1
 colorlog==6.10.1
+redis==5.2.1
 
 # Core Dependencies (Pinned for stability)
 Jinja2==3.1.6

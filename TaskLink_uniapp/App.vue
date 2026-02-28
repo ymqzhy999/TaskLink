@@ -22,10 +22,32 @@
 		onLaunch: function() {
 			// #ifdef APP-PLUS
 			plus.screen.lockOrientation('portrait-primary');
-			// 处理推送点击
+			
+			// 处理推送点击（点击通知栏打开App）
 			plus.push.addEventListener('click', (msg) => {
+				console.log('📢 点击了推送消息:', msg);
+				
+				// 如果有携带数据，可以做对应处理
+				if (msg.payload) {
+					try {
+						const payload = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;
+						console.log('📦 通知携带的数据:', payload);
+					} catch(e) {
+						console.log('解析payload失败', e);
+					}
+				}
+				
 				setTimeout(() => uni.switchTab({ url: '/pages/square/square' }), 500);
 			}, false);
+			
+			// 【新增】监听收到推送消息（App 在后台时收到本地通知）
+			plus.push.addEventListener('receive', (msg) => {
+				console.log('📥 收到推送消息:', msg);
+				if (msg.payload) {
+					// 可以存储消息，等用户点击时处理
+					uni.$emit('push_message', msg.payload);
+				}
+			});
 			// #endif
 
 			// 1. 初始化用户信息
@@ -230,13 +252,49 @@
 				const userInfo = this.globalData.userInfo;
 				if (!userInfo || String(msg.user_id) === String(userInfo.id)) return;
 				
+				// 如果在广场页面且前台，不处理
 				if (this.globalData.isSquareOpen && !this.globalData.isBackground) return;
 
+				// 1. 震动提示
 				uni.vibrateLong({ fail: () => {} });
 				
+				// 2. TabBar 红点
 				try {
 					uni.setTabBarBadge({ index: 1, text: '1', fail: () => {} });
 				} catch(e) {}
+
+				// 3. 【新增】创建本地通知（App 在后台时）
+				// #ifdef APP-PLUS
+				this.createLocalNotification(msg);
+				// #endif
+			},
+
+			// 【新增】创建本地通知
+			createLocalNotification(msg) {
+				// 处理消息内容
+				const content = msg.type === 'image' 
+					? '[图片消息]' 
+					: (msg.content && msg.content.length > 30 ? msg.content.substring(0, 30) + '...' : msg.content);
+				
+				// 标题（波比机器人显示特殊标识）
+				const title = msg.is_bot ? '🤖 波比' : (msg.username || '新消息');
+				
+				// 创建本地通知
+				const options = {
+					title: title,
+					content: content,
+					payload: JSON.stringify(msg),  // 携带消息数据，点击时可用
+					delay: 0,
+					force: true,  // 强制提示
+					sound: 'system'  // 系统声音
+				};
+				
+				try {
+					plus.push.createMessage(options.title, options.content, options);
+					console.log('✅ 本地通知已创建:', title, content);
+				} catch(e) {
+					console.error('❌ 创建本地通知失败:', e);
+				}
 			}
 		}
 	}

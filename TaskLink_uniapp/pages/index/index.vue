@@ -81,8 +81,9 @@
       <view style="height: 100rpx;"></view>
     </scroll-view>
 
-    <!-- 悬浮宠物组件 -->
+    <!-- 悬浮宠物组件：只有用户有宠物时才显示 -->
     <PetCanvas 
+      v-if="petData"
       :pet-data="petData" 
       :style-config="styleConfig" 
       :position="petPosition"
@@ -181,7 +182,7 @@ const handleFeedPet = () => {
     success: (res) => {
       if (res.data.code === 200) {
         fetchPetState(); // 刷新宠物状态
-        uni.showToast({ title: '喂食成功 +1 经验', icon: 'success', duration: 1500 });
+        uni.showToast({ title: '喂食成功 +1', icon: 'success', duration: 1500 });
       } else {
         uni.showToast({ title: res.data.msg || '喂食失败', icon: 'none', duration: 1500 });
       }

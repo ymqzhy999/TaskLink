@@ -12,42 +12,34 @@
       @touchend.stop.prevent="onTouchEnd"
       @longpress.stop.prevent="handleLongPress"
     >
-    <!-- 自定义图像模式 -->
-    <image 
-      v-if="displayImage" 
-      :src="displayImage" 
-      class="pet-image"
-      mode="aspectFit"
-    />
-    <!-- 默认 Emoji 宠物 -->
-    <text v-else-if="showDefaultEmoji" class="default-pet-emoji">🐱</text>
-    <!-- Canvas 绘制模式（备用） -->
-    <canvas
-      v-else
-      canvas-id="petCanvas"
-      id="petCanvas"
-      class="pet-canvas"
-      :style="{ width: canvasSize + 'rpx', height: canvasSize + 'rpx' }"
-    ></canvas>
+      <image 
+        v-if="displayImage" 
+        :src="displayImage" 
+        class="pet-image"
+        mode="aspectFit"
+      />
+      <canvas
+        v-show="!displayImage"
+        canvas-id="petCanvas"
+        id="petCanvas"
+        class="pet-canvas"
+        :style="{ width: canvasSize + 'rpx', height: canvasSize + 'rpx' }"
+      ></canvas>
     </view>
 
-    <!-- 等级徽章 -->
     <view class="level-badge" v-if="petData">
       <text class="level-text">Lv.{{ petData.level }}</text>
     </view>
 
-    <!-- 经验条 -->
     <view class="exp-bar" v-if="petData">
       <view class="exp-fill" :style="{ width: expPercent + '%' }"></view>
     </view>
 
-    <!-- 喂食按钮 -->
     <view class="feed-btn" @click.stop="handleFeed" v-if="showFeedBtn && !isDragging">
       <text class="feed-icon">🍖</text>
       <text class="feed-count" v-if="petData && petData.feed_points > 0">{{ petData.feed_points }}</text>
     </view>
 
-    <!-- 食物动画元素 -->
     <view class="food-anim" v-if="showFoodAnim" :class="foodAnimClass">
       <text class="food-emoji">{{ currentFoodEmoji }}</text>
     </view>
@@ -101,24 +93,36 @@ const expPercent = computed(() => {
   return Math.min(100, (exp / needExp) * 100)
 })
 
-// 是否显示 Canvas（没有自定义图片时显示）
-const showCanvas = computed(() => {
-  return !props.customImage
-})
+const isSvgString = (str) => {
+  return typeof str === 'string' && str.trim().startsWith('<svg');
+}
 
-// 显示的图片：优先用自定义图片，没有则用默认图片
+// 修复：处理自定义图像，安全转码 SVG / Base64
 const displayImage = computed(() => {
-  // 有自定义图片
-  if (props.customImage && props.customImage.length > 0) {
-    return props.customImage
+  const custom = props.customImage;
+  if (!custom || custom.length === 0) {
+    return '';
   }
-  // 没有自定义图片，使用默认宠物 Emoji（🐱）
-  return ''
-})
+  
+  // 如果已经是完整的 data URI，直接返回
+  if (custom.startsWith('data:')) {
+    return custom;
+  }
+  
+  // 如果后端返回的是原生的 <svg> 标签代码，必须进行 URI 编码才能作为 src 使用
+  if (isSvgString(custom)) {
+    // 处理可能存在的换行和特殊字符
+    const cleanSvg = custom.replace(/\n/g, '').replace(/\r/g, '');
+    return `data:image/svg+xml;utf8,${encodeURIComponent(cleanSvg)}`;
+  }
 
-// 是否显示默认 Emoji 宠物
-const showDefaultEmoji = computed(() => {
-  return !props.customImage || props.customImage.length === 0
+  if (/^[A-Za-z0-9+/=]{20,}$/.test(custom)) {
+    // 尝试判断图片类型（默认 PNG）
+    return `data:image/png;base64,${custom}`;
+  }
+  
+  // 否则当作普通的 URL 返回
+  return custom;
 })
 
 // 包装器样式
@@ -129,7 +133,7 @@ const wrapperStyle = computed(() => ({
 
 const foodEmojis = ['🍓', '🍪', '🍎', '🥕', '🍑', '🍇', '🧀', '🍔', '🍗', '🥩']
 
-// 初始化画布（使用 uni.createCanvasContext，兼容性更好）
+// 初始化画布
 const initCanvas = () => {
   ctx.value = uni.createCanvasContext('petCanvas')
   drawPet()
@@ -327,11 +331,13 @@ const handleFeed = () => {
   emit('feed')
 }
 
-// 数据变化时重画
+// 数据变化时重画（加保护：确保 ctx 已就绪）
 watch(
   () => props.petData,
   () => {
-    drawPet()
+    if (ctx.value) {
+      drawPet()
+    }
   },
   { deep: true }
 )
@@ -339,12 +345,14 @@ watch(
 watch(
   () => props.styleConfig,
   () => {
-    drawPet()
+    if (ctx.value) {
+      drawPet()
+    }
   },
   { deep: true }
 )
 
-// 监听自定义图片变化，当从有图变为无图时重绘 Canvas
+// 修复：在数据更新时，如果退回 Canvas 模式，确保重新绘制
 watch(
   () => props.customImage,
   (newVal, oldVal) => {
@@ -352,7 +360,9 @@ watch(
       // 从有图片变为无图片时，重绘 Canvas
       nextTick(() => {
         setTimeout(() => {
-          initCanvas()
+          if (ctx.value) {
+            drawPet() // 重新绘制，不要重新 init，上下文一直都在
+          }
         }, 100)
       })
     }
@@ -362,9 +372,17 @@ watch(
 onMounted(() => {
   // 使用 nextTick + 延迟确保 Canvas 元素已挂载并准备好
   nextTick(() => {
-    setTimeout(() => {
-      initCanvas()
-    }, 100)
+    // 多次尝试初始化，防止某些情况下 DOM 未就绪
+    const tryInit = () => {
+      if (!ctx.value) {
+        initCanvas()
+      }
+      // 如果还是拿不到 ctx，再试一次
+      if (!ctx.value) {
+        setTimeout(tryInit, 200)
+      }
+    }
+    tryInit()
   })
 })
 </script>
@@ -395,13 +413,6 @@ onMounted(() => {
   animation: petFloat 3s ease-in-out infinite;
 }
 
-.default-pet-emoji {
-  font-size: 100rpx;
-  line-height: 160rpx;
-  text-align: center;
-  animation: petFloat 3s ease-in-out infinite;
-}
-
 @keyframes petFloat {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10rpx); }
@@ -411,6 +422,7 @@ onMounted(() => {
   background: transparent;
   width: 160rpx;
   height: 160rpx;
+  animation: petFloat 3s ease-in-out infinite;
 }
 
 .feed-btn {

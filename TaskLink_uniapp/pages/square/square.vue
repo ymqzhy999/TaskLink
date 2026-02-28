@@ -2,68 +2,62 @@
   <view class="container" :class="{ 'dark': isDarkMode }">
     <view class="nav-header">
       <view class="nav-content">
-        <block v-if="!isSelectionMode">
-          <view class="header-left">
-            <text class="page-title">Community</text>
-            <view class="online-badge">
-              <view class="dot"></view>
-              <text>{{ onlineCount }} Online</text>
-            </view>
+        <view class="header-left">
+          <text class="page-title">Community</text>
+          <view class="online-badge">
+            <view class="dot"></view>
+            <text>{{ onlineCount }} Online</text>
           </view>
-        </block>
-        
-        <block v-else>
-          <view class="selection-header">
-            <text class="selection-count">已选择 {{ selectedIds.length }} 条消息</text>
-            <view class="cancel-btn" @click="exitSelectionMode">取消</view>
-          </view>
-        </block>
+        </view>
       </view>
     </view>
 
     <scroll-view 
       scroll-y 
       class="chat-area" 
-      :scroll-into-view="scrollTarget"
+      :scroll-top="scrollTop"
       scroll-with-animation
       :enable-back-to-top="true"
+      :lower-threshold="100"
+      @scrolltoupper="loadMoreHistory"
+      @scrolltolower="onScrollToLower"
       @click="closeEmojiPanel"
     >
       <view class="system-msg">
         <text class="system-text">—— 欢迎来到 TaskLink 公共频道 ——</text>
       </view>
 
+      <!-- 加载更多提示 -->
+      <view v-if="isLoadingMore" class="loading-more">
+        <text class="loading-text">加载中...</text>
+      </view>
+
+      <view v-else-if="!hasMoreHistory && messages.length > 0" class="loading-more">
+        <text class="loading-text">没有更多消息了</text>
+      </view>
+
       <view 
         v-for="(msg, index) in messages" 
         :key="msg.id || index" 
         class="msg-row"
-        :class="{ 
-          'self': msg.user_id === myInfo.id,
-          'selecting': isSelectionMode 
-        }"
+        :class="{ 'self': msg.user_id === myInfo.id }"
         :id="'msg-' + index"
       >
-        <view v-if="isSelectionMode" class="checkbox-wrapper" @click.stop="onSelectMessage(msg)">
-          <view class="checkbox" :class="{ 'checked': selectedIds.includes(msg.id) }">
-            <text v-if="selectedIds.includes(msg.id)" class="check-icon">✓</text>
-          </view>
-        </view>
-
         <image 
           v-if="msg.user_id !== myInfo.id" 
           class="avatar" 
-          :src="formatAvatar(msg.avatar)" 
+          :src="formatAvatar(msg.avatar, msg)" 
           mode="aspectFill"
-          @longpress.stop="onLongPressMessage(msg)"
         ></image>
 
         <view class="content-box">
-          <text class="sender-name" v-if="msg.user_id !== myInfo.id">{{ msg.username }}</text>
+          <view class="name-time-bar">
+            <text class="sender-name" v-if="msg.user_id !== myInfo.id">{{ msg.username }}</text>
+            <text class="msg-time">{{ formatMsgTime(msg.created_at) }}</text>
+          </view>
           
           <view 
             class="bubble" 
-            @longpress.stop="onLongPressMessage(msg)"
-            @click.stop="onSelectMessage(msg)"
             :class="{ 'image-bubble': msg.type === 'image' }"
           >
             <image 
@@ -76,7 +70,7 @@
 
             <rich-text 
               v-else
-              :nodes="parseEmoji(msg.content)" 
+              :nodes="parseEmoji(msg.content, msg)" 
               class="msg-text"
             ></rich-text>
           </view>
@@ -87,14 +81,11 @@
           class="avatar right" 
           :src="formatAvatar(msg.avatar)" 
           mode="aspectFill"
-          @longpress.stop="onLongPressMessage(msg)"
         ></image>
       </view>
-
-      <view id="bottom-anchor" style="height: 20px;"></view>
     </scroll-view>
 
-    <view v-if="!isSelectionMode" class="input-area-wrapper">
+    <view class="input-area-wrapper">
       <view class="input-bar">
         <view class="icon-btn" @click.stop="toggleEmojiPanel">
           <text class="iconfont">☺</text>
@@ -124,18 +115,12 @@
           <view class="emoji-grid">
             <view v-for="i in 135" :key="i" class="emoji-item" @click="selectEmoji(i-1)">
               <image 
-                :src="`${FLASK_URL}/static/emoji/${(i-1).toString().padStart(2, '0')}.gif`" 
+                :src="`${API_BASE}/static/emoji/${(i-1).toString().padStart(2, '0')}.gif`" 
                 class="emoji-icon"
               ></image>
             </view>
           </view>
         </scroll-view>
-      </view>
-    </view>
-
-    <view v-else class="delete-bar">
-      <view class="delete-btn" @click="confirmDelete">
-        <text>删除选中 ({{ selectedIds.length }})</text>
       </view>
     </view>
   </view>
@@ -145,25 +130,27 @@
 import { ref, nextTick, onUnmounted } from 'vue';
 import { onUnload, onShow, onHide } from '@dcloudio/uni-app';
 import { useTheme } from '@/utils/useTheme';
+import { get, post } from '@/utils/request.js';
+import { API_BASE } from '@/utils/api.js';
+import useSocket from '@/composables/useSocket.js';
 
-
-const FLASK_URL = `http://101.35.132.175:5000`; 
+const { initSocket, emit, on, off, socket } = useSocket();
 
 const myInfo = ref({});
 const messages = ref([]);
 const inputText = ref('');
-const scrollTarget = ref('');
+const scrollTop = ref(0);
 const onlineCount = ref(1);
-const isSelectionMode = ref(false); 
-const selectedIds = ref([]);  
 const showEmojiPanel = ref(false); 
+const isLoadingMore = ref(false);  // 加载更多中
+const hasMoreHistory = ref(true);  // 是否还有更多历史
+const historyOffset = ref(0);      // 当前偏移量
 const { isDarkMode } = useTheme();
 
 // 页面活跃锁
 const isPageActive = ref(true);
 
-const getToken = () => uni.getStorageSync('userInfo')?.token || '';
-
+// onShow 时初始化 Socket 连接并监听消息
 onShow(() => {
   isPageActive.value = true;
   
@@ -178,60 +165,46 @@ onShow(() => {
   }
   myInfo.value = user;
   
+  // 拉取聊天历史
   fetchHistory();
   
-  // 监听消息
+  // 监听全局新消息
   uni.$off('global_new_message'); 
   uni.$on('global_new_message', (msg) => {
-      if (!isPageActive.value) return;
-      console.log('Square 收到:', msg);
-      
-      // 前端去重
-      if (messages.value.length > 0) {
-          const last = messages.value[messages.value.length - 1];
-          if (last.id === msg.id || (last.content === msg.content && last.user_id === msg.user_id && Date.now() - new Date(last.created_at || 0).getTime() < 500)) {
-              return;
-          }
+    if (!isPageActive.value) return;
+    console.log('Square 收到:', msg);
+    
+    // 清理损坏的 HTML 格式
+    if (msg.content) {
+      if (msg.content.includes('<<span') || msg.content.includes('<<strong') || msg.content.includes('<<code')) {
+        msg.content = msg.content.replace(/<</g, '');
       }
-      
-      messages.value.push(msg);
-      scrollToBottom();
+    }
+    
+    // 简单去重：检查数组中是否已存在相同 id 的消息
+    if (msg.id && messages.value.some(m => m.id === msg.id)) {
+      return;
+    }
+    
+    messages.value.push(msg);
+    scrollToBottom();
   });
   
-  // Socket 连接检查
-  if (!app.globalData.socket && app.initSocket) {
-      app.initSocket();
-  }
+  // 监听在线人数变化
+  uni.$off('global_online_count');
+  uni.$on('global_online_count', (count) => {
+    if (isPageActive.value) onlineCount.value = count;
+  });
   
-  const socket = app.globalData.socket;
+  // 用抽离出去的 useSocket 来初始化连接
+  const socketInstance = initSocket();
   
-  if (socket && !socket.connected) {
-      console.log('检测到 Socket 断开，正在强制重连...');
-      socket.connect(); 
+  // 监听在线人数
+  if (socketInstance) {
+    socketInstance.on('update_online_count', (count) => { 
+      if (isPageActive.value) onlineCount.value = count; 
+    });
   }
-
-  if (socket) {
-        socket.off('connect');
-        socket.off('connect_error');
-        socket.off('disconnect');
-        socket.off('update_online_count');
-
-        socket.on('connect', () => {
-            console.log('✅ Socket 已连接:', socket.id);
-        });
-        
-        socket.on('connect_error', (error) => {
-            console.error('❌ Socket 连接错误:', error);
-        });
-        
-        socket.on('disconnect', (reason) => {
-            console.log('⚠️ Socket 断开:', reason);
-        });
-
-        socket.on('update_online_count', (count) => { 
-            if (isPageActive.value) onlineCount.value = count; 
-        });
-    }
 });
 
 onHide(() => {
@@ -245,6 +218,35 @@ onUnmounted(() => {
   isPageActive.value = false;
   uni.$off('global_new_message');
 });
+
+// 💡 时间格式化函数
+const formatMsgTime = (timeStr) => {
+  if (!timeStr) return '';
+  
+  // 如果已经是 Date 对象，转为字符串
+  let str = timeStr;
+  if (timeStr instanceof Date) {
+    str = timeStr.toISOString();
+  } else if (typeof timeStr === 'object') {
+    // 处理其他对象格式
+    str = JSON.stringify(timeStr);
+  }
+  
+  // 兼容 iOS 日期格式问题
+  const validTimeStr = str.replace(/-/g, '/').replace('T', ' ').split('.')[0];
+  const date = new Date(validTimeStr);
+  
+  if (isNaN(date.getTime())) {
+    // 降级处理：尝试直接解析原始字符串
+    const fallbackDate = new Date(timeStr);
+    if (isNaN(fallbackDate.getTime())) return '';
+    const pad = (n) => (n < 10 ? '0' + n : n);
+    return `${pad(fallbackDate.getHours())}:${pad(fallbackDate.getMinutes())}`;
+  }
+  
+  const pad = (n) => (n < 10 ? '0' + n : n);
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
 
 const sendSocketMessage = (content, type = 'text') => {
   const app = getApp();
@@ -268,7 +270,8 @@ const sendSocketMessage = (content, type = 'text') => {
                 content: content,
                 type: type, 
                 username: myInfo.value.username, 
-                avatar: myInfo.value.avatar
+                avatar: myInfo.value.avatar,
+                created_at: new Date().toISOString() // 💡 手动补一个发送时间，防止发送瞬间没时间
               });
           } else {
               uni.showToast({ title: '连接断开，请检查网络', icon: 'none' });
@@ -282,7 +285,8 @@ const sendSocketMessage = (content, type = 'text') => {
     content: content,
     type: type, 
     username: myInfo.value.username, 
-    avatar: myInfo.value.avatar
+    avatar: myInfo.value.avatar,
+    created_at: new Date().toISOString() // 💡 手动补时间
   });
 };
 
@@ -307,7 +311,7 @@ const chooseImage = () => {
 const uploadImage = (filePath) => {
   uni.showLoading({ title: '发送中...' });
   uni.uploadFile({
-    url: `${FLASK_URL}/api/chat/upload`,
+    url: `${API_BASE}/api/chat/upload`,
     filePath: filePath,
     name: 'file',
     header: { 'Authorization': getToken() },
@@ -344,68 +348,152 @@ const toggleEmojiPanel = () => {
 };
 const closeEmojiPanel = () => showEmojiPanel.value = false;
 const selectEmoji = (i) => inputText.value += `[face:${i}]`;
-const parseEmoji = (c) => {
-  if (!c) return '';
-  return c.replace(/\[face:(\d+)\]/g, (m, id) => {
+
+const parseEmoji = (content, msg) => {
+  if (!content) return '';
+  
+  // 1. 强制转为字符串，并先将所有 HTML 敏感字符转义！(绝对防御)
+  let html = String(content)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+    
+  // 2. 统一处理所有人的换行符
+  html = html.replace(/\n/g, '<br>');
+  
+  const isBot = msg && (msg.is_bot || msg.user_id === 0 || msg.username === '波比');
+  
+  if (isBot) {
+    // 恢复 DeepSeek 的 <think> 标签为一个可视化浅色框框
+    html = html.replace(/&lt;think&gt;/g, '<div style="color:#95A5A6; font-size:22rpx; background:rgba(0,0,0,0.04); padding:16rpx; border-radius:12rpx; margin-bottom:12rpx; border-left: 6rpx solid #4A6FA5;">💡 思考过程：<br>')
+               .replace(/&lt;\/think&gt;/g, '</div>');
+    
+    // 处理加粗 **文字** -> 用 span 包裹
+    html = html.replace(/\*\*(.+?)\*\*/g, '<span class="bot-bold">$1</span>');
+    
+    // ✅ 【关键修复】：处理斜杠命令 /xxx 
+    // 增加 (^|\\s) 边界限制，确保 / 前面是空格或行首，绝对不会误伤 </span> 等 HTML 标签！
+    html = html.replace(/(^|\s)(\/[a-zA-Z][a-zA-Z0-9]*)/g, '$1<span class="bot-cmd">$2</span>');
+    
+    // 处理代码 `code`
+    html = html.replace(/`([^`]+)`/g, '<span class="bot-code">$1</span>');
+  }
+  
+  // 3. 处理 emoji 表情 [face:00] -> <img>
+  html = html.replace(/\[face:(\d+)\]/g, (m, id) => {
     const f = id.toString().padStart(2, '0');
-    return `<img style="width:24px; height:24px; vertical-align:middle; display:inline-block;" src="${FLASK_URL}/static/emoji/${f}.gif" />`;
+    return `<img style="width:24px; height:24px; vertical-align:middle; display:inline-block;" src="${API_BASE}/static/emoji/${f}.gif" />`;
   });
+  
+  return html;
 };
 
-const onLongPressMessage = (msg) => { isSelectionMode.value = true; selectedIds.value = [msg.id]; uni.vibrateShort(); };
-const onSelectMessage = (msg) => {
-  if (!isSelectionMode.value) return;
-  const idx = selectedIds.value.indexOf(msg.id);
-  idx > -1 ? selectedIds.value.splice(idx, 1) : selectedIds.value.push(msg.id);
-};
-const exitSelectionMode = () => { isSelectionMode.value = false; selectedIds.value = []; };
-const confirmDelete = () => {
-  if(selectedIds.value.length) uni.showModal({ title:'删除', content:'仅本地删除', success: res => { if(res.confirm) doLocalDelete(); } });
-};
-const doLocalDelete = () => {
-  const key = `deleted_msgs_${myInfo.value.id}`;
-  const old = uni.getStorageSync(key) || [];
-  uni.setStorageSync(key, [...new Set([...old, ...selectedIds.value])]);
-  messages.value = messages.value.filter(m => !selectedIds.value.includes(m.id));
-  exitSelectionMode();
-};
-
-const formatAvatar = (path) => {
+const formatAvatar = (path, msg) => {
+  // 机器人头像使用本地静态资源
+  if (msg && (msg.is_bot || msg.user_id === 0 || msg.username === '波比')) {
+    return '/static/bot.jpg';
+  }
   if (!path) return '/static/logo.png';
-  return path.startsWith('http') ? path : `${FLASK_URL}${path}`;
+  return path.startsWith('http') ? path : `${API_BASE}${path}`;
 };
 
-const fetchHistory = () => {
-    uni.request({
-        url: `${FLASK_URL}/api/square/history`, 
-        header: { 'Authorization': getToken() },
-        data: { user_id: myInfo.value.id },
-        success: (res) => {
-            if (res.statusCode === 401 || res.data.code === 401 || res.data.code === 403) {
-                 uni.showToast({ title: '会话过期或账号禁用', icon: 'none' });
-                 setTimeout(() => {
-                     uni.removeStorageSync('userInfo');
-                     uni.reLaunch({ url: '/pages/login/login' });
-                 }, 1000);
-                 return;
+const fetchHistory = async (isLoadMore = false) => {
+    const offset = isLoadMore ? historyOffset.value : 0;
+    const limit = 50;  // 一次加载50条，减少请求次数
+    
+    try {
+        // 使用封装好的 get 请求
+        const newMessages = await get('/api/square/history', { 
+            user_id: myInfo.value.id,
+            offset: offset,
+            limit: limit
+        });
+        
+        // 清理损坏的 HTML 格式（修复双重标签问题）
+        const cleanMessages = newMessages.map(msg => {
+            if (msg.content) {
+                // 检查是否有 << 开头的问题（损坏的 HTML）
+                if (msg.content.includes('<<span') || msg.content.includes('<<strong') || msg.content.includes('<<code')) {
+                    // 直接把所有 << 开头的标签问题修复
+                    // 模式1: <<span class="xxx">yyy</span>> -> 移除外部 <>
+                    msg.content = msg.content.replace(/<</g, '');
+                }
             }
-            if (res.data.code === 200 && isPageActive.value) {
-                const key = `deleted_msgs_${myInfo.value.id}`;
-                const deletedIds = uni.getStorageSync(key) || [];
-                messages.value = res.data.data.filter(m => !deletedIds.includes(m.id));
-                scrollToBottom();
+            return msg;
+        });
+        
+        // 过滤掉已删除的消息
+        const key = `deleted_msgs_${myInfo.value.id}`;
+        const deletedIds = uni.getStorageSync(key) || [];
+        const filteredMessages = cleanMessages.filter(m => !deletedIds.includes(m.id));
+        
+        if (isLoadMore) {
+            // 加载更多：追加到数组开头
+            messages.value = [...filteredMessages, ...messages.value];
+            // 更新偏移量
+            historyOffset.value += filteredMessages.length;
+            // 如果返回数据少于 limit，说明没有更多了
+            if (filteredMessages.length < limit) {
+                hasMoreHistory.value = false;
             }
-        },
-        fail: (err) => console.error('History fetch failed', err)
+            // 加载更多时不自动滚动，保持当前位置
+        } else {
+            // 首次加载：替换数组
+            messages.value = filteredMessages;
+            historyOffset.value = filteredMessages.length;
+            // 如果返回数据少于 limit，说明没有更多了
+            if (filteredMessages.length < limit) {
+                hasMoreHistory.value = false;
+            }
+            // 首次加载时滚动到底部
+            scrollToBottom();
+        }
+    } catch (err) {
+        console.error('History fetch failed', err);
+        // 错误已经在 request.js 中处理了，这里不用再弹toast
+    }
+};
+
+// 加载更多历史消息
+const loadMoreHistory = () => {
+    // 防止重复触发
+    if (isLoadingMore.value || !hasMoreHistory.value) return;
+    
+    isLoadingMore.value = true;
+    
+    fetchHistory(true).finally(() => {
+        isLoadingMore.value = false;
     });
 };
 
+// 滚动到底部
 const scrollToBottom = () => {
   if (!isPageActive.value) return;
-  scrollTarget.value = '';
-  nextTick(() => { 
-      if (isPageActive.value) scrollTarget.value = 'bottom-anchor'; 
+  // 使用 scroll-top 设置为很大的值来滚动到底部
+  const temp = scrollTop.value;
+  scrollTop.value = 0;
+  nextTick(() => {
+    if (isPageActive.value) {
+      scrollTop.value = 999999;
+    }
   });
+};
+
+// 滚动到顶部（加载更多后使用）
+const scrollToTop = () => {
+  if (!isPageActive.value) return;
+  const temp = scrollTop.value;
+  scrollTop.value = 999999;
+  nextTick(() => {
+    if (isPageActive.value) {
+      scrollTop.value = 0;
+    }
+  });
+};
+
+// 监听滚动到底部（用于判断是否需要自动滚动）
+const onScrollToLower = () => {
+  // 用户滚动到底部时，可以做一些处理
 };
 </script>
 
@@ -529,7 +617,6 @@ page {
 .cancel-btn { font-size: 28rpx; color: $color-primary; padding: 10rpx 20rpx; }
 
 /* 3. 聊天区域 */
-/* 3. 聊天区域 */
 .chat-area { 
   flex: 1; 
   height: 0; 
@@ -565,6 +652,15 @@ page {
   transition: color 0.3s, background-color 0.3s;
 }
 .container.dark .system-text { color: $dark-text-sub; background: rgba(255,255,255,0.05); }
+
+.loading-more {
+  text-align: center;
+  padding: 20rpx;
+}
+.loading-text {
+  font-size: 22rpx;
+  color: $color-text-sub;
+}
 
 /* 消息行 */
 .msg-row { 
@@ -612,34 +708,62 @@ page {
 
 /* 气泡内容容器 */
 .content-box { 
-  max-width: 70%; 
+  /* 关键修改：去掉 70% 限制，改成更宽松的最大宽度，并让子元素不拉伸 */
+  max-width: 80%; 
   margin: 0 20rpx; 
   display: flex; 
   flex-direction: column; 
+  /* 关键：让气泡列不从父容器拉伸，默认 flex-start 即可 */
+  align-items: flex-start; 
 }
 
-.self .content-box { align-items: flex-end; }
+.self .content-box { 
+  align-items: flex-end; 
+}
+
+/* 💡 新增：名字与时间栏 */
+.name-time-bar {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 8rpx;
+  margin-left: 4rpx;
+}
+
+.self .name-time-bar {
+  justify-content: flex-end;
+  margin-right: 4rpx;
+  margin-left: 0;
+}
 
 .sender-name { 
-  font-size: 20rpx; 
+  font-size: 18rpx;  /* QQ风格：小一点 */
   color: $color-text-sub; 
-  margin-bottom: 8rpx; 
-  margin-left: 4rpx;
-  transition: color 0.3s;
+  margin-right: 10rpx; /* 名字和时间隔开一点 */
+  transition: color 0.3s; 
 }
 .container.dark .sender-name { color: $dark-text-sub; }
-.self .sender-name { margin-right: 4rpx; }
+
+.msg-time {
+  font-size: 18rpx;
+  color: #B0BEC5; /* 淡淡的灰色，不抢视觉焦点 */
+  font-family: monospace;
+}
+.container.dark .msg-time { color: #555; }
 
 /* --- 核心修改：气泡样式修正 --- */
 .bubble { 
-  padding: 18rpx 24rpx; 
-  border-radius: 16rpx; /* 统一圆角，不再有奇怪的尖角 */
+  padding: 10rpx 16rpx; 
+  border-radius: 12rpx; /* 统一圆角，不再有奇怪的尖角 */
   position: relative; 
   box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04); /* 阴影更淡更自然 */
   background: $color-bubble-other;
-  min-height: 40rpx;
+  /* min-height 移除，让气泡根据内容自动调整高度 */
   display: flex;
   align-items: center;
+  /* 关键：允许气泡收缩到内容实际高度 */
+  min-height: auto; 
+  /* 单行文本时限制最大宽度，防止气泡过宽 */
+  max-width: 480rpx;
   transition: background-color 0.3s, box-shadow 0.3s;
 }
 .container.dark .bubble { background: $dark-bubble-other; box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.2); }
@@ -675,12 +799,48 @@ page {
   line-height: 1.5;
   color: $color-text-main;
   word-break: break-all;
+  /* 关键：防止单行 emoji/文本时 line-height 撑开气泡 */
+  display: inline-block;
+  vertical-align: middle;
   transition: color 0.3s;
 }
 .container.dark .msg-text { color: $dark-text-main; }
 
 .self .msg-text {
   color: $color-white;
+}
+
+/* 波比机器人消息样式 */
+.msg-text :global(br) {
+  display: block;
+  content: "";
+  margin: 4rpx 0;
+}
+
+.msg-text :global(.bot-bold) {
+  font-weight: 600;
+  color: #4A6FA5;
+  background: rgba(74, 111, 165, 0.1);
+  padding: 0 4rpx;
+  border-radius: 4rpx;
+}
+
+.msg-text :global(.bot-cmd) {
+  background: rgba(74, 111, 165, 0.15);
+  color: #4A6FA5;
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+  font-family: monospace;
+  font-size: 26rpx;
+}
+
+.msg-text :global(code) {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 2rpx 6rpx;
+  border-radius: 4rpx;
+  font-family: monospace;
+  font-size: 26rpx;
+  color: #E91E63;
 }
 
 /* 4. 底部输入区 */

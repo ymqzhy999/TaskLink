@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.sql.expression import func
 import jwt
 from flask import g
+import redis
 
 app = Flask(__name__)
 CORS(app)  # 允许跨域
@@ -47,7 +48,76 @@ app.config['CHAT_FOLDER'] = CHAT_FOLDER  # 新增这个配置给聊天用
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 限制最大上传 16MB
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
-load_dotenv(r'C:\Users\Administrator\Desktop\TaskLink\.env')
+# ==================== Redis 缓存配置 ====================
+# 聊天消息缓存配置
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+REDIS_DB = int(os.getenv("REDIS_DB", 0))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
+
+# 如果环境变量没有设置密码，设为 None（不使用密码）
+if REDIS_PASSWORD == "" or REDIS_PASSWORD == "null":
+    REDIS_PASSWORD = None
+
+# 缓存过期时间（秒）
+CHAT_CACHE_TTL = 300  # 5分钟
+
+# 创建 Redis 连接池
+try:
+    redis_client = redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD,
+        decode_responses=True,  # 自动解码为字符串
+        socket_connect_timeout=3,  # 连接超时
+        socket_timeout=3  # 读取超时
+    )
+    # 测试连接
+    redis_client.ping()
+    print(f"✅ Redis 连接成功: {REDIS_HOST}:{REDIS_PORT}")
+except Exception as e:
+    print(f"❌ Redis 连接失败: {e}")
+    redis_client = None
+
+
+def get_chat_cache_key(offset: int, limit: int) -> str:
+    """
+    生成聊天消息缓存 Key
+    """
+    return f"chat:messages:{offset}:{limit}"
+
+
+def get_chat_count_cache_key() -> str:
+    """
+    生成聊天消息总数缓存 Key
+    """
+    return "chat:messages:count"
+
+
+def get_latest_cache_key() -> str:
+    """
+    生成最新消息缓存 Key（用于判断是否有新消息）
+    """
+    return "chat:messages:latest_id"
+
+
+def clear_chat_cache():
+    """
+    清除所有聊天消息缓存
+    """
+    if redis_client is None:
+        return
+    try:
+        # 清除所有以 chat:messages: 开头的 key
+        keys = redis_client.keys("chat:messages:*")
+        if keys:
+            redis_client.delete(*keys)
+            print(f"✅ 清除聊天缓存: {len(keys)} 个 key")
+    except Exception as e:
+        print(f"⚠️ 清除缓存失败: {e}")
+
+load_dotenv(r'C:\\Users\\Administrator\\Desktop\\TaskLink\\TaskLink_backend\\.env')
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 if not DEEPSEEK_API_KEY:
     print("⚠️ 警告: 未在 .env 文件中找到 DEEPSEEK_API_KEY，AI 功能将无法使用！")
@@ -56,7 +126,7 @@ DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
 
 def call_deepseek_json(system_prompt, user_prompt):
     """
-    通用函數：調用 DeepSeek 並強制返回 JSON
+    通用函数：调用 DeepSeek 并强制返回 JSON
     """
     headers = {
         "Content-Type": "application/json",
@@ -64,7 +134,7 @@ def call_deepseek_json(system_prompt, user_prompt):
     }
 
     payload = {
-        "model": "deepseek-reasoner",
+        "model": "deepseek-chat",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}
@@ -89,7 +159,6 @@ def call_deepseek_json(system_prompt, user_prompt):
         return None
 
 
-# ==================== Pet helpers ====================
 
 def pet_need_exp(level: int) -> int:
     """
@@ -105,42 +174,11 @@ def pet_need_exp(level: int) -> int:
     return 20 + (lv - 1) * 10
 
 
-def get_or_create_user_pet(user_id: int) -> UserPet:
+def get_user_pet(user_id: int):
     """
-    获取用户当前宠物，如果没有则：
-    - 确保至少存在一个默认品种（例如 slime）
-    - 为用户创建一只默认 Lv1 宠物
+    获取用户当前宠物，如果没有则返回 None（不再自动创建）
     """
     pet = UserPet.query.filter_by(user_id=user_id).first()
-    if pet:
-        return pet
-
-    # 找一个默认品种（优先 key='slime'，否则第一个，没有则创建一个）
-    species = PetSpecies.query.filter_by(key='slime').first()
-    if not species:
-        species = PetSpecies.query.first()
-    if not species:
-        species = PetSpecies(
-            key='slime',
-            name='任务史莱姆',
-            description='一只软乎乎的史莱姆小助手'
-        )
-        db.session.add(species)
-        db.session.flush()
-
-    pet = UserPet(
-        user_id=user_id,
-        species_id=species.id,
-        nickname='小伙伴',
-        level=1,
-        exp=0,
-        feed_points=0,
-        total_feeds=0,
-        pos_x=50,
-        pos_y=50
-    )
-    db.session.add(pet)
-    db.session.commit()
     return pet
 
 
@@ -442,13 +480,6 @@ def register():
         # 最后统一提交所有更改
         db.session.commit()
 
-        # 注册成功后自动创建宠物
-        try:
-            get_or_create_user_pet(new_user.id)
-            print(f"🐾 [Pet] 为用户 {new_user.id} 创建了默认宠物")
-        except Exception as pet_err:
-            print(f"⚠️ [Pet] 创建宠物失败: {pet_err}")
-
         print(username, "注册成功")
         return jsonify({"code": 200, "msg": "注册成功", "data": new_user.to_dict()})
 
@@ -736,7 +767,10 @@ def upload_avatar():
 def get_square_history():
 
     user_id = request.args.get('user_id')
-    print(user_id)
+    offset = int(request.args.get('offset', 0))
+    limit = int(request.args.get('limit', 50)) 
+    print(f"user_id: {user_id}, offset: {offset}, limit: {limit}")
+    
     if str(user_id) in ['11', '12']:
         return jsonify({
             "code": 403,
@@ -744,11 +778,54 @@ def get_square_history():
             "data": []
         })
 
-    messages = ChatMessage.query.order_by(ChatMessage.created_at.desc()).limit(50).all()
+    # 生成缓存 Key
+    cache_key = get_chat_cache_key(offset, limit)
+    # 尝试从 Redis 缓存获取
+    if redis_client is not None:
+        try:
+            cached_data = redis_client.get(cache_key)
+            if cached_data:
+                print(f"📦 [Redis缓存命中] offset:{offset} limit:{limit}")
+                data = json.loads(cached_data)
+                return jsonify({
+                    "code": 200,
+                    "data": data,
+                    "cached": True
+                })
+        except Exception as e:
+            print(f"⚠️ Redis 读取失败: {e}")
+
+    # 缓存不存在，从数据库查询
+    messages = ChatMessage.query.order_by(ChatMessage.created_at.desc()).offset(offset).limit(limit).all()
+    messages_list = [m.to_dict() for m in messages][::-1]  # 翻转列表，让旧消息在上方
+
+    # 写入 Redis 缓存
+    if redis_client is not None and messages_list:
+        try:
+            redis_client.setex(
+                cache_key,
+                CHAT_CACHE_TTL,
+                json.dumps(messages_list, ensure_ascii=False)
+            )
+            print(f"💾 [Redis缓存写入] offset:{offset} limit:{limit}")
+        except Exception as e:
+            print(f"⚠️ Redis 写入失败: {e}")
 
     return jsonify({
         "code": 200,
-        "data": [m.to_dict() for m in messages][::-1]  # 翻转列表，让旧消息在上方
+        "data": messages_list,
+        "cached": False
+    })
+
+
+
+    """
+    清除聊天消息缓存（当有新消息时调用）
+    """
+    clear_chat_cache()
+    return jsonify({
+        "code": 200,
+        "msg": "缓存已清除"
     })
 
 
@@ -1060,7 +1137,7 @@ def generate_sentence():
         }
 
         payload = {
-            "model": "deepseek-reasoner",
+            "model": "deepseek-chat",
             "messages": [
                 {"role": "system",
                  "content": "你是一个专业的英语教学助手。请只返回 JSON 数据，不要包含任何 Markdown 格式或额外文字。"},
@@ -1189,12 +1266,12 @@ def save_training_session():
         db.session.commit()
         print(f"✅ [History] 用户 {user_id} 保存打卡记录: ID={new_session.id}, 单词数={len(details_data)}")
 
-        # ✅ 背单词 -> 食物点数：每个单词=1个 feed_points
-        # 如果后续你想“新词更多点、复习更少点”，可以在这里改换算规则
+
         try:
-            pet = get_or_create_user_pet(int(user_id))
-            pet.feed_points = int(pet.feed_points or 0) + int(len(details_data))
-            db.session.commit()
+            pet = get_user_pet(int(user_id))
+            if pet:
+                pet.feed_points = int(pet.feed_points or 0) + int(len(details_data))
+                db.session.commit()
         except Exception as e:
             db.session.rollback()
             print(f"⚠️ [Pet] 增加 feed_points 失败: {e}")
@@ -1207,7 +1284,6 @@ def save_training_session():
         return jsonify({"code": 500, "msg": "保存失败，请重试"}), 500
 
 
-# ==================== 宠物养成 API ====================
 
 @app.route('/api/pet/foods', methods=['GET'])
 def get_pet_foods():
@@ -1244,7 +1320,22 @@ def get_pet_profile_data():
         return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
 
     try:
-        pet = get_or_create_user_pet(int(user_id))
+        pet = get_user_pet(int(user_id))
+        
+        # 如果没有宠物，返回空数据
+        if not pet:
+            return jsonify({
+                "code": 200,
+                "data": {
+                    "pet": None,
+                    "style": None,
+                    "species": None,
+                    "customization": None,
+                    "species_options": [s.to_dict() for s in PetSpecies.query.order_by(PetSpecies.id.asc()).all()],
+                    "need_exp": 0
+                }
+            })
+        
         style = get_level_style(pet.species_id, int(pet.level))
         customization = pet.customization.to_dict() if hasattr(pet, 'customization') and pet.customization else None
         species = pet.species.to_dict() if pet.species else None
@@ -1268,13 +1359,27 @@ def get_pet_profile_data():
 
 @app.route('/api/pet/state', methods=['GET'])
 def get_pet_state():
-    """获取宠物当前状态 + 当前等级样式（无则返回默认样式 None）。"""
+    """获取宠物当前状态 + 当前等级样式（无则返回 None）。"""
     user_id = request.args.get('user_id')
     if not user_id:
         return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
 
     try:
-        pet = get_or_create_user_pet(int(user_id))
+        pet = get_user_pet(int(user_id))
+        
+        # 如果没有宠物，返回空数据
+        if not pet:
+            return jsonify({
+                "code": 200,
+                "data": {
+                    "pet": None,
+                    "style": None,
+                    "species": None,
+                    "customization": None,
+                    "need_exp": 0
+                }
+            })
+        
         style = get_level_style(pet.species_id, int(pet.level))
         customization = pet.customization.to_dict() if hasattr(pet, 'customization') and pet.customization else None
         species = pet.species.to_dict() if pet.species else None
@@ -1306,7 +1411,11 @@ def save_pet_position():
         return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
 
     try:
-        pet = get_or_create_user_pet(int(user_id))
+        pet = get_user_pet(int(user_id))
+        
+        # 如果没有宠物，返回错误
+        if not pet:
+            return jsonify({"code": 404, "msg": "没有宠物"}), 404
 
         if page_key:
             # 针对特定页面保存位置
@@ -1348,7 +1457,12 @@ def toggle_pet_visibility():
         return jsonify({"code": 400, "msg": "status 必须是 'active' 或 'hidden'"}), 400
 
     try:
-        pet = get_or_create_user_pet(int(user_id))
+        pet = get_user_pet(int(user_id))
+        
+        # 如果没有宠物，返回错误
+        if not pet:
+            return jsonify({"code": 404, "msg": "没有宠物"}), 404
+        
         pet.status = status
         db.session.commit()
 
@@ -1375,7 +1489,31 @@ def save_pet_custom():
         return jsonify({"code": 400, "msg": "缺少图片数据"}), 400
 
     try:
-        pet = get_or_create_user_pet(int(user_id))
+        pet = get_user_pet(int(user_id))
+        
+        # 如果没有宠物，先创建一个
+        if not pet:
+            species = PetSpecies.query.filter_by(key='slime').first()
+            if not species:
+                species = PetSpecies.query.first()
+            
+            if species:
+                pet = UserPet(
+                    user_id=int(user_id),
+                    species_id=species.id,
+                    nickname='小伙伴',
+                    level=1,
+                    exp=0,
+                    feed_points=0,
+                    total_feeds=0,
+                    pos_x=50,
+                    pos_y=50
+                )
+                db.session.add(pet)
+                db.session.commit()
+            else:
+                return jsonify({"code": 400, "msg": "无法创建宠物，没有可选品种"}), 400
+        
         pet.custom_image = image_data
         db.session.commit()
         
@@ -1396,7 +1534,12 @@ def get_pet_customization():
         return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
 
     try:
-        pet = get_or_create_user_pet(int(user_id))
+        pet = get_user_pet(int(user_id))
+        
+        # 如果没有宠物，返回空数据
+        if not pet:
+            return jsonify({"code": 200, "data": None})
+        
         customization = pet.customization if hasattr(pet, 'customization') and pet.customization else None
         
         if not customization:
@@ -1430,7 +1573,11 @@ def save_pet_customization():
         return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
 
     try:
-        pet = get_or_create_user_pet(int(user_id))
+        pet = get_user_pet(int(user_id))
+        
+        # 如果没有宠物，返回错误
+        if not pet:
+            return jsonify({"code": 404, "msg": "没有宠物"}), 404
         
         # 获取或创建 customization 记录
         customization = pet.customization if hasattr(pet, 'customization') and pet.customization else None
@@ -1475,7 +1622,12 @@ def delete_pet_customization():
         return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
 
     try:
-        pet = get_or_create_user_pet(int(user_id))
+        pet = get_user_pet(int(user_id))
+        
+        # 如果没有宠物，返回错误
+        if not pet:
+            return jsonify({"code": 404, "msg": "没有宠物"}), 404
+        
         customization = pet.customization if hasattr(pet, 'customization') and pet.customization else None
         
         if customization:
@@ -1488,30 +1640,6 @@ def delete_pet_customization():
         db.session.rollback()
         print(f"❌ [Pet] 删除自定义配置失败: {e}")
         return jsonify({"code": 500, "msg": "删除失败"}), 500
-
-
-@app.route('/api/pet/generate-svg', methods=['POST'])
-def generate_pet_svg():
-    """AI 生成宠物 SVG（可选功能）"""
-    data = request.json or {}
-    user_id = data.get('user_id')
-    prompt = data.get('prompt', '')
-
-    if not user_id:
-        return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
-
-    if not prompt:
-        return jsonify({"code": 400, "msg": "请提供描述"}), 400
-
-    # 这里可以调用 AI 生成 SVG，暂时返回占位符
-    # TODO: 接入 AI 生成逻辑
-    return jsonify({
-        "code": 200,
-        "msg": "SVG 生成功能开发中",
-        "data": {
-            "svg_content": None
-        }
-    })
 
 
 @app.route('/api/pet/styles', methods=['GET'])
@@ -1558,7 +1686,30 @@ def save_pet_profile():
         return jsonify({"code": 400, "msg": "缺少 user_id"}), 400
 
     try:
-        pet = get_or_create_user_pet(int(user_id))
+        pet = get_user_pet(int(user_id))
+        
+        # 如果没有宠物，创建一个
+        if not pet:
+            species = PetSpecies.query.filter_by(key='slime').first()
+            if not species:
+                species = PetSpecies.query.first()
+            
+            if species:
+                pet = UserPet(
+                    user_id=int(user_id),
+                    species_id=species.id,
+                    nickname='小伙伴',
+                    level=1,
+                    exp=0,
+                    feed_points=0,
+                    total_feeds=0,
+                    pos_x=50,
+                    pos_y=50
+                )
+                db.session.add(pet)
+                db.session.commit()
+            else:
+                return jsonify({"code": 400, "msg": "无法创建宠物，没有可选品种"}), 400
 
         # 切换品种（如果前端传 species_id）
         if species_id:
@@ -1628,7 +1779,11 @@ def feed_pet():
         return jsonify({"code": 400, "msg": "count 必须大于 0"}), 400
 
     try:
-        pet = get_or_create_user_pet(int(user_id))
+        pet = get_user_pet(int(user_id))
+        
+        # 如果没有宠物，返回错误
+        if not pet:
+            return jsonify({"code": 404, "msg": "没有宠物"}), 404
 
         if int(pet.feed_points or 0) < count:
             return jsonify({"code": 400, "msg": "食物不足", "data": pet.to_dict()}), 400
@@ -1861,8 +2016,6 @@ def get_learning_trend():
             "values": trend_data
         }
     })
-
-
 
 
 
